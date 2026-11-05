@@ -1,13 +1,5 @@
 import type { FieldPath } from '../application/formModel';
-import {
-  CALIBRATION_TARGETS,
-  GEOMETRIES,
-  INJECTION_SITES,
-  MODEL_VARIANTS,
-  MODULATION_SHAPES,
-  MODULATION_TARGETS,
-  WAVEFORMS,
-} from '../domain/simulation';
+import { CALIBRATION_TARGETS } from '../domain/simulation';
 
 /** Presentation metadata for each input (labels in Portuguese). */
 export interface NumberField {
@@ -31,7 +23,7 @@ export interface SelectField {
 }
 export type FieldSpec = NumberField | SelectField;
 
-export type GroupId = 'model' | 'stimulus' | 'modulation' | 'muscle' | 'motoneuron';
+export type GroupId = 'model' | 'stimulus' | 'muscle' | 'simulation';
 
 export interface FieldGroup {
   id: GroupId;
@@ -44,13 +36,6 @@ export interface FieldGroup {
 const opts = <T extends string>(values: readonly T[], labels: Record<T, string>) =>
   values.map((v) => ({ value: v, label: labels[v] }));
 
-export const MODEL_VARIANT_HELP: Record<string, string> = {
-  ORIGINAL: 'Modelo da dissertação portado do MATLAB sem alterações (compartimentos do motoneurônio, Hodgkin–Huxley).',
-  LITERATURE:
-    'Correções validadas na literatura: unidades representativas na proporção do músculo, twitch humano, ' +
-    'saturação de força, estimulação dos axônios motores (Weiss) e fadiga periférica.',
-};
-
 export const CALIBRATION_TARGET_HELP: Record<string, string> = {
   WHOLE_MUSCLE:
     'Twitch ajustado ao músculo inteiro (tríceps sural humano, CT 121 ms). O twitch confere; a f50 fica baixa (≈ 5 Hz contra 9,6 Hz).',
@@ -58,21 +43,12 @@ export const CALIBRATION_TARGET_HELP: Record<string, string> = {
     'Twitch ajustado às unidades motoras humanas isoladas (Macefield 1996, CT 75 ms). A f50 confere (≈ 9 Hz); o twitch do músculo inteiro fica rápido (CT ≈ 71 ms).',
 };
 
+/** Sidebar sections. The stimulus itself is set in the Estimulador view (`STIMULATOR_FIELDS`). */
 export const FIELD_GROUPS: FieldGroup[] = [
   {
     id: 'model',
     title: 'Modelo',
     fields: [
-      {
-        path: 'modelVariant',
-        kind: 'select',
-        segmented: true,
-        label: 'Modelo',
-        options: opts(MODEL_VARIANTS, {
-          ORIGINAL: 'Original (MATLAB fiel)',
-          LITERATURE: 'Corrigido pela literatura',
-        }),
-      },
       {
         path: 'calibrationTarget',
         kind: 'select',
@@ -85,63 +61,7 @@ export const FIELD_GROUPS: FieldGroup[] = [
       },
     ],
   },
-  {
-    id: 'stimulus',
-    title: 'Estímulo',
-    fields: [
-      { path: 'stimulus.amplitude', kind: 'number', stepBy: 1, label: 'Amplitude', unit: 'µA/cm²', step: 'any', hint: '0 – 500' },
-      { path: 'stimulus.frequencyHz', kind: 'number', stepBy: 1, label: 'Frequência', unit: 'Hz', step: 'any', hint: '1 – 200' },
-      { path: 'stimulus.dutyCyclePercent', kind: 'number', stepBy: 0.1, label: 'Ciclo de trabalho', unit: '%', step: 'any', hint: '1 – 99' },
-      {
-        path: 'stimulus.waveform',
-        kind: 'select',
-        segmented: true,
-        label: 'Forma de onda',
-        options: opts(WAVEFORMS, { MONOPHASIC: 'Monofásica', BIPHASIC: 'Bifásica' }),
-      },
-      { path: 'stimulus.durationMs', kind: 'number', stepBy: 100, label: 'Duração', unit: 'ms', step: 'any', hint: '10 – 300000' },
-      { path: 'stimulus.stepMs', kind: 'number', stepBy: 0.005, label: 'Passo de integração', unit: 'ms', step: 'any', hint: '0,005 – 0,1' },
-      { path: 'outputStepMs', kind: 'number', stepBy: 0.1, label: 'Passo de saída', unit: 'ms', step: 'any', hint: 'múltiplo do passo, ≤ 10' },
-      { path: 'stimulus.trainOnMs', kind: 'number', stepBy: 10, label: 'Trem ligado', unit: 'ms', step: 'any', hint: '0 < ligado ≤ período' },
-      { path: 'stimulus.trainPeriodMs', kind: 'number', stepBy: 100, label: 'Período do trem', unit: 'ms', step: 'any', hint: '≤ duração' },
-    ],
-  },
-  {
-    id: 'modulation',
-    title: 'Modulação',
-    collapsed: true,
-    fields: [
-      {
-        path: 'stimulus.modulation.target',
-        kind: 'select',
-        label: 'Parâmetro modulado',
-        options: opts(MODULATION_TARGETS, {
-          AMPLITUDE: 'Amplitude',
-          FREQUENCY: 'Frequência',
-          PULSE_WIDTH: 'Largura de pulso',
-        }),
-      },
-      {
-        path: 'stimulus.modulation.shape',
-        kind: 'select',
-        label: 'Forma da modulação',
-        options: opts(MODULATION_SHAPES, {
-          STEP: 'Degrau',
-          RAMP: 'Rampa',
-          TRIANGLE: 'Triangular',
-          SINUSOIDAL: 'Senoidal',
-        }),
-      },
-      {
-        path: 'stimulus.modulation.peakTimeMs',
-        kind: 'number', stepBy: 10,
-        label: 'Instante do pico',
-        unit: 'ms',
-        step: 'any',
-        hint: 'somente Triangular; 0 < t < duração',
-      },
-    ],
-  },
+  { id: 'stimulus', title: 'Estímulo', fields: [] },
   {
     id: 'muscle',
     title: 'Músculo / unidades motoras',
@@ -151,36 +71,54 @@ export const FIELD_GROUPS: FieldGroup[] = [
       { path: 'unitsPerType.FR', kind: 'number', stepBy: 1, label: 'Unidades FR', step: '1', hint: '0 – 200' },
       { path: 'unitsPerType.FF', kind: 'number', stepBy: 1, label: 'Unidades FF', step: '1', hint: '0 – 200' },
       { path: 'axonLengthPercent', kind: 'number', stepBy: 1, label: 'Comprimento do axônio', unit: '%', step: 'any', hint: '1 – 100' },
-      { path: 'seed', kind: 'number', stepBy: 1, label: 'Semente (MUAP)', step: '1', hint: '≥ 0' },
     ],
   },
   {
-    id: 'motoneuron',
-    title: 'Motoneurônio',
-    collapsed: true,
+    id: 'simulation',
+    title: 'Simulação',
     fields: [
-      {
-        path: 'injectionSite',
-        kind: 'select',
-        segmented: true,
-        label: 'Local de injeção',
-        options: opts(INJECTION_SITES, { SOMA: 'Soma', DENDRITE: 'Dendrito' }),
-      },
-      {
-        path: 'somaGeometry',
-        kind: 'select',
-        segmented: true,
-        label: 'Geometria do soma',
-        options: opts(GEOMETRIES, { CYLINDRICAL: 'Cilíndrica', SPHERICAL: 'Esférica' }),
-      },
-      {
-        path: 'dendriteGeometry',
-        kind: 'select',
-        segmented: true,
-        label: 'Geometria do dendrito',
-        options: opts(GEOMETRIES, { CYLINDRICAL: 'Cilíndrica', SPHERICAL: 'Esférica' }),
-      },
-      { path: 'temperatureCelsius', kind: 'number', stepBy: 0.1, label: 'Temperatura', unit: '°C', step: 'any', hint: '0 – 45' },
+      { path: 'stimulus.durationMs', kind: 'number', stepBy: 100, label: 'Duração', unit: 'ms', step: 'any', hint: '10 – 300000' },
+      { path: 'stimulus.stepMs', kind: 'number', stepBy: 0.005, label: 'Passo de integração', unit: 'ms', step: 'any', hint: '0,005 – 0,1' },
+      { path: 'outputStepMs', kind: 'number', stepBy: 0.1, label: 'Passo de saída', unit: 'ms', step: 'any', hint: 'múltiplo do passo, ≤ 10' },
+      { path: 'seed', kind: 'number', stepBy: 1, label: 'Semente', step: '1', hint: '≥ 0 (ordem de recrutamento)' },
     ],
   },
 ];
+
+/** Stimulator controls (Estimulador view). `min`/`max` drive the sliders; the API ranges are the authority. */
+export interface StimulatorControl {
+  path: FieldPath;
+  label: string;
+  unit: string;
+  min: number;
+  max: number;
+  step: number;
+  /** Shown under the control. */
+  hint: string;
+}
+
+export const STIMULATOR_CONTROLS: Record<
+  'frequency' | 'pulseWidth' | 'amplitude' | 'trainOn' | 'trainOff' | 'rampUp' | 'rampDown',
+  StimulatorControl
+> = {
+  frequency: { path: 'stimulus.frequencyHz', label: 'Frequência', unit: 'Hz', min: 1, max: 100, step: 1, hint: 'FES: 20–50 Hz' },
+  pulseWidth: {
+    path: 'stimulus.pulseWidthUs',
+    label: 'Largura de pulso',
+    unit: 'µs',
+    min: 20,
+    max: 1000,
+    step: 10,
+    hint: 'FES: 300–600 µs (por fase)',
+  },
+  amplitude: { path: 'stimulus.amplitude', label: 'Amplitude', unit: 'u.m.', min: 0, max: 300, step: 1, hint: 'unidade do modelo' },
+  trainOn: { path: 'stimulus.trainOnMs', label: 'Tempo ligado', unit: 'ms', min: 10, max: 20000, step: 10, hint: 'inclui as rampas' },
+  trainOff: { path: 'stimulus.trainOffMs', label: 'Tempo desligado', unit: 'ms', min: 0, max: 20000, step: 10, hint: 'repouso entre trens' },
+  rampUp: { path: 'stimulus.rampUpMs', label: 'Rampa de subida', unit: 'ms', min: 0, max: 5000, step: 50, hint: '0 = início abrupto' },
+  rampDown: { path: 'stimulus.rampDownMs', label: 'Rampa de descida', unit: 'ms', min: 0, max: 5000, step: 50, hint: '0 = fim abrupto' },
+};
+
+export const STIMULATOR_WAVEFORMS = [
+  { value: 'BIPHASIC_SYMMETRIC', label: 'Bifásica simétrica' },
+  { value: 'MONOPHASIC', label: 'Monofásica' },
+] as const;

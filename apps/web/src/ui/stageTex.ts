@@ -72,6 +72,7 @@ const MODULATION_FACTOR: Record<string, string> = {
 
 function stage1(s: ModelSnapshot): StageContent {
   const st = s.stimulus;
+  if (st.pulseWidthUs !== null) return stage1Stimulator(s);
   const mono = st.waveform === 'MONOPHASIC';
   const symbolic = [
     mono
@@ -102,6 +103,33 @@ function stage1(s: ModelSnapshot): StageContent {
     );
   }
   return { id: '1', title: 'Estímulo', source: 'domain/stimulus.py (FES.m)', symbolic, substituted, notes };
+}
+
+/** Stimulator mode: pulses defined in time, envelope with ramps (domain/stimulus.py, `pulse_width_us`). */
+function stage1Stimulator(s: ModelSnapshot): StageContent {
+  const st = s.stimulus;
+  const bi = st.waveform === 'BIPHASIC_SYMMETRIC';
+  const period = 1000 / st.frequencyHz;
+  const on = st.train ? st.train.onMs : st.durationMs;
+  const symbolic = [
+    'I(t) = A \\cdot E(t) \\cdot p(t)',
+    bi
+      ? 'p(t) = \\begin{cases} +1 & \\tau < PW \\\\ -1 & PW \\le \\tau < 2\\,PW \\\\ 0 & \\text{caso contrário} \\end{cases}, \\qquad \\tau = t \\bmod T_p'
+      : 'p(t) = \\begin{cases} 1 & \\tau < PW \\\\ 0 & \\text{caso contrário} \\end{cases}, \\qquad \\tau = t \\bmod T_p',
+    'E(t) = \\min\\left(1,\\ \\frac{u}{t_{\\uparrow}},\\ \\frac{T_{\\text{on}} - u}{t_{\\downarrow}}\\right),\\quad u = t \\bmod T_{\\text{trem}};\\quad E = 0 \\text{ se } u \\ge T_{\\text{on}}',
+  ];
+  const substituted = [
+    `T_p = \\frac{1000}{${texNum(st.frequencyHz)}} = ${texNum(period)}\\ \\text{ms}, \\quad PW = ${texNum(st.pulseWidthUs ?? NaN, 0)}\\ \\mu\\text{s}, \\quad A = ${texNum(st.amplitude)}`,
+    `t_{\\uparrow} = ${texNum(st.rampUpMs)}\\ \\text{ms}, \\quad t_{\\downarrow} = ${texNum(st.rampDownMs)}\\ \\text{ms}, \\quad T_{\\text{on}} = ${texNum(on)}\\ \\text{ms}` +
+      (st.train ? `, \\quad T_{\\text{trem}} = ${texNum(st.train.periodMs)}\\ \\text{ms}` : ''),
+  ];
+  const notes = [
+    bi
+      ? 'Pulso bifásico simétrico (carga balanceada): só a primeira fase excita o axônio; a segunda cai no período refratário.'
+      : 'Pulso monofásico.',
+    'Largura de pulso independente da frequência, como num estimulador. Sem trens, as rampas valem para a simulação inteira.',
+  ];
+  return { id: '1', title: 'Estímulo (estimulador)', source: 'domain/stimulus.py (modo estimulador)', symbolic, substituted, notes };
 }
 
 function stage2a(s: ModelSnapshot): StageContent {

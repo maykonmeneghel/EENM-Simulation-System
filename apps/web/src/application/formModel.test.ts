@@ -3,8 +3,6 @@ import { defaultRequest } from '../domain/defaults';
 import type { MusclePreset } from '../domain/simulation';
 import type { FormValues } from './formModel';
 import {
-  applyClinicalStimulus,
-  changeVariant,
   defaultFormValues,
   inactiveFields,
   minOutputStep,
@@ -24,63 +22,83 @@ const requestOf = (v: FormValues, m: MusclePreset[] = [soleus]) => {
   return r.request;
 };
 
-describe('form model — defaults per variant', () => {
-  it('ORIGINAL defaults round-trip to the contract defaults (explicit 5/2/2, no trains)', () => {
-    const r = parseForm(defaultFormValues('ORIGINAL'), [soleus]);
-    expect(r).toEqual({ ok: true, request: defaultRequest('ORIGINAL'), notices: [] });
-    expect(defaultRequest().modelVariant).toBe('ORIGINAL');
-  });
+const manual = (v: FormValues = toFormValues()) => ({ ...v, manualUnits: true });
 
-  it('LITERATURE defaults omit unitsPerType (automatic 120 units)', () => {
-    const v = defaultFormValues('LITERATURE');
-    expect(v.manualUnits).toBe(false);
-    const req = requestOf(v);
+describe('form model — defaults', () => {
+  it('the app defaults to the corrected model driven like a stimulator', () => {
+    const req = requestOf(defaultFormValues());
     expect(req.modelVariant).toBe('LITERATURE');
-    expect('unitsPerType' in req).toBe(false);
+    expect(req.stimulus).toMatchObject({
+      pulseWidthUs: 300,
+      waveform: 'BIPHASIC_SYMMETRIC',
+      amplitude: 153,
+      rampUpMs: 0,
+      rampDownMs: 0,
+      trainOnMs: null,
+      trainPeriodMs: null,
+    });
+    expect(req.calibrationTarget).toBe('WHOLE_MUSCLE');
     expect(JSON.parse(JSON.stringify(req))).not.toHaveProperty('unitsPerType');
   });
 
-  it('LITERATURE with manual counts sends unitsPerType', () => {
-    const v = { ...defaultFormValues('LITERATURE'), manualUnits: true, 'unitsPerType.S': '150' };
+  it('ORIGINAL contract defaults still round-trip (no stimulator fields)', () => {
+    const r = parseForm(defaultFormValues('ORIGINAL'), [soleus]);
+    expect(r).toEqual({ ok: true, request: defaultRequest('ORIGINAL'), notices: [] });
+  });
+
+  it('manual counts send unitsPerType', () => {
+    const v = { ...manual(), 'unitsPerType.S': '150' };
     expect(requestOf(v).unitsPerType).toEqual({ S: 150, FR: 2, FF: 2 });
   });
 
-  it('ORIGINAL always sends unitsPerType, even if the manual flag is off', () => {
-    expect(requestOf({ ...defaultFormValues('ORIGINAL'), manualUnits: false }).unitsPerType).toEqual({ S: 5, FR: 2, FF: 2 });
+  it('automatic units hide the counts; trains off disable on / off times', () => {
+    const off = inactiveFields(defaultFormValues());
+    for (const f of ['unitsPerType.S', 'stimulus.trainOnMs', 'stimulus.trainOffMs'] as const) expect(off.has(f)).toBe(true);
+    expect(inactiveFields(manual()).has('unitsPerType.S')).toBe(false);
+    expect(off.has('calibrationTarget')).toBe(false);
   });
 
-  it('changeVariant keeps user values and resets the unit mode', () => {
-    const v = { ...defaultFormValues(), 'stimulus.frequencyHz': '30' };
-    const lit = changeVariant(v, 'LITERATURE');
-    expect(lit).toMatchObject({ modelVariant: 'LITERATURE', manualUnits: false, 'stimulus.frequencyHz': '30' });
-    expect(changeVariant(lit, 'ORIGINAL').manualUnits).toBe(true);
-  });
-
-  it('LITERATURE disables motoneuron-only fields and automatic unit inputs', () => {
-    const lit = inactiveFields(defaultFormValues('LITERATURE'));
-    for (const f of ['injectionSite', 'somaGeometry', 'dendriteGeometry', 'temperatureCelsius', 'unitsPerType.S'] as const) {
-      expect(lit.has(f)).toBe(true);
-    }
-    const orig = inactiveFields(defaultFormValues('ORIGINAL'));
-    expect(orig.has('temperatureCelsius')).toBe(false);
-    expect(orig.has('unitsPerType.S')).toBe(false);
-    expect(orig.has('stimulus.trainOnMs')).toBe(true);
-  });
-
-  it('calibration target: whole muscle by default, sent with the request, inactive for ORIGINAL', () => {
-    expect(defaultFormValues('LITERATURE').calibrationTarget).toBe('WHOLE_MUSCLE');
-    const single = { ...defaultFormValues('LITERATURE'), calibrationTarget: 'SINGLE_UNIT' };
-    const parsed = parseForm(single, [soleus]);
+  it('calibration target is sent with the request', () => {
+    const parsed = parseForm({ ...defaultFormValues(), calibrationTarget: 'SINGLE_UNIT' }, [soleus]);
     expect(parsed.ok && parsed.request.calibrationTarget).toBe('SINGLE_UNIT');
-    expect(changeVariant(single, 'ORIGINAL').calibrationTarget).toBe('SINGLE_UNIT');
-    expect(inactiveFields(defaultFormValues('ORIGINAL')).has('calibrationTarget')).toBe(true);
-    expect(inactiveFields(single).has('calibrationTarget')).toBe(false);
+  });
+});
+
+describe('form model — stimulator', () => {
+  it.each([
+    ['stimulus.pulseWidthUs', '10'],
+    ['stimulus.pulseWidthUs', '1001'],
+    ['stimulus.rampUpMs', '-1'],
+    ['stimulus.rampDownMs', '60001'],
+  ] as const)('rejects %s = %s', (path, value) => {
+    expect(fields(parseForm({ ...toFormValues(), [path]: value }))).toContain(path);
+  });
+
+  it('both phases of a biphasic pulse must fit in the period', () => {
+    // only reachable above the 200 Hz limit: 2 × 1000 µs fits in 5000 µs
+    const v = { ...toFormValues(), 'stimulus.frequencyHz': '600', 'stimulus.pulseWidthUs': '1000' };
+    expect(fields(parseForm(v))).toEqual(['stimulus.frequencyHz', 'stimulus.pulseWidthUs']);
+    expect(fields(parseForm({ ...v, 'stimulus.waveform': 'MONOPHASIC' }))).toEqual(['stimulus.frequencyHz']);
+  });
+
+  it('ramps must fit in the on time (the run, or each train)', () => {
+    expect(fields(parseForm({ ...toFormValues(), 'stimulus.rampUpMs': '600', 'stimulus.rampDownMs': '500' }))).toEqual([
+      'stimulus.rampUpMs',
+    ]);
+    const trains = { ...toFormValues(), trainsEnabled: true, 'stimulus.rampUpMs': '200', 'stimulus.rampDownMs': '200' };
+    expect(fields(parseForm(trains))).toEqual(['stimulus.rampUpMs']); // 330 ms on
+    expect(requestOf({ ...trains, 'stimulus.rampDownMs': '100' }).stimulus).toMatchObject({ rampUpMs: 200, rampDownMs: 100 });
+  });
+
+  it('server errors on trainPeriodMs are shown on the off-time input', () => {
+    const { byField } = partitionFieldErrors([{ field: 'stimulus.trainPeriodMs', message: 'x' }]);
+    expect(byField['stimulus.trainOffMs']).toEqual(['x']);
   });
 });
 
 describe('form model — parsing and validation', () => {
   it('accepts a decimal comma', () => {
-    expect(requestOf({ ...toFormValues(), temperatureCelsius: '36,5' }).temperatureCelsius).toBe(36.5);
+    expect(requestOf({ ...toFormValues(), axonLengthPercent: '80,5' }).axonLengthPercent).toBe(80.5);
   });
 
   it('reports empty and non-numeric inputs once', () => {
@@ -106,24 +124,24 @@ describe('form model — parsing and validation', () => {
     ['outputStepMs', '0.005'],
     ['outputStepMs', '0.015'],
   ] as const)('rejects %s = %s', (path, value) => {
-    expect(fields(parseForm({ ...toFormValues(), [path]: value }))).toContain(path);
+    expect(fields(parseForm({ ...manual(), [path]: value }))).toContain(path);
   });
 
   it('accepts the new upper bounds: 300000 ms duration and 200 units per type', () => {
-    const v = { ...toFormValues(), 'stimulus.durationMs': '300000', 'unitsPerType.S': '200' };
+    const v = { ...manual(), 'stimulus.durationMs': '300000', 'unitsPerType.S': '200' };
     const req = requestOf(v, [soleus]);
     expect(req.stimulus.durationMs).toBe(300000);
     expect(req.unitsPerType?.S).toBe(200);
-    expect(fields(parseForm({ ...toFormValues(), 'unitsPerType.S': '201' }))).toEqual(['unitsPerType.S']);
+    expect(fields(parseForm({ ...manual(), 'unitsPerType.S': '201' }))).toEqual(['unitsPerType.S']);
   });
 
   it('requires at least one motor unit', () => {
-    const r = parseForm({ ...toFormValues(), 'unitsPerType.S': '0', 'unitsPerType.FR': '0', 'unitsPerType.FF': '0' });
+    const r = parseForm({ ...manual(), 'unitsPerType.S': '0', 'unitsPerType.FR': '0', 'unitsPerType.FF': '0' });
     expect(fields(r)).toEqual(['unitsPerType']);
   });
 
   it("caps units by the selected muscle's pool size", () => {
-    const v = { ...toFormValues(), muscle: 'TIBIALIS_ANTERIOR', 'unitsPerType.S': '4' };
+    const v = { ...manual(), muscle: 'TIBIALIS_ANTERIOR', 'unitsPerType.S': '4' };
     expect(fields(parseForm(v, [soleus, tiny]))).toEqual(['unitsPerType.S', 'unitsPerType.FR', 'unitsPerType.FF']);
   });
 
@@ -132,8 +150,8 @@ describe('form model — parsing and validation', () => {
     expect(parseForm(v).ok).toBe(true);
   });
 
-  it('peakTimeMs is required for TRIANGLE and must be inside the duration', () => {
-    const tri = { ...toFormValues(), 'stimulus.modulation.shape': 'TRIANGLE' };
+  it('peakTimeMs is required for TRIANGLE and must be inside the duration (ORIGINAL)', () => {
+    const tri = { ...defaultFormValues('ORIGINAL'), 'stimulus.modulation.shape': 'TRIANGLE' };
     expect(fields(parseForm(tri))).toEqual(['stimulus.modulation.peakTimeMs']);
     expect(fields(parseForm({ ...tri, 'stimulus.modulation.peakTimeMs': '1000' }))).toEqual(['stimulus.modulation.peakTimeMs']);
     expect(requestOf({ ...tri, 'stimulus.modulation.peakTimeMs': '500' }).stimulus.modulation.peakTimeMs).toBe(500);
@@ -155,72 +173,43 @@ describe('form model — parsing and validation', () => {
 });
 
 describe('form model — intermittent trains', () => {
-  const trains = (on: string, period: string, duration = '1000') => ({
+  const trains = (on: string, off: string, duration = '1000') => ({
     ...toFormValues(),
     trainsEnabled: true,
     'stimulus.trainOnMs': on,
-    'stimulus.trainPeriodMs': period,
+    'stimulus.trainOffMs': off,
     'stimulus.durationMs': duration,
   });
 
-  it('disabled → both null; the form prefills 330 / 1000 for when they are enabled', () => {
+  it('disabled → both null; the form prefills 330 on / 670 off for when they are enabled', () => {
     const v = toFormValues();
     expect(v.trainsEnabled).toBe(false);
-    expect([v['stimulus.trainOnMs'], v['stimulus.trainPeriodMs']]).toEqual(['330', '1000']);
+    expect([v['stimulus.trainOnMs'], v['stimulus.trainOffMs']]).toEqual(['330', '670']);
     const req = requestOf(v);
     expect([req.stimulus.trainOnMs, req.stimulus.trainPeriodMs]).toEqual([null, null]);
   });
 
-  it('enabled → both sent', () => {
-    const req = requestOf(trains('330', '1000'));
+  it('enabled → on and period = on + off', () => {
+    const req = requestOf(trains('330', '670'));
     expect([req.stimulus.trainOnMs, req.stimulus.trainPeriodMs]).toEqual([330, 1000]);
   });
 
-  it('on = period is allowed', () => {
-    expect(parseForm(trains('500', '500')).ok).toBe(true);
+  it('off = 0 is allowed (on = period)', () => {
+    expect(parseForm(trains('500', '0')).ok).toBe(true);
+  });
+
+  it('round-trips a request with trains to on / off', () => {
+    const v = toFormValues({ ...requestOf(trains('2000', '3000', '10000')) });
+    expect([v['stimulus.trainOnMs'], v['stimulus.trainOffMs']]).toEqual(['2000', '3000']);
   });
 
   it.each([
     ['0', '1000', 'stimulus.trainOnMs'],
-    ['600', '500', 'stimulus.trainOnMs'],
-    ['330', '2000', 'stimulus.trainPeriodMs'],
+    ['330', '1670', 'stimulus.trainPeriodMs'],
     ['', '1000', 'stimulus.trainOnMs'],
-    ['330', '', 'stimulus.trainPeriodMs'],
-  ])('rejects on=%s period=%s', (on, period, field) => {
-    expect(fields(parseForm(trains(on, period)))).toContain(field);
-  });
-});
-
-describe('form model — clinical stimulus', () => {
-  it('gives a 0.3 ms pulse (1.2 % at 40 Hz) and amplitude 153', () => {
-    const r = applyClinicalStimulus(defaultFormValues('LITERATURE'))!;
-    expect(r.values['stimulus.dutyCyclePercent']).toBe('1.2');
-    expect(r.values['stimulus.amplitude']).toBe('153');
-    expect(r.pulseMs).toBe(0.3);
-    expect(r.clamped).toBe(false);
-  });
-
-  it('scales with frequency', () => {
-    const r = applyClinicalStimulus({ ...defaultFormValues('LITERATURE'), 'stimulus.frequencyHz': '100' })!;
-    expect(r.values['stimulus.dutyCyclePercent']).toBe('3');
-  });
-
-  it('clamps to the 1 % minimum at low frequencies and reports the real pulse', () => {
-    const r = applyClinicalStimulus({ ...defaultFormValues('LITERATURE'), 'stimulus.frequencyHz': '20' })!;
-    expect(r.values['stimulus.dutyCyclePercent']).toBe('1');
-    expect(r.clamped).toBe(true);
-    expect(r.pulseMs).toBe(0.5);
-  });
-
-  it('returns null for an invalid frequency and never touches other fields', () => {
-    expect(applyClinicalStimulus({ ...toFormValues(), 'stimulus.frequencyHz': 'x' })).toBeNull();
-    const before = defaultFormValues('LITERATURE');
-    const after = applyClinicalStimulus(before)!.values;
-    expect({ ...after, 'stimulus.dutyCyclePercent': '', 'stimulus.amplitude': '' }).toEqual({
-      ...before,
-      'stimulus.dutyCyclePercent': '',
-      'stimulus.amplitude': '',
-    });
+    ['330', '', 'stimulus.trainOffMs'],
+  ])('rejects on=%s off=%s', (on, off, field) => {
+    expect(fields(parseForm(trains(on, off)))).toContain(field);
   });
 });
 

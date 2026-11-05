@@ -43,7 +43,7 @@ describe('EquationsView', () => {
   });
 
   it('substitutes the live values (PW, delays, weights)', () => {
-    const values = { ...defaultFormValues('LITERATURE'), 'stimulus.dutyCyclePercent': '1.2' };
+    const values = defaultFormValues('LITERATURE');
     const stages = buildStageContents(
       buildModelSnapshot({
         values,
@@ -53,7 +53,8 @@ describe('EquationsView', () => {
       }),
     );
     const tex = (id: string) => stages.find((s) => s.id === id)!.substituted.join(' ');
-    expect(tex('1')).toContain('= 0{,}3\\ \\text{ms}');
+    expect(tex('1')).toContain('PW = 300\\ \\mu\\text{s}');
+    expect(tex('1')).toContain('T_p = \\frac{1000}{40} = 25\\ \\text{ms}');
     expect(tex('3')).toContain('18{,}18\\ \\text{ms}');
     expect(tex('3')).toContain('15{,}09\\ \\text{ms}');
     expect(tex('8b')).toContain('\\frac{800}{106}');

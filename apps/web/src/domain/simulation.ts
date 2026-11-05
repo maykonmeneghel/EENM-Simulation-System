@@ -3,7 +3,8 @@
  * All times in milliseconds; JSON is camelCase.
  */
 
-export const WAVEFORMS = ['MONOPHASIC', 'BIPHASIC'] as const;
+/** BIPHASIC = FES.m's raw square wave; BIPHASIC_SYMMETRIC = a stimulator's +A/−A pulse (needs pulseWidthUs). */
+export const WAVEFORMS = ['MONOPHASIC', 'BIPHASIC', 'BIPHASIC_SYMMETRIC'] as const;
 export type Waveform = (typeof WAVEFORMS)[number];
 
 export const MODULATION_TARGETS = ['AMPLITUDE', 'FREQUENCY', 'PULSE_WIDTH'] as const;
@@ -54,6 +55,11 @@ export interface Stimulus {
   /** Intermittent trains: both or neither; 0 < on ≤ period ≤ durationMs. */
   trainOnMs: number | null;
   trainPeriodMs: number | null;
+  /** Stimulator mode: pulse width independent of the frequency (replaces dutyCyclePercent); per phase if biphasic. */
+  pulseWidthUs?: number | null;
+  /** Amplitude ramps at the start / end of every train (of the whole run without trains). */
+  rampUpMs?: number;
+  rampDownMs?: number;
 }
 
 export interface SimulationRequest {
