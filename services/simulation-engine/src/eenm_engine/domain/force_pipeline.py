@@ -22,6 +22,7 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.ndimage import median_filter
 
+from eenm_engine.domain.fatigue import UnitFatigue
 from eenm_engine.domain.model_options import ModelOptions, StimulationSite, TwitchDrive
 from eenm_engine.domain.motor_unit_pool import MotorUnitGroup
 from eenm_engine.domain.twitch import RateGain, TwitchFilter
@@ -156,13 +157,24 @@ class TypeForce:
         axon_length_percent: float,
         step_ms: float,
         options: ModelOptions,
+        pool_twitch_range: tuple[float, float] | None = None,
     ) -> None:
+        """``pool_twitch_range`` = (weakest, strongest) twitch amplitude in the whole muscle pool (fatigue)."""
         self._group = group
         self._shapes = shapes
         self._axon = axon_length_percent
         self._options = options
         self._twitch = TwitchFilter(group, step_ms, options.twitch_shape)
-        self._gain = RateGain(group.twitch_time_to_peak_ms, step_ms) if options.rate_gain else None
+        fatigue = None
+        if options.fatigue is not None:
+            weakest, strongest = pool_twitch_range or (
+                float(group.twitch_peak.min(initial=1.0)),
+                float(group.twitch_peak.max(initial=1.0)),
+            )
+            nominal = options.fatigue.nominal_from_force(group.twitch_peak, weakest, strongest)
+            fatigue = UnitFatigue(options.fatigue, nominal)
+        self.fatigue = fatigue
+        self._gain = RateGain(group.twitch_time_to_peak_ms, step_ms, fatigue) if options.rate_gain else None
         longest_delay = int(group.muap_delay_samples.max()) if group.size else 0
         self.history = longest_delay + MUAP_TIME.size + self._WINDOW_SLACK
 
@@ -179,13 +191,14 @@ class TypeForce:
         local = slice(start - window_start, stop - window_start)
 
         drive: NDArray[np.float64]
+        time_scale = None
         if self._options.twitch_drive is TwitchDrive.OWN_SPIKES:
             drive = self._arrivals(junction, window_start, start, stop)
             if self._gain is not None:
-                drive = self._gain.apply(drive)
+                drive, time_scale = self._gain.apply_with_timing(drive)
         else:
             drive = spike_train(muap.sum(axis=1))[local]
-        return TypeSignals(muap=muap[local], force=self._twitch.segment(drive))
+        return TypeSignals(muap=muap[local], force=self._twitch.segment(drive, time_scale))
 
     def _junction(self, voltage: NDArray[np.float64], window_start: int) -> NDArray[np.float64]:
         if self._options.stimulation_site is StimulationSite.MOTOR_AXONS:
@@ -247,7 +260,8 @@ def type_signals(
     axon_length_percent: float,
     step_ms: float,
     options: ModelOptions | None = None,
+    pool_twitch_range: tuple[float, float] | None = None,
 ) -> TypeSignals:
     """Stages 1–5 for one unit type on a complete record. ``soma_voltage`` is ``(samples, units)``."""
-    pipeline = TypeForce(group, shapes, axon_length_percent, step_ms, options or ModelOptions())
+    pipeline = TypeForce(group, shapes, axon_length_percent, step_ms, options or ModelOptions(), pool_twitch_range)
     return pipeline.compute(soma_voltage, 0, soma_voltage.shape[0])

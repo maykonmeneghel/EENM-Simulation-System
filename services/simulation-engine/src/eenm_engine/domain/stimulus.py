@@ -50,8 +50,20 @@ class StimulusProtocol:
     modulation_target: ModulationTarget = ModulationTarget.AMPLITUDE
     modulation_shape: ModulationShape = ModulationShape.STEP
     peak_time_ms: float | None = None
+    train_on_ms: float | None = None
+    """Intermittent stimulation (not in the original): pulses only during the first ``train_on_ms`` of every
+    ``train_period_ms`` (e.g. 330 / 1000 ms, the fatigue protocol of Burke et al.). ``None`` = continuous."""
+    train_period_ms: float | None = None
 
     def __post_init__(self) -> None:
+        if (self.train_on_ms is None) != (self.train_period_ms is None):
+            raise ValueError("train_on_ms and train_period_ms go together")
+        if (
+            self.train_on_ms is not None
+            and self.train_period_ms is not None
+            and not (0 < self.train_on_ms <= self.train_period_ms)
+        ):
+            raise ValueError("need 0 < train_on_ms <= train_period_ms")
         if self.duration_ms <= 0 or self.step_ms <= 0:
             raise ValueError("duration_ms and step_ms must be positive")
         if self.modulation_shape is ModulationShape.TRIANGLE and (
@@ -91,6 +103,9 @@ def square(x: float, duty_percent: float) -> float:
 
 def stimulus_current(t: float, protocol: StimulusProtocol) -> float:
     """Port of ``FES(t, cfg)``: injected current density at time ``t`` (ms)."""
+    trains = protocol.train_period_ms is not None and protocol.train_on_ms is not None
+    if trains and t % protocol.train_period_ms >= protocol.train_on_ms:  # type: ignore[operator]
+        return 0.0
     pulse = _monophasic_pulse if protocol.waveform is Waveform.MONOPHASIC else square
 
     target = protocol.modulation_target

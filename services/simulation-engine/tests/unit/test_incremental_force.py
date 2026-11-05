@@ -1,9 +1,10 @@
 import numpy as np
 import pytest
 
+from eenm_engine.domain.fatigue import FatigueModel
 from eenm_engine.domain.force_pipeline import type_signals
 from eenm_engine.domain.model_options import ForceAggregation, ModelOptions, TwitchDrive, UnitSelection
-from eenm_engine.domain.motor_unit_pool import MotorUnitType
+from eenm_engine.domain.motor_unit_pool import MotorUnitType, pool_twitch_range
 from eenm_engine.domain.simulation import UNIT_TYPES, IncrementalForce, MotorUnitSetup, SimulationConfig
 from eenm_engine.domain.stimulus import StimulusProtocol
 from eenm_engine.domain.twitch import TwitchShape
@@ -19,6 +20,14 @@ MODELS = {
         twitch_drive=TwitchDrive.OWN_SPIKES,
         rate_gain=True,
         force_aggregation=ForceAggregation.SUM,
+    ),
+    "fatigue": ModelOptions(
+        unit_selection=UnitSelection.SPREAD_ACROSS_POOL,
+        twitch_shape=TwitchShape(5.1),
+        twitch_drive=TwitchDrive.OWN_SPIKES,
+        rate_gain=True,
+        force_aggregation=ForceAggregation.SUM,
+        fatigue=FatigueModel(weakest_fatigability=5.0),  # exaggerated so 40 ms show measurable fatigue
     ),
 }
 
@@ -43,6 +52,7 @@ def one_shot(setup: MotorUnitSetup, config: SimulationConfig, voltage: np.ndarra
             config.axon_length_percent,
             config.stimulus.step_ms,
             config.model,
+            pool_twitch_range(config.muscle),
         )
         summed = config.model.force_aggregation is ForceAggregation.SUM
         out[t] = signals.summed_force() if summed else signals.mean_force()

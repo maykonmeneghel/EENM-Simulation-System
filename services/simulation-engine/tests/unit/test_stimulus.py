@@ -85,3 +85,17 @@ def test_pulse_width_and_solver_step() -> None:
     assert protocol.solver_max_step_ms() == pytest.approx(2.5)
     tiny = StimulusProtocol(frequency_hz=40, duty_cycle_percent=0.01, step_ms=0.01)
     assert tiny.solver_max_step_ms() == pytest.approx(0.01)  # never below the sampling step
+
+
+def test_intermittent_trains_silence_the_off_period() -> None:
+    protocol = StimulusProtocol(train_on_ms=330, train_period_ms=1000)
+    assert stimulus_current(1.0, protocol) == 100.0  # inside the first train, inside a pulse
+    assert stimulus_current(500.0, protocol) == 0.0  # off period (500 ms is a pulse onset otherwise)
+    assert stimulus_current(1000.0, protocol) == 100.0  # next train
+
+
+def test_trains_need_both_parameters() -> None:
+    with pytest.raises(ValueError):
+        StimulusProtocol(train_on_ms=330)
+    with pytest.raises(ValueError):
+        StimulusProtocol(train_on_ms=1200, train_period_ms=1000)

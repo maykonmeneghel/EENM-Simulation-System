@@ -17,6 +17,7 @@ from eenm_engine.domain.motor_unit_pool import (
     MotorUnitType,
     Muscle,
     build_group,
+    pool_twitch_range,
 )
 from eenm_engine.domain.stimulus import StimulusProtocol
 
@@ -70,7 +71,9 @@ class MotorUnitSetup:
     @classmethod
     def from_config(cls, config: SimulationConfig) -> MotorUnitSetup:
         protocol = config.stimulus
-        samples_per_duration = protocol.duration_ms / protocol.step_ms
+        # Q4: the original converts with tmax/step; with fixed_conduction_delay, 1000 ms per s (= the original at 1 s)
+        reference_ms = 1000.0 if config.model.fixed_conduction_delay else protocol.duration_ms
+        samples_per_duration = reference_ms / protocol.step_ms
         groups = {
             t: build_group(
                 t,
@@ -153,6 +156,7 @@ class IncrementalForce:
                 config.axon_length_percent,
                 config.stimulus.step_ms,
                 config.model,
+                pool_twitch_range(config.muscle),
             )
             for t in UNIT_TYPES
         }
@@ -171,6 +175,16 @@ class IncrementalForce:
         series = self._compute(self._released, final)
         self._released = final
         return series
+
+    def capacity(self) -> dict[MotorUnitType, NDArray[np.float64]] | None:
+        """Remaining force capacity of every simulated unit (fatigue), or ``None`` without fatigue."""
+        if self._types[UNIT_TYPES[0]].fatigue is None:
+            return None
+        out = {}
+        for t in UNIT_TYPES:
+            fatigue = self._types[t].fatigue
+            out[t] = fatigue.capacity.copy() if fatigue is not None else np.empty(0)
+        return out
 
     def _final_sample(self) -> int:
         final = self._known - self.LOOKAHEAD

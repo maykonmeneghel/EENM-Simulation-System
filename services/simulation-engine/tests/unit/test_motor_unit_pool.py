@@ -109,3 +109,19 @@ def test_proportional_units_rejects_impossible_totals() -> None:
 
     with pytest.raises(ValueError):
         proportional_units(Muscle.SOLEUS, 0)
+
+
+def test_fixed_conduction_delay_equals_the_original_at_one_second_and_ignores_duration() -> None:
+    from eenm_engine.domain.model_options import ModelOptions
+    from eenm_engine.domain.simulation import MotorUnitSetup, SimulationConfig
+    from eenm_engine.domain.stimulus import StimulusProtocol
+
+    def delay(duration_ms: float, fixed: bool) -> int:
+        config = SimulationConfig(
+            stimulus=StimulusProtocol(duration_ms=duration_ms), model=ModelOptions(fixed_conduction_delay=fixed)
+        )
+        return int(MotorUnitSetup.from_config(config).groups[MotorUnitType.S].muap_delay_samples[0])
+
+    assert delay(1000, fixed=True) == delay(1000, fixed=False) == 1818  # 0.8 m / 44 m/s = 18.18 ms
+    assert delay(50, fixed=True) == 1818
+    assert delay(50, fixed=False) == 91  # the original's duration-dependent delay (Q4)

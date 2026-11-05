@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -13,8 +14,9 @@ from eenm_engine.application.events import (
     SimulationEvent,
     SimulationStarted,
 )
+from eenm_engine.domain.model_options import LITERATURE_UNITS, ModelOptions
 from eenm_engine.domain.motoneuron import InjectionSite
-from eenm_engine.domain.motor_unit_pool import Geometry, MotorUnitType, Muscle, MusclePreset
+from eenm_engine.domain.motor_unit_pool import Geometry, MotorUnitType, Muscle, MusclePreset, proportional_units
 from eenm_engine.domain.simulation import SimulationConfig
 from eenm_engine.domain.stimulus import ModulationShape, ModulationTarget, StimulusProtocol, Waveform
 
@@ -37,6 +39,8 @@ class StimulusDto(_CamelModel):
     amplitude: float = 100.0
     waveform: Waveform = Waveform.MONOPHASIC
     modulation: ModulationDto = Field(default_factory=ModulationDto)
+    train_on_ms: float | None = Field(None, gt=0)
+    train_period_ms: float | None = Field(None, gt=0)
 
 
 class UnitsPerTypeDto(BaseModel):
@@ -47,12 +51,19 @@ class UnitsPerTypeDto(BaseModel):
     FF: int = Field(2, ge=0)
 
 
+class ModelVariant(Enum):
+    ORIGINAL = "ORIGINAL"
+    LITERATURE = "LITERATURE"
+
+
 class SimulationRequest(_CamelModel):
     """Every field optional; defaults reproduce ``Main.m``. Range checks are the public API's job."""
 
     stimulus: StimulusDto = Field(default_factory=StimulusDto)
+    model_variant: ModelVariant = ModelVariant.ORIGINAL
     muscle: Muscle = Muscle.SOLEUS
-    units_per_type: UnitsPerTypeDto = Field(default_factory=UnitsPerTypeDto)
+    units_per_type: UnitsPerTypeDto | None = None
+    """``None``: 5/2/2 (ORIGINAL) or 120 units in the pool's proportions (LITERATURE)."""
     axon_length_percent: float = Field(80.0, gt=0, le=100)
     temperature_celsius: float = 6.3
     injection_site: InjectionSite = InjectionSite.SOMA
@@ -79,13 +90,12 @@ class SimulationRequest(_CamelModel):
                 modulation_target=s.modulation.target,
                 modulation_shape=s.modulation.shape,
                 peak_time_ms=s.modulation.peak_time_ms,
+                train_on_ms=s.train_on_ms,
+                train_period_ms=s.train_period_ms,
             ),
             muscle=self.muscle,
-            units_per_type={
-                MotorUnitType.S: self.units_per_type.S,
-                MotorUnitType.FR: self.units_per_type.FR,
-                MotorUnitType.FF: self.units_per_type.FF,
-            },
+            units_per_type=self._units(),
+            model=ModelOptions.literature() if self.model_variant is ModelVariant.LITERATURE else ModelOptions(),
             axon_length_percent=self.axon_length_percent,
             temperature_c=self.temperature_celsius,
             injection_site=self.injection_site,
@@ -94,6 +104,15 @@ class SimulationRequest(_CamelModel):
             seed=self.seed,
             output_step_ms=self.output_step_ms,
         )
+
+    def _units(self) -> dict[MotorUnitType, int]:
+        if self.units_per_type is not None:
+            u = self.units_per_type
+            return {MotorUnitType.S: u.S, MotorUnitType.FR: u.FR, MotorUnitType.FF: u.FF}
+        if self.model_variant is ModelVariant.LITERATURE:
+            return proportional_units(self.muscle, LITERATURE_UNITS)
+        u = UnitsPerTypeDto()
+        return {MotorUnitType.S: u.S, MotorUnitType.FR: u.FR, MotorUnitType.FF: u.FF}
 
 
 class MusclePresetDto(_CamelModel):

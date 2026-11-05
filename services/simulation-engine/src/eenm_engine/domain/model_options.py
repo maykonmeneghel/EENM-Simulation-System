@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from eenm_engine.domain.axon_stimulation import AxonExcitability
+from eenm_engine.domain.fatigue import FatigueModel
 from eenm_engine.domain.twitch import TwitchShape
 
 
@@ -63,6 +64,11 @@ class ModelOptions:
     force_aggregation: ForceAggregation = ForceAggregation.MEAN_PER_TYPE
     stimulation_site: StimulationSite = StimulationSite.MOTONEURON_SOMA
     axon_excitability: AxonExcitability = field(default_factory=AxonExcitability)
+    fixed_conduction_delay: bool = False
+    """MUAP/twitch delay = axon length / conduction velocity (APAT read as m/s), independent of the simulated
+    duration. The original multiplies by ``tmax/step`` (Q4), which is only right for ``tmax = 1000 ms``."""
+    fatigue: FatigueModel | None = None
+    """Peripheral fatigue (Potvin & Fuglevand 2017); needs ``rate_gain`` and the generalised twitch."""
     represent_pool: bool = False
     """Weight each simulated unit by the number of pool units it stands for (pool size / simulated units of
     its type), so the summed force has the composition and scale of the whole muscle. Requires ``SUM``."""
@@ -72,9 +78,35 @@ class ModelOptions:
             raise ValueError("twitch_time_scale must be positive")
         if self.represent_pool and self.force_aggregation is not ForceAggregation.SUM:
             raise ValueError("represent_pool weights a sum of unit forces (force_aggregation = SUM)")
+        if self.fatigue is not None and (not self.rate_gain or self.twitch_shape.is_original):
+            raise ValueError("fatigue needs rate_gain (normalised force) and a twitch exponent other than 1")
         if self.rate_gain and self.twitch_drive is not TwitchDrive.OWN_SPIKES:
             raise ValueError("rate_gain needs each unit's own spikes (twitch_drive = OWN_SPIKES)")
 
     @classmethod
     def original(cls) -> ModelOptions:
         return cls()
+
+    @classmethod
+    def literature(cls) -> ModelOptions:
+        """Every correction validated in ``docs/validation/literature-comparison.md`` (steps 1–5).
+
+        Twitch scale and exponent were fitted by ``validation/calibrate.py axons`` on 120 units in the soleus
+        pool's proportions; use it with ``proportional_units`` (see ``LITERATURE_UNITS``).
+        """
+        return cls(
+            unit_selection=UnitSelection.SPREAD_ACROSS_POOL,
+            twitch_shape=TwitchShape(exponent=3.9461),
+            twitch_time_scale=1.2772,
+            twitch_drive=TwitchDrive.OWN_SPIKES,
+            rate_gain=True,
+            force_aggregation=ForceAggregation.SUM,
+            stimulation_site=StimulationSite.MOTOR_AXONS,
+            fixed_conduction_delay=True,
+            fatigue=FatigueModel(),
+            represent_pool=True,
+        )
+
+
+LITERATURE_UNITS = 120
+"""Simulated units with ``ModelOptions.literature()`` (as in Potvin & Fuglevand 2017)."""

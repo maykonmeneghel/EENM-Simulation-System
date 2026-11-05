@@ -24,6 +24,7 @@ from numpy.typing import NDArray
 from scipy.signal import lfilter
 
 if TYPE_CHECKING:
+    from eenm_engine.domain.fatigue import UnitFatigue
     from eenm_engine.domain.motor_unit_pool import MotorUnitGroup
 
 _KERNEL_CUTOFF = 1e-9
@@ -81,13 +82,17 @@ class TwitchFilter:
         if shape.is_original:
             self._iir_state = np.zeros((group.size, 2))
         else:
-            self._kernels = [self._kernel(k) for k in range(group.size)]
-            self._spikes: list[tuple[NDArray[np.int64], NDArray[np.float64]]] = [
-                (np.empty(0, dtype=np.int64), np.empty(0)) for _ in range(group.size)
+            self._kernel_cache: dict[tuple[int, float], NDArray[np.float64]] = {}
+            self._spikes: list[tuple[NDArray[np.int64], NDArray[np.float64], NDArray[np.float64]]] = [
+                (np.empty(0, dtype=np.int64), np.empty(0), np.empty(0)) for _ in range(group.size)
             ]
 
-    def segment(self, drive: NDArray[np.float64]) -> NDArray[np.float64]:
-        """Force ``(samples, units)`` for the next samples; ``drive`` is ``(samples,)`` or ``(samples, units)``."""
+    def segment(self, drive: NDArray[np.float64], time_scale: NDArray[np.float64] | None = None) -> NDArray[np.float64]:
+        """Force ``(samples, units)`` for the next samples; ``drive`` is ``(samples,)`` or ``(samples, units)``.
+
+        ``time_scale`` (same shape as a 2-D drive) stretches the contraction time of the twitch started by each
+        spike (fatigue); it needs the generalised twitch (``exponent != 1``).
+        """
         per_unit = np.array(drive, dtype=np.float64, copy=True)
         if per_unit.ndim == 1:
             per_unit = np.repeat(per_unit[:, None], self._group.size, axis=1)
@@ -96,8 +101,11 @@ class TwitchFilter:
         start = self._next_index
         self._next_index += per_unit.shape[0]
         if self._shape.is_original:
+            if time_scale is not None and np.any(time_scale != 1.0):
+                raise ValueError("twitch slowing needs the generalised twitch (exponent != 1)")
             return self._iir(per_unit)
-        return self._sparse(per_unit, start)
+        scale = np.ones_like(per_unit) if time_scale is None else np.asarray(time_scale, dtype=np.float64)
+        return self._sparse(per_unit, start, scale)
 
     # -- m = 1: the original recursion, as an IIR filter ------------------------------------
     def _iir(self, drive: NDArray[np.float64]) -> NDArray[np.float64]:
@@ -112,10 +120,17 @@ class TwitchFilter:
         return out
 
     # -- general m: sum of sampled kernels over the (sparse) spikes -----------------------------
-    def _kernel(self, k: int) -> NDArray[np.float64]:
-        """``h[j]`` for ``j = 0, 1, …``; at ``m = 1`` it equals the impulse response of ``_iir``."""
+    def _kernel(self, k: int, time_scale: float = 1.0) -> NDArray[np.float64]:
+        """``h[j]`` for ``j = 0, 1, …``; at ``m = 1`` it equals the impulse response of ``_iir``.
+
+        Kernels are cached per unit and contraction-time multiplier (rounded to 0.1 %).
+        """
+        key = (k, round(time_scale, 3))
+        cached = self._kernel_cache.get(key)
+        if cached is not None:
+            return cached
         m = self._shape.exponent
-        period = float(self._group.twitch_time_to_peak_ms[k])
+        period = float(self._group.twitch_time_to_peak_ms[k]) * key[1]
         peak = float(self._group.twitch_peak[k])
         # (x)^m e^{m(1-x)} decreases monotonically after x = 1; find where it is negligible.
         x_end = 1.0
@@ -123,23 +138,34 @@ class TwitchFilter:
             x_end *= 1.25
         x = np.arange(math.ceil(x_end * period / self._step) + 1) * self._step / period
         with np.errstate(divide="ignore"):
-            kernel = peak * self._step * np.where(x > 0, x**m * np.exp(m * (1 - x)), 0.0)
-        return kernel.astype(np.float64)
+            kernel = (peak * self._step * np.where(x > 0, x**m * np.exp(m * (1 - x)), 0.0)).astype(np.float64)
+        self._kernel_cache[key] = kernel
+        return kernel
 
-    def _sparse(self, drive: NDArray[np.float64], start: int) -> NDArray[np.float64]:
+    def _sparse(self, drive: NDArray[np.float64], start: int, time_scale: NDArray[np.float64]) -> NDArray[np.float64]:
         stop = start + drive.shape[0]
         out = np.zeros_like(drive)
-        for k, kernel in enumerate(self._kernels):
+        for k in range(self._group.size):
             new = np.flatnonzero(drive[:, k])
             index = np.concatenate([self._spikes[k][0], start + new])
             weight = np.concatenate([self._spikes[k][1], drive[new, k]])
-            for spike, w in zip(index, weight, strict=True):
+            scale = np.concatenate([self._spikes[k][2], time_scale[new, k]])
+            alive = np.zeros(index.size, dtype=bool)
+            for j, (spike, w, s) in enumerate(zip(index, weight, scale, strict=True)):
+                kernel = self._kernel(k, float(s))
                 first, last = max(start, int(spike) + 1), min(stop, int(spike) + kernel.size)
                 if first < last:
                     out[first - start : last - start, k] += w * kernel[first - spike : last - spike]
-            alive = index + kernel.size > stop
-            self._spikes[k] = (index[alive], weight[alive])
+                alive[j] = spike + kernel.size > stop
+            self._spikes[k] = (index[alive], weight[alive], scale[alive])
+            self._forget_unused_kernels(k)
         return out
+
+    def _forget_unused_kernels(self, k: int) -> None:
+        """Keep only the kernels of twitches still in progress (fatigue keeps creating new ones)."""
+        in_use = {round(float(s), 3) for s in self._spikes[k][2]} | {1.0}
+        for key in [key for key in self._kernel_cache if key[0] == k and key[1] not in in_use]:
+            del self._kernel_cache[key]
 
 
 def twitch_force(
@@ -169,9 +195,12 @@ class RateGain:
     BREAKPOINT = 0.4
     LINEAR_SLOPE = 0.3
 
-    def __init__(self, contraction_time_ms: NDArray[np.float64], step_ms: float) -> None:
+    def __init__(
+        self, contraction_time_ms: NDArray[np.float64], step_ms: float, fatigue: UnitFatigue | None = None
+    ) -> None:
         self._contraction_time = contraction_time_ms
         self._step = step_ms
+        self._fatigue = fatigue
         self._last_spike = np.full(contraction_time_ms.size, -1, dtype=np.int64)
         self._next_index = 0
 
@@ -183,16 +212,40 @@ class RateGain:
         out[high] = (1.0 - np.exp(-2.0 * nr[high] ** 3)) / (cls.LINEAR_SLOPE * nr[high])
         return out
 
+    @classmethod
+    def normalised_force(cls, normalised_rate: float) -> float:
+        """``NF`` of Potvin & Fuglevand 2017, Eqs 5–6."""
+        if normalised_rate <= cls.BREAKPOINT:
+            return cls.LINEAR_SLOPE * normalised_rate
+        return 1.0 - math.exp(-2.0 * normalised_rate**3)
+
     def apply(self, drive: NDArray[np.float64]) -> NDArray[np.float64]:
         """Scale each spike of a ``(samples, units)`` drive by the gain of its interval to the previous one."""
+        return self.apply_with_timing(drive)[0]
+
+    def apply_with_timing(self, drive: NDArray[np.float64]) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+        """Gain-scaled drive and, per sample, the contraction-time multiplier of each unit (fatigue, Eq 11).
+
+        With fatigue, each spike first integrates the force loss of the interval it ends, then carries the
+        remaining capacity as an amplitude factor and the slowed contraction time.
+        """
         out = drive.copy()
+        time_scale = np.ones_like(drive)
         start = self._next_index
         self._next_index += drive.shape[0]
         for k in range(drive.shape[1]):
             for local in np.flatnonzero(drive[:, k]):
                 index = start + int(local)
+                slowing = self._fatigue.contraction_time_scale(k) if self._fatigue else 1.0
                 if self._last_spike[k] >= 0:
                     isi_ms = (index - self._last_spike[k]) * self._step
-                    out[local, k] *= float(self.gain(np.array(self._contraction_time[k] / isi_ms)))
+                    rate = self._contraction_time[k] * slowing / isi_ms
+                    out[local, k] *= float(self.gain(np.array(rate)))
+                    if self._fatigue is not None:
+                        self._fatigue.on_spike(k, self.normalised_force(rate), isi_ms, rate)
+                        slowing = self._fatigue.contraction_time_scale(k)
+                if self._fatigue is not None:
+                    out[local, k] *= float(self._fatigue.capacity[k])
+                time_scale[local, k] = slowing
                 self._last_spike[k] = index
-        return out
+        return out, time_scale

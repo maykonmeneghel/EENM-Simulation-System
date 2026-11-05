@@ -193,6 +193,35 @@ As expected when option (c) was chosen, moving the stimulus to the axons removes
 failures but **does not change f50**, which depends on the units' contraction times: the conflict between
 whole-muscle and single-unit human data described above is still open.
 
+### Step 5 — peripheral fatigue
+
+`fatigue = FatigueModel()` implements Potvin & Fuglevand 2017 (equations read in the full text):
+nominal fatigability 0.0125–2.25 %/s (Eq 9; Burke et al.'s electrical-stimulation data, ×3 to express the
+rate during activity), instantaneous fatigability × normalised force (Eq 10), contraction time +0.379 % per %
+force loss (Eq 11, from electrically stimulated paralysed human soleus, Shields et al.), force capacity as the
+integral (Eq 14). No recovery (not modelled in the paper either). `fixed_conduction_delay` fixes Q4, which
+made the conduction delay grow with the simulated duration (4.4 s in a 4-min run).
+
+Two adaptations to a twitch-based pool, ours and documented in `domain/fatigue.py`, were needed after the
+first run failed the benchmarks (fatigue index 0.50 instead of 0.89):
+
+1. **Fatigability follows twitch force**, not unit index: in the paper both grow exponentially with the
+   index, so log-fatigability is linear in log-force (their Fig 1D); our soleus pool is 89 % S units of nearly
+   equal force, and mapping by index made hundreds of them highly fatigable. Mapping by force is exactly Eq 9
+   for the paper's own pool (tested).
+2. **Pauses accrue no fatigue**: the per-spike integration counted the 670 ms off period of each train as
+   firing at 1.5 Hz; an interval longer than four contraction times is now a pause (the paper's rate is 0).
+
+| Protocol | Literature | **Model** (axons, 120 units, 0.3 ms, 153) |
+|---|---|---|
+| 20 Hz, 330 ms every 1 s, 4 min — whole-muscle fatigue index | **0.89 ± 0.08** acutely paralysed soleus, 0.19 ± 0.06 chronic (Chang & Shields 2011, doi:10.1177/1545968310390224; protocol of Shields 1995, doi:10.1152/jn.1995.73.6.2195 — the 2011 abstract does not restate it) | **0.85** ✓ (0.92 at 2 min) |
+| 40 Hz, 33 % duty, 2 min — weakest unit | ≈ 0.995 (Potvin & Fuglevand's estimate from Burke et al. Fig 5) | **0.995** ✓ |
+| same — strongest unit | ≈ 0.10 (same) | 0.19 ≈ (the strongest *simulated* unit sits at the centre of the top slice of the pool) |
+| Mean capacity after 2 min, S · FR · FF | S resistant, FF fatigable (Burke) | 0.99 · 0.94 · 0.55 ✓ (qualitative) |
+
+The model is a healthy (acute-like) soleus: reproducing the chronic-SCI fatigue index (0.19) needs the
+slow-to-fast transformation of the paralysed muscle (Shields 2002; Chang & Shields 2011), not done here.
+
 ## What this means for the next steps
 
 The end-to-end system can be used now, but its force output should be read as **qualitative**.

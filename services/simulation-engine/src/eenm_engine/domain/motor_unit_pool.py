@@ -145,6 +145,8 @@ class MotorUnitGroup:
     muap_delay_samples: NDArray[np.int64]
     twitch_peak: NDArray[np.float64]
     twitch_time_to_peak_ms: NDArray[np.float64]
+    pool_rank: NDArray[np.int64] | None = None
+    """Rank of each unit by twitch amplitude in the whole muscle pool (S first, then FR, then FF)."""
 
     @property
     def size(self) -> int:
@@ -191,6 +193,13 @@ def proportional_units(muscle: Muscle, total: int) -> dict[MotorUnitType, int]:
         largest = max(counts, key=lambda t: counts[t])
         counts[largest] -= 1
     return counts
+
+
+def pool_twitch_range(muscle: Muscle) -> tuple[float, float]:
+    """Weakest and strongest twitch amplitude (MT) in the whole pool of the muscle."""
+    values = [interpolated_values(TYPE_RANGES[t].twitch_peak, n) for t, n in MUSCLE_PRESETS[muscle].pool_size.items()]
+    every = np.concatenate(values)
+    return float(every.min()), float(every.max())
 
 
 def selected_units(pool_size: int, count: int, selection: UnitSelection) -> NDArray[np.int64]:
@@ -249,4 +258,12 @@ def build_group(
         muap_delay_samples=delay,
         twitch_peak=spread(r.twitch_peak),
         twitch_time_to_peak_ms=spread(r.twitch_time_to_peak_ms),
+        pool_rank=_type_offset(muscle, unit_type) + chosen,
     )
+
+
+def _type_offset(muscle: Muscle, unit_type: MotorUnitType) -> int:
+    """Units of the types before this one in the pool order S, FR, FF (increasing twitch amplitude)."""
+    pool = MUSCLE_PRESETS[muscle].pool_size
+    order = (MotorUnitType.S, MotorUnitType.FR, MotorUnitType.FF)
+    return sum(pool[t] for t in order[: order.index(unit_type)])

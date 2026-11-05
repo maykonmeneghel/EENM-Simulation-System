@@ -59,3 +59,39 @@ def test_failure_after_streaming_started_is_reported_in_band() -> None:
     body = events(failing.post("/v1/simulations/stream", json=SHORT))
     assert body[0]["type"] == "started"
     assert body[-1] == {"type": "error", "message": "solver exploded", "code": "ENGINE_FAILURE"}
+
+
+def test_literature_variant_defaults_to_120_proportional_units_and_streams() -> None:
+    body = events(
+        client.post(
+            "/v1/simulations/stream",
+            json={
+                "modelVariant": "LITERATURE",
+                "stimulus": {"durationMs": 50, "dutyCyclePercent": 1.2, "amplitude": 153},
+            },
+        )
+    )
+    assert body[0]["motorUnits"] == {"S": 106, "FR": 7, "FF": 7}
+    assert body[-1]["type"] == "completed"
+    assert body[-1]["summary"]["peakForce"] > 0
+
+
+def test_literature_variant_maps_to_the_validated_options() -> None:
+    from eenm_engine.domain.model_options import ModelOptions, StimulationSite
+    from eenm_engine.interfaces.http.schemas import SimulationRequest
+
+    config = SimulationRequest.model_validate({"modelVariant": "LITERATURE"}).to_config()
+    assert config.model == ModelOptions.literature()
+    assert config.model.stimulation_site is StimulationSite.MOTOR_AXONS
+    explicit = SimulationRequest.model_validate(
+        {"modelVariant": "LITERATURE", "unitsPerType": {"S": 3, "FR": 1, "FF": 1}}
+    )
+    assert sum(explicit.to_config().units_per_type.values()) == 5
+
+
+def test_trains_are_passed_to_the_stimulus() -> None:
+    from eenm_engine.interfaces.http.schemas import SimulationRequest
+
+    config = SimulationRequest.model_validate({"stimulus": {"trainOnMs": 330, "trainPeriodMs": 1000}}).to_config()
+    assert (config.stimulus.train_on_ms, config.stimulus.train_period_ms) == (330, 1000)
+    assert client.post("/v1/simulations/stream", json={"stimulus": {"trainOnMs": 330}}).status_code == 422
