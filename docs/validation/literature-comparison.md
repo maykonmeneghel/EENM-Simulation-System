@@ -291,5 +291,5 @@ force–frequency points). Consequently there is **no** published benchmark here
 - Marsh E, Sale D, McComas AJ, Quinlan J (1981). Influence of joint position on ankle dorsiflexion in humans. *J Appl Physiol* 51:160–167. doi:10.1152/jappl.1981.51.1.160
 - Fuglevand AJ, Winter DA, Patla AE (1993). Models of recruitment and rate coding organization in motor-unit pools. *J Neurophysiol* 70:2470–2488. doi:10.1152/jn.1993.70.6.2470
 - Shields RK (2002). Muscular, skeletal, and neural adaptations following spinal cord injury. *J Orthop Sports Phys Ther* 32:65–74. doi:10.2519/jospt.2002.32.2.65
-- Chang YJ, Shields RK (2011). Within-train neuromuscular propagation varies with torque in paralyzed human muscle. *Neurorehabil Neural Repair*. doi:10.1177/1545968310390224
+- Chang YJ, Shields RK (2011). Doublet electrical stimulation enhances torque production in people with spinal cord injury. *Neurorehabil Neural Repair* 25:423–432. doi:10.1177/1545968310390224 (PMID 21304018; the title was wrong here before — checked against Crossref and PubMed on 2026-11-05)
 - Cope TC, Bodine SC, Fournier M, Edgerton VR (1986). Soleus motor units in chronic spinal transected cats. *J Neurophysiol* 55:1202–1220. doi:10.1152/jn.1986.55.6.1202

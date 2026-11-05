@@ -474,7 +474,11 @@ body { overflow: hidden; }
 .stage-status--bad { background: var(--error-bg); color: var(--danger); }
 .stage-notes { margin: 0.6rem 0 0; padding-left: 1.2rem; color: var(--text-2); font-size: var(--fs-sm); }
 .katex { font-size: 1.15em; color: var(--text); }
-.katex .text, .katex .textrm { font-family: var(--font); }
+/* Formulas: upright parts (numbers, units, words, = + ( )) in SF; italic variables (.mathnormal) and large
+   symbols (Σ, ∫, braces: KaTeX_Size*) keep KaTeX's math fonts, which SF lacks. */
+.katex { font-family: var(--font); }
+.katex .text, .katex .textrm, .katex .mord:not(.mathnormal), .katex .mrel, .katex .mbin, .katex .mopen, .katex .mclose,
+.katex .mpunct { font-family: var(--font); }
 
 /* ---------- Diagram ---------- */
 .diagram { margin: 0; }
@@ -594,3 +598,13 @@ body { overflow: hidden; }
 .zoom-bar-text { flex: 1; min-width: 0; }
 .chart .u-over.u-over--hand { cursor: grab; }
 .chart .u-over.u-over--grabbing { cursor: grabbing; }
+
+/* ---------- Equations: plain words and sources ---------- */
+.stage-plain { margin: 0.4rem 0 0.2rem; font-size: var(--fs-md); line-height: 1.5; }
+.stage-plain .stage-label { margin-bottom: 0.15rem; }
+.stage-sources { margin-top: 0.8rem; padding-top: 0.6rem; border-top: 1px solid var(--separator); }
+.stage-refs { margin: 0.25rem 0 0; padding-left: 1.2rem; font-size: var(--fs-sm); line-height: 1.45; }
+.stage-refs li + li { margin-top: 0.3rem; }
+.stage-refs a { color: var(--accent); text-decoration: none; white-space: nowrap; }
+.stage-refs a:hover { text-decoration: underline; }
+.stage-inherited { margin: 0.35rem 0 0; font-size: var(--fs-sm); color: var(--warning); }
