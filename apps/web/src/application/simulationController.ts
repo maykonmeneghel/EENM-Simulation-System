@@ -1,6 +1,7 @@
 import type { SimulationRequest } from '../domain/simulation';
 import type { ApiClient } from '../infrastructure/apiClient';
 import { ApiHttpError, StreamProtocolError } from '../infrastructure/apiClient';
+import { FatigueBuffer } from './fatigue';
 import { SeriesBuffer } from './seriesBuffer';
 import type { SessionAction, SessionError, SessionState } from './session';
 import { initialSessionState, sessionReducer } from './session';
@@ -13,6 +14,7 @@ type Listener = () => void;
  */
 export class SimulationController {
   readonly series = new SeriesBuffer();
+  readonly fatigue = new FatigueBuffer();
   private state: SessionState = initialSessionState;
   private listeners = new Set<Listener>();
   private abortController: AbortController | null = null;
@@ -42,6 +44,7 @@ export class SimulationController {
     const abort = new AbortController();
     this.abortController = abort;
     this.series.reset(estimateSamples(request));
+    this.fatigue.reset();
     this.dispatch({ type: 'start', request });
 
     try {
@@ -54,6 +57,7 @@ export class SimulationController {
             break;
           case 'chunk': {
             const samples = this.series.append(event);
+            this.fatigue.append(event);
             this.dispatch({ type: 'chunk', progress: event.progress, samples });
             break;
           }

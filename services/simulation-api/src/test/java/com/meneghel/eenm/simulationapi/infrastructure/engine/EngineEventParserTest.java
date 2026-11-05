@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.meneghel.eenm.simulationapi.application.port.EngineProtocolException;
+import com.meneghel.eenm.simulationapi.domain.event.SimulationChunk;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationFailed;
 import com.meneghel.eenm.simulationapi.support.SampleEvents;
 import org.junit.jupiter.api.Test;
@@ -22,6 +23,18 @@ class EngineEventParserTest {
         assertThat(parser.parse(SampleEvents.completedLine())).contains(SampleEvents.completed());
         assertThat(parser.parse(SampleEvents.errorLine()))
                 .contains(new SimulationFailed("solver diverged", "ENGINE_FAILURE"));
+    }
+
+    @Test
+    void parsesTheFatigueSnapshotOfAChunkWithEmptyTypesAsNull() {
+        assertThat(parser.parse(SampleEvents.chunkWithFatigueLine())).contains(SampleEvents.chunkWithFatigue());
+    }
+
+    @Test
+    void aChunkWithoutTheFatigueFieldHasNone() {
+        String olderEngine = SampleEvents.chunkLine(0.5).replace(",\"fatigue\":null", "");
+
+        assertThat(((SimulationChunk) parser.parse(olderEngine).orElseThrow()).fatigue()).isNull();
     }
 
     @Test

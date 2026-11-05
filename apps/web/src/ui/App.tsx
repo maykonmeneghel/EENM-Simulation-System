@@ -9,6 +9,7 @@ import type { ApiClient } from '../infrastructure/apiClient';
 import { DiagramView } from './DiagramView';
 import type { StageFocus } from './EquationsView';
 import { EquationsView } from './EquationsView';
+import { FatiguePanel } from './FatiguePanel';
 import { LiveCharts } from './LiveCharts';
 import { SegmentedControl } from './SegmentedControl';
 import { STIMULATOR_PATHS } from '../application/stimulatorForm';
@@ -151,6 +152,7 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
               <ErrorBanner error={state.error} />
               <SummaryCard state={state} />
               <LiveCharts state={state} buffer={controller.series} />
+              <FatiguePanel state={state} fatigue={controller.fatigue} series={controller.series} />
             </>
           ) : view === 'stimulator' ? (
             <StimulatorView values={values} onValuesChange={setValues} errors={stimulatorErrors} running={running} />

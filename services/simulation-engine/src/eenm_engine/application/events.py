@@ -20,6 +20,17 @@ class SimulationStarted:
 
 
 @dataclass(frozen=True)
+class FatigueSnapshot:
+    """Remaining force capacity (1 = rested, 0 = exhausted) at the end of a chunk (Potvin & Fuglevand 2017)."""
+
+    time_ms: float
+    muscle: float
+    """Capacity of the whole muscle: units weighted by their rested twitch force and the pool units they stand for."""
+    by_type: dict[MotorUnitType, float | None]
+    """Mean capacity of the simulated units of each type; ``None`` for a type with no units."""
+
+
+@dataclass(frozen=True)
 class SimulationChunk:
     progress: float
     time_ms: NDArray[np.float64]
@@ -27,6 +38,8 @@ class SimulationChunk:
     force_total: NDArray[np.float64]
     force_by_type: dict[MotorUnitType, NDArray[np.float64]]
     emg: NDArray[np.float64]
+    fatigue: FatigueSnapshot | None = None
+    """``None`` when the model has no fatigue (ORIGINAL)."""
 
 
 @dataclass(frozen=True)

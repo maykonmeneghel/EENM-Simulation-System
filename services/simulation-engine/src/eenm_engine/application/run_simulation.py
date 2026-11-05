@@ -10,6 +10,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from eenm_engine.application.events import (
+    FatigueSnapshot,
     SimulationChunk,
     SimulationCompleted,
     SimulationEvent,
@@ -68,7 +69,13 @@ class RunSimulation:
         totals: list[NDArray[np.float64]] = []
         for series in blocks:
             totals.append(series.total_force)
-            chunk = self._chunk(series, times, stimulus, config.output_stride)
+            summary = force.capacity_summary()
+            fatigue = (
+                FatigueSnapshot(time_ms=float(times[series.stop - 1]), muscle=summary[0], by_type=summary[1])
+                if summary is not None
+                else None
+            )
+            chunk = self._chunk(series, times, stimulus, config.output_stride, fatigue)
             if chunk.time_ms.size:
                 yield chunk
 
@@ -135,7 +142,11 @@ class RunSimulation:
 
     @staticmethod
     def _chunk(
-        series: ForceSeries, times: NDArray[np.float64], stimulus: NDArray[np.float64], stride: int
+        series: ForceSeries,
+        times: NDArray[np.float64],
+        stimulus: NDArray[np.float64],
+        stride: int,
+        fatigue: FatigueSnapshot | None = None,
     ) -> SimulationChunk:
         first = series.start + (-series.start) % stride
         indices = np.arange(first, series.stop, stride)
@@ -147,4 +158,5 @@ class RunSimulation:
             force_total=series.total_force[local],
             force_by_type={t: series.force_by_type[t][local] for t in UNIT_TYPES},
             emg=series.emg[local],
+            fatigue=fatigue,
         )

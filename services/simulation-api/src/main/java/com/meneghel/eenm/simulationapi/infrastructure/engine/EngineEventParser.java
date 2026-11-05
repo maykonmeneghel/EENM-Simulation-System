@@ -7,6 +7,7 @@ import static com.meneghel.eenm.simulationapi.infrastructure.engine.JsonFields.t
 import static com.meneghel.eenm.simulationapi.infrastructure.engine.JsonFields.unitCounts;
 
 import com.meneghel.eenm.simulationapi.application.port.EngineProtocolException;
+import com.meneghel.eenm.simulationapi.domain.event.FatigueSnapshot;
 import com.meneghel.eenm.simulationapi.domain.event.ForceSeries;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationChunk;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationCompleted;
@@ -76,7 +77,22 @@ final class EngineEventParser {
                 numbers(node, "timeMs"),
                 numbers(node, "stimulus"),
                 new ForceSeries(numbers(force, "total"), numbers(force, "S"), numbers(force, "FR"), numbers(force, "FF")),
-                numbers(node, "emg"));
+                numbers(node, "emg"),
+                fatigue(node.get("fatigue")));
+    }
+
+    /** Absent or {@code null} without fatigue (ORIGINAL, or an engine older than the field). */
+    private static FatigueSnapshot fatigue(JsonNode node) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        return new FatigueSnapshot(number(node, "timeMs"), number(node, "muscle"), optionalNumber(node, "S"),
+                optionalNumber(node, "FR"), optionalNumber(node, "FF"));
+    }
+
+    private static Double optionalNumber(JsonNode node, String field) {
+        JsonNode value = node.get(field);
+        return value == null || value.isNull() ? null : number(node, field);
     }
 
     private SimulationCompleted completed(JsonNode node) {

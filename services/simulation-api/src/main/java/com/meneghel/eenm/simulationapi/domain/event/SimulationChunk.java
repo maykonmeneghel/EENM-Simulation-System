@@ -8,7 +8,9 @@ public record SimulationChunk(
         List<Double> timeMs,
         List<Double> stimulus,
         ForceSeries force,
-        List<Double> emg) implements SimulationEvent {
+        List<Double> emg,
+        FatigueSnapshot fatigue) implements SimulationEvent {
+    // fatigue: null when the model has no fatigue (ORIGINAL)
 
     public static final String TYPE = "chunk";
 

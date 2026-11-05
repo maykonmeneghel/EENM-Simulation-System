@@ -112,6 +112,18 @@ export interface ChunkEvent {
   stimulus: number[];
   force: ForceSeries;
   emg: number[];
+  /** Remaining force capacity at the end of the chunk (LITERATURE); null without fatigue (ORIGINAL). */
+  fatigue?: FatigueSnapshot | null;
+}
+
+export interface FatigueSnapshot {
+  timeMs: number;
+  /** Whole muscle, units weighted by their rested twitch force (1 = rested). */
+  muscle: number;
+  /** Mean of the simulated units of the type; null when the type has none. */
+  S: number | null;
+  FR: number | null;
+  FF: number | null;
 }
 
 export interface SimulationSummary {

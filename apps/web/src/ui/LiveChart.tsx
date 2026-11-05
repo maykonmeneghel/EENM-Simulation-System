@@ -1,14 +1,17 @@
 import { useEffect, useRef } from 'react';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
-import type { SeriesBuffer, SeriesKey } from '../application/seriesBuffer';
+/** Any columnar store with a `timeMs` column (SeriesBuffer, FatigueBuffer). */
+export interface ChartSource {
+  view(): { timeMs: Float64Array } & Record<string, Float64Array>;
+}
 import type { ChartTheme } from './theme';
 
 const LONG_RUN_MS = 2_000;
 const formatTick = (v: number) => v.toLocaleString('pt-BR', { maximumFractionDigits: 3 });
 
 export interface LiveSeriesSpec {
-  key: Exclude<SeriesKey, 'timeMs'>;
+  key: string;
   label: string;
   color: keyof ChartTheme['series'];
   width?: number;
@@ -18,7 +21,7 @@ export interface LiveChartProps {
   title: string;
   yLabel: string;
   series: readonly LiveSeriesSpec[];
-  buffer: SeriesBuffer;
+  buffer: ChartSource;
   /** Number of samples currently in the buffer; a change triggers a redraw. */
   samples: number;
   /** Changes when a new run starts. */
@@ -29,6 +32,8 @@ export interface LiveChartProps {
   theme: ChartTheme;
   /** Draw as steps (useful for the rectangular stimulus pulses). */
   stepped?: boolean;
+  /** Fixed y range (e.g. 0–1 for a fraction); default: fitted to the data. */
+  yRange?: [number, number];
 }
 
 /**
@@ -46,12 +51,14 @@ export function LiveChart({
   height = 220,
   stepped = false,
   theme,
+  yRange,
 }: LiveChartProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const plotRef = useRef<uPlot | null>(null);
   const xMaxRef = useRef<number | null>(xMaxMs);
   const frameRef = useRef<number | null>(null);
   const specRef = useRef(series);
+  const yRangeRef = useRef(yRange);
 
   // Create / destroy.
   useEffect(() => {
@@ -69,6 +76,7 @@ export function LiveChart({
           time: false,
           range: (_u, _min, max) => [0, xMaxRef.current ?? (Number.isFinite(max) ? max : 1)],
         },
+        ...(yRangeRef.current ? { y: { range: () => yRangeRef.current! } } : {}),
       },
       axes: [
         {
@@ -102,7 +110,7 @@ export function LiveChart({
     plotRef.current = plot;
     // (Re)mounted: draw whatever the buffer already holds.
     const v = buffer.view();
-    if (v.timeMs.length > 0) plot.setData([v.timeMs, ...specs.map((s) => v[s.key])]);
+    if (v.timeMs.length > 0) plot.setData([v.timeMs, ...specs.map((s) => v[s.key]!)]);
 
     const ro =
       typeof ResizeObserver !== 'undefined'
@@ -129,7 +137,7 @@ export function LiveChart({
       const plot = plotRef.current;
       if (!plot) return;
       const v = buffer.view();
-      plot.setData([v.timeMs, ...specRef.current.map((s) => v[s.key])]);
+      plot.setData([v.timeMs, ...specRef.current.map((s) => v[s.key]!)]);
     });
   }, [buffer, samples, runId, xMaxMs]);
 
