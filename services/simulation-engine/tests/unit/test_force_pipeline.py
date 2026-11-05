@@ -10,9 +10,9 @@ from eenm_engine.domain.force_pipeline import (
     muap_train,
     muap_waveform,
     spike_train,
-    twitch_force,
 )
 from eenm_engine.domain.motor_unit_pool import MotorUnitGroup, MotorUnitType
+from eenm_engine.domain.twitch import twitch_force
 
 
 def group(n: int = 1, delay: int = 0, mt: float = 1.0, mttp: float = 10.0) -> MotorUnitGroup:

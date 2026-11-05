@@ -66,3 +66,28 @@ def test_muap_delay_rounds_halves_away_from_zero_like_matlab() -> None:
 def test_more_units_than_the_muscle_has_is_rejected() -> None:
     with pytest.raises(ValueError):
         build_group(MotorUnitType.FR, Muscle.SOLEUS, 51, 80, 1e5)
+
+
+def test_first_of_pool_selection_takes_the_first_units() -> None:
+    from eenm_engine.domain.model_options import UnitSelection
+    from eenm_engine.domain.motor_unit_pool import selected_units
+
+    assert selected_units(800, 5, UnitSelection.FIRST_OF_POOL).tolist() == [0, 1, 2, 3, 4]
+
+
+def test_spread_selection_takes_the_centre_of_equal_slices() -> None:
+    from eenm_engine.domain.model_options import UnitSelection
+    from eenm_engine.domain.motor_unit_pool import selected_units
+
+    assert selected_units(800, 5, UnitSelection.SPREAD_ACROSS_POOL).tolist() == [80, 240, 400, 560, 720]
+    assert selected_units(50, 2, UnitSelection.SPREAD_ACROSS_POOL).tolist() == [12, 37]
+    assert selected_units(50, 1, UnitSelection.SPREAD_ACROSS_POOL).tolist() == [25]
+
+
+def test_spread_selection_covers_fast_and_slow_units_of_a_type() -> None:
+    from eenm_engine.domain.model_options import UnitSelection
+
+    first = build_group(MotorUnitType.FF, Muscle.SOLEUS, 2, 80, 1e5)
+    spread = build_group(MotorUnitType.FF, Muscle.SOLEUS, 2, 80, 1e5, selection=UnitSelection.SPREAD_ACROSS_POOL)
+    assert first.twitch_time_to_peak_ms.min() > 81  # the two slowest FF units (82.3, 81.8 ms)
+    assert spread.twitch_time_to_peak_ms.min() < 66  # reaches into the fast half of the range

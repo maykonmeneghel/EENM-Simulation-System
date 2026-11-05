@@ -18,6 +18,8 @@ from enum import Enum
 import numpy as np
 from numpy.typing import NDArray
 
+from eenm_engine.domain.model_options import UnitSelection
+
 GRID_STEP = 1e-4
 """Step of MATLAB's ``Min:1e-04:Max`` ranges, which fixes the last value actually reached."""
 
@@ -167,6 +169,13 @@ def interpolated_values(value_range: ValueRange, count: int) -> NDArray[np.float
     return np.linspace(a, last, count)
 
 
+def selected_units(pool_size: int, count: int, selection: UnitSelection) -> NDArray[np.int64]:
+    """Indices, within the pool, of the units to simulate (increasing)."""
+    if selection is UnitSelection.FIRST_OF_POOL:
+        return np.arange(count, dtype=np.int64)
+    return np.floor((np.arange(count) + 0.5) * pool_size / count).astype(np.int64) if count else np.empty(0, np.int64)
+
+
 def _area(radius_cm: NDArray[np.float64], length_cm: NDArray[np.float64], geometry: Geometry) -> NDArray[np.float64]:
     if geometry is Geometry.SPHERICAL:
         return 4.0 * np.pi * radius_cm**2
@@ -181,6 +190,7 @@ def build_group(
     samples_per_duration: float,
     soma_geometry: Geometry = Geometry.CYLINDRICAL,
     dendrite_geometry: Geometry = Geometry.CYLINDRICAL,
+    selection: UnitSelection = UnitSelection.FIRST_OF_POOL,
 ) -> MotorUnitGroup:
     """Build one type's units as ``createUMs`` + ``demangeMNs`` do.
 
@@ -191,9 +201,10 @@ def build_group(
     if not 0 <= simulated_units <= pool_size:
         raise ValueError(f"{unit_type.value}: simulated units must be between 0 and {pool_size}")
     r = TYPE_RANGES[unit_type]
+    chosen = selected_units(pool_size, simulated_units, selection)
 
     def spread(value_range: ValueRange) -> NDArray[np.float64]:
-        return interpolated_values(value_range, pool_size)[:simulated_units]
+        return interpolated_values(value_range, pool_size)[chosen]
 
     soma_radius_cm = spread(r.soma_diameter_um) / 2 * 1e-4
     dendrite_radius_cm = spread(r.dendrite_diameter_um) / 2 * 1e-4

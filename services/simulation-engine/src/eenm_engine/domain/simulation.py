@@ -2,21 +2,20 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import numpy as np
 from numpy.typing import NDArray
 
 from eenm_engine.domain.force_pipeline import (
     MUAP_TIME,
-    TwitchState,
     junction_potential,
     mean_over_units,
     median_filter_3x3,
     muap_train,
     spike_train,
-    twitch_force_segment,
 )
+from eenm_engine.domain.model_options import ModelOptions
 from eenm_engine.domain.motoneuron import REFERENCE_TEMPERATURE_C, InjectionSite, MotoneuronPool
 from eenm_engine.domain.motor_unit_pool import (
     MUSCLE_PRESETS,
@@ -27,6 +26,7 @@ from eenm_engine.domain.motor_unit_pool import (
     build_group,
 )
 from eenm_engine.domain.stimulus import StimulusProtocol
+from eenm_engine.domain.twitch import TwitchFilter
 
 UNIT_TYPES = (MotorUnitType.S, MotorUnitType.FR, MotorUnitType.FF)
 """Processing order of ``Main.m`` (also the order of the MUAP-shape random draws)."""
@@ -48,6 +48,7 @@ class SimulationConfig:
     dendrite_geometry: Geometry = Geometry.CYLINDRICAL
     seed: int = 0
     output_step_ms: float = 0.1
+    model: ModelOptions = field(default_factory=ModelOptions)
 
     def __post_init__(self) -> None:
         if sum(self.units_per_type.get(t, 0) for t in UNIT_TYPES) < 1:
@@ -85,9 +86,13 @@ class MotorUnitSetup:
                 samples_per_duration,
                 config.soma_geometry,
                 config.dendrite_geometry,
+                config.model.unit_selection,
             )
             for t in UNIT_TYPES
         }
+        scale = config.model.twitch_time_scale
+        if scale != 1.0:
+            groups = {t: replace(g, twitch_time_to_peak_ms=g.twitch_time_to_peak_ms * scale) for t, g in groups.items()}
         rng = np.random.default_rng(config.seed)
         shapes = {t: rng.integers(0, 2, size=groups[t].size).astype(np.int64) for t in UNIT_TYPES}
         motoneurons = MotoneuronPool(
@@ -144,7 +149,9 @@ class IncrementalForce:
         self._voltage = np.empty((total_samples, setup.motoneurons.n_units))
         self._known = 0
         self._released = 0
-        self._twitch = {t: TwitchState.initial(setup.groups[t]) for t in UNIT_TYPES}
+        self._twitch = {
+            t: TwitchFilter(setup.groups[t], config.stimulus.step_ms, config.model.twitch_shape) for t in UNIT_TYPES
+        }
         longest_delay = max((int(g.muap_delay_samples.max()) for g in setup.groups.values() if g.size), default=0)
         self._history = longest_delay + MUAP_TIME.size + self._WINDOW_SLACK
 
@@ -166,7 +173,6 @@ class IncrementalForce:
         window_start = max(0, start - self._history)
         window = self._voltage[window_start : self._known]
         local = slice(start - window_start, stop - window_start)
-        step = self._config.stimulus.step_ms
         force, emg = {}, np.zeros(stop - start)
         for t, columns in self._setup.column_slices().items():
             group = self._setup.groups[t]
@@ -177,9 +183,7 @@ class IncrementalForce:
             junction = junction_potential(filtered, self._config.axon_length_percent)
             muap = muap_train(junction, group, self._setup.muap_shapes[t])
             spikes = spike_train(muap.sum(axis=1))[local]
-            unit_force, self._twitch[t] = twitch_force_segment(
-                spikes, group, step, self._twitch[t], starts_at_zero=start == 0
-            )
+            unit_force = self._twitch[t].segment(spikes)
             force[t] = mean_over_units(unit_force)
             emg += mean_over_units(muap[local])
         return ForceSeries(start=start, stop=stop, force_by_type=force, emg=emg)

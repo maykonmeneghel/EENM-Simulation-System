@@ -21,9 +21,9 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 from scipy.ndimage import median_filter
-from scipy.signal import lfilter
 
 from eenm_engine.domain.motor_unit_pool import MotorUnitGroup
+from eenm_engine.domain.twitch import TwitchShape, twitch_force
 
 MEMBRANE_CONDUCTANCE = 0.070
 """Leak conductance used for the axonal length constant (doi:10.1016/j.bpj.2012.01.055 in Main.m)."""
@@ -134,59 +134,17 @@ def spike_train(summed_muap: NDArray[np.float64]) -> NDArray[np.float64]:
     return spikes
 
 
-def twitch_force(spikes: NDArray[np.float64], group: MotorUnitGroup, step_ms: float) -> NDArray[np.float64]:
-    """Second-order twitch filter of ``Main.m`` (Fuglevand-style), one column per unit.
-
-    ``f(n) = 2e^{-Δ/T} f(n-1) - e^{-2Δ/T} f(n-2) + (P Δ² / T) e^{1-Δ/T} s(n-1)`` for ``n ≥ 3`` (1-based),
-    with ``f(1) = f(2) = 0``; ``P`` = twitch peak (MT), ``T`` = time to peak (MTTP).
-    """
-    force, _ = twitch_force_segment(spikes, group, step_ms, TwitchState.initial(group), starts_at_zero=True)
-    return force
-
-
-@dataclass(frozen=True)
-class TwitchState:
-    """Filter memory of every unit's twitch filter, so the force can be computed segment by segment."""
-
-    delays: NDArray[np.float64]  # (units, 2) — scipy ``lfilter`` ``zi``
-
-    @classmethod
-    def initial(cls, group: MotorUnitGroup) -> TwitchState:
-        return cls(np.zeros((group.size, 2)))
-
-
-def twitch_force_segment(
-    spikes: NDArray[np.float64],
-    group: MotorUnitGroup,
-    step_ms: float,
-    state: TwitchState,
-    starts_at_zero: bool,
-) -> tuple[NDArray[np.float64], TwitchState]:
-    """``twitch_force`` on consecutive segments: feeding the pieces with the returned state gives the
-    same result as filtering the whole spike train at once."""
-    drive = spikes.copy()
-    if starts_at_zero and drive.size:
-        drive[0] = 0.0  # f(2) = 0 in the original regardless of s(1)
-    out = np.zeros((spikes.size, group.size))
-    delays = np.empty_like(state.delays)
-    for k in range(group.size):
-        period = float(group.twitch_time_to_peak_ms[k])
-        decay = np.exp(-step_ms / period)
-        gain = float(group.twitch_peak[k]) * step_ms**2 / period * np.exp(1 - step_ms / period)
-        out[:, k], delays[k] = lfilter([0.0, gain], [1.0, -2.0 * decay, decay**2], drive, zi=state.delays[k])
-    return out, TwitchState(delays)
-
-
 def type_signals(
     soma_voltage: NDArray[np.float64],
     group: MotorUnitGroup,
     shapes: NDArray[np.int64],
     axon_length_percent: float,
     step_ms: float,
+    twitch_shape: TwitchShape | None = None,
 ) -> TypeSignals:
     """Run stages 1–5 for one unit type. ``soma_voltage`` is ``(samples, units)``."""
     filtered = median_filter_3x3(soma_voltage)
     junction = junction_potential(filtered, axon_length_percent)
     muap = muap_train(junction, group, shapes)
     spikes = spike_train(muap.sum(axis=1))
-    return TypeSignals(muap=muap, force=twitch_force(spikes, group, step_ms))
+    return TypeSignals(muap=muap, force=twitch_force(spikes, group, step_ms, twitch_shape))
