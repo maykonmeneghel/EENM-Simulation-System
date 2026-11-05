@@ -1,10 +1,13 @@
 package com.meneghel.eenm.simulationapi.application.simulation;
 
 import com.meneghel.eenm.simulationapi.domain.muscle.MusclePreset;
+import com.meneghel.eenm.simulationapi.domain.simulation.Modulation;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModulationShape;
+import com.meneghel.eenm.simulationapi.domain.simulation.ModulationTarget;
 import com.meneghel.eenm.simulationapi.domain.simulation.MotorUnitCounts;
 import com.meneghel.eenm.simulationapi.domain.simulation.SimulationRequest;
 import com.meneghel.eenm.simulationapi.domain.simulation.Stimulus;
+import com.meneghel.eenm.simulationapi.domain.simulation.Waveform;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,11 +21,13 @@ public final class SimulationRequestRules {
     private static final double MULTIPLE_TOLERANCE = 1e-6;
     private static final String TRAIN_ON = "stimulus.trainOnMs";
     private static final String TRAIN_PERIOD = "stimulus.trainPeriodMs";
+    private static final String PULSE_WIDTH = "stimulus.pulseWidthUs";
 
     public List<FieldViolation> check(SimulationRequest request) {
         List<FieldViolation> violations = new ArrayList<>();
         checkPeakTime(request.stimulus(), violations);
         checkTrains(request.stimulus(), violations);
+        checkStimulator(request.stimulus(), violations);
         checkOutputStep(request, violations);
         request.requestedUnits().ifPresent(units -> checkAtLeastOneUnit(units, violations));
         return List.copyOf(violations);
@@ -69,6 +74,36 @@ public final class SimulationRequestRules {
         } else if (periodMs > stimulus.durationMs()) {
             violations.add(new FieldViolation(TRAIN_PERIOD,
                     "must be less than or equal to stimulus.durationMs (" + format(stimulus.durationMs()) + ")"));
+        }
+    }
+
+    private void checkStimulator(Stimulus stimulus, List<FieldViolation> violations) {
+        Double widthUs = stimulus.pulseWidthUs();
+        if (widthUs == null) {
+            if (stimulus.waveform() == Waveform.BIPHASIC_SYMMETRIC) {
+                violations.add(new FieldViolation(PULSE_WIDTH, "is required when stimulus.waveform is BIPHASIC_SYMMETRIC"));
+            }
+        } else {
+            int phases = stimulus.waveform() == Waveform.BIPHASIC_SYMMETRIC ? 2 : 1;
+            double periodUs = 1e6 / stimulus.frequencyHz();
+            if (stimulus.waveform() == Waveform.BIPHASIC) {
+                violations.add(new FieldViolation("stimulus.waveform",
+                        "must be MONOPHASIC or BIPHASIC_SYMMETRIC when stimulus.pulseWidthUs is set"));
+            } else if (phases * widthUs >= periodUs) {
+                violations.add(new FieldViolation(PULSE_WIDTH, (phases == 2 ? "times 2 (both phases) " : "")
+                        + "must be less than the period (" + format(periodUs) + " µs)"));
+            }
+            Modulation modulation = stimulus.modulation();
+            if (modulation.target() != ModulationTarget.AMPLITUDE || modulation.shape() != ModulationShape.STEP) {
+                violations.add(new FieldViolation("stimulus.modulation",
+                        "must be AMPLITUDE / STEP when stimulus.pulseWidthUs is set (use rampUpMs / rampDownMs)"));
+            }
+        }
+        double rampsMs = stimulus.rampUpMs() + stimulus.rampDownMs();
+        if (rampsMs > 0 && rampsMs > stimulus.onTimeMs()) {
+            violations.add(new FieldViolation("stimulus.rampUpMs",
+                    "plus stimulus.rampDownMs must be less than or equal to the on time (" + format(stimulus.onTimeMs())
+                            + " ms)"));
         }
     }
 

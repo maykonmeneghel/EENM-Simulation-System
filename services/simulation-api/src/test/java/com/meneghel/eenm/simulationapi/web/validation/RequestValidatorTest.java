@@ -39,7 +39,8 @@ class RequestValidatorTest {
         "300000, 0.1, 200, 99, 500"
     })
     void stimulusBoundsAreInclusive(double duration, double step, double frequency, double dutyCycle, double amplitude) {
-        StimulusDto stimulus = new StimulusDto(duration, step, frequency, dutyCycle, amplitude, null, null, null, null);
+        StimulusDto stimulus = new StimulusDto(duration, step, frequency, dutyCycle, amplitude, null, null, null, null,
+                null, null, null);
 
         assertThatCode(() -> validator.validate(request(stimulus, null, null, null))).doesNotThrowAnyException();
     }
@@ -55,7 +56,8 @@ class RequestValidatorTest {
     })
     void stimulusOutOfRangeIsReportedWithItsJsonPath(double duration, double step, double frequency, double dutyCycle,
             double amplitude, String field, String message) {
-        StimulusDto stimulus = new StimulusDto(duration, step, frequency, dutyCycle, amplitude, null, null, null, null);
+        StimulusDto stimulus = new StimulusDto(duration, step, frequency, dutyCycle, amplitude, null, null, null, null,
+                null, null, null);
 
         assertViolations(request(stimulus, null, null, null), new FieldViolation(field, message));
     }
@@ -87,7 +89,7 @@ class RequestValidatorTest {
     @Test
     void nonFiniteNumbersAreRejected() {
         StimulusDto stimulus = new StimulusDto(Double.NaN, null, null, null, null, null, new ModulationDto(null, null, null),
-                null, null);
+                null, null, null, null, null);
 
         assertViolations(request(stimulus, null, null, null),
                 new FieldViolation("stimulus.durationMs", "must be between 10 and 300000"));

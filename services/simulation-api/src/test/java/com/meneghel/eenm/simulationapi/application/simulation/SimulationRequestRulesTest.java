@@ -1,6 +1,7 @@
 package com.meneghel.eenm.simulationapi.application.simulation;
 
 import static com.meneghel.eenm.simulationapi.support.Drafts.draft;
+import static com.meneghel.eenm.simulationapi.support.Drafts.stimulator;
 import static com.meneghel.eenm.simulationapi.support.Drafts.stimulus;
 import static com.meneghel.eenm.simulationapi.support.Drafts.stimulusOnly;
 import static com.meneghel.eenm.simulationapi.support.Drafts.trains;
@@ -11,6 +12,7 @@ import com.meneghel.eenm.simulationapi.domain.simulation.ModelVariant;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModulationShape;
 import com.meneghel.eenm.simulationapi.domain.simulation.MotorUnitCounts;
 import com.meneghel.eenm.simulationapi.domain.simulation.SimulationRequest;
+import com.meneghel.eenm.simulationapi.domain.simulation.Waveform;
 import com.meneghel.eenm.simulationapi.support.SampleEvents;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -21,6 +23,40 @@ class SimulationRequestRulesTest {
 
     private final SimulationDefaults defaults = new SimulationDefaults();
     private final SimulationRequestRules rules = new SimulationRequestRules();
+
+    @Test
+    void stimulatorSettingsWithinThePeriodAndOnTimeAreValid() {
+        assertThat(rules.check(device(40.0, 300.0, Waveform.BIPHASIC_SYMMETRIC, 5000.0, 10000.0, 1000.0, 1000.0)))
+                .isEmpty();
+        assertThat(rules.check(device(20.0, 450.0, Waveform.MONOPHASIC, null, null, 9000.0, 1000.0)))
+                .isEmpty();
+    }
+
+    @Test
+    void pulseMustBeShorterThanThePeriodCountingBothPhases() {
+        assertThat(rules.check(device(40.0, 13_000.0, Waveform.BIPHASIC_SYMMETRIC, null, null, null, null)))
+                .containsExactly(new FieldViolation("stimulus.pulseWidthUs",
+                        "times 2 (both phases) must be less than the period (25000 µs)"));
+        assertThat(rules.check(device(40.0, 25_000.0, Waveform.MONOPHASIC, null, null, null, null)))
+                .containsExactly(new FieldViolation("stimulus.pulseWidthUs", "must be less than the period (25000 µs)"));
+    }
+
+    @Test
+    void symmetricBiphasicNeedsAPulseWidthAndTheRawSquareWaveIsNotAStimulatorPulse() {
+        assertThat(rules.check(device(40.0, null, Waveform.BIPHASIC_SYMMETRIC, null, null, null, null)))
+                .containsExactly(new FieldViolation("stimulus.pulseWidthUs",
+                        "is required when stimulus.waveform is BIPHASIC_SYMMETRIC"));
+        assertThat(rules.check(device(40.0, 300.0, Waveform.BIPHASIC, null, null, null, null)))
+                .containsExactly(new FieldViolation("stimulus.waveform",
+                        "must be MONOPHASIC or BIPHASIC_SYMMETRIC when stimulus.pulseWidthUs is set"));
+    }
+
+    @Test
+    void rampsMustFitInTheOnTime() {
+        assertThat(rules.check(device(40.0, 300.0, Waveform.MONOPHASIC, 1000.0, 2000.0, 600.0, 500.0)))
+                .containsExactly(new FieldViolation("stimulus.rampUpMs",
+                        "plus stimulus.rampDownMs must be less than or equal to the on time (1000 ms)"));
+    }
 
     @Test
     void defaultRequestIsValid() {
@@ -120,5 +156,11 @@ class SimulationRequestRulesTest {
 
     private SimulationRequest withSteps(double stepMs, double outputStepMs) {
         return defaults.resolve(draft(stimulus(null, stepMs, null), null, null, outputStepMs));
+    }
+
+    private SimulationRequest device(Double frequencyHz, Double pulseWidthUs, Waveform waveform, Double trainOnMs,
+            Double trainPeriodMs, Double rampUpMs, Double rampDownMs) {
+        return defaults.resolve(stimulusOnly(
+                stimulator(frequencyHz, pulseWidthUs, waveform, trainOnMs, trainPeriodMs, rampUpMs, rampDownMs)));
     }
 }

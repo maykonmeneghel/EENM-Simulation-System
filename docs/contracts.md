@@ -26,7 +26,10 @@ Same body on the public API and on the engine. Defaults reproduce `Mathematical 
     "waveform": "MONOPHASIC",
     "modulation": { "target": "AMPLITUDE", "shape": "STEP", "peakTimeMs": null },
     "trainOnMs": null,
-    "trainPeriodMs": null
+    "trainPeriodMs": null,
+    "pulseWidthUs": null,
+    "rampUpMs": 0,
+    "rampDownMs": 0
   },
   "modelVariant": "ORIGINAL",
   "calibrationTarget": "WHOLE_MUSCLE",
@@ -49,11 +52,13 @@ Same body on the public API and on the engine. Defaults reproduce `Mathematical 
 | `stimulus.frequencyHz` | number | 40 | 1 – 200 | `Fb` |
 | `stimulus.dutyCyclePercent` | number | 20 | 1 – 99 | `Wb` |
 | `stimulus.amplitude` | number | 100 | 0 – 500 (µA/cm²) | `Amp` |
-| `stimulus.waveform` | enum | `MONOPHASIC` | `MONOPHASIC`, `BIPHASIC` | `Type` |
+| `stimulus.waveform` | enum | `MONOPHASIC` | `MONOPHASIC`, `BIPHASIC`, `BIPHASIC_SYMMETRIC` (needs `pulseWidthUs`) | `Type` |
 | `stimulus.modulation.target` | enum | `AMPLITUDE` | `AMPLITUDE`, `FREQUENCY`, `PULSE_WIDTH` | `ModulationWhere` |
 | `stimulus.modulation.shape` | enum | `STEP` | `STEP`, `RAMP`, `TRIANGLE`, `SINUSOIDAL` | `ModulationType` |
 | `stimulus.modulation.peakTimeMs` | number \| null | null | required (0 < x < durationMs) when shape = `TRIANGLE` | `tmed` |
 | `stimulus.trainOnMs`, `stimulus.trainPeriodMs` | number \| null | null | both or neither; 0 < on ≤ period ≤ durationMs | — (new: intermittent trains, e.g. 330 / 1000) |
+| `stimulus.pulseWidthUs` | number \| null | null | 20 – 1000 µs; phases × width < period; modulation AMPLITUDE / STEP; waveform MONOPHASIC or BIPHASIC_SYMMETRIC | — (new: stimulator mode; replaces `dutyCyclePercent`) |
+| `stimulus.rampUpMs`, `stimulus.rampDownMs` | number | 0 | 0 – 60000 each; up + down ≤ on time (`trainOnMs`, or `durationMs`) | — (new: amplitude ramps of every train) |
 | `modelVariant` | enum | `ORIGINAL` | `ORIGINAL`, `LITERATURE` | — (new, see below) |
 | `calibrationTarget` | enum | `WHOLE_MUSCLE` | `WHOLE_MUSCLE`, `SINGLE_UNIT` | — (new, see below; LITERATURE only) |
 | `muscle` | enum | `SOLEUS` | `SOLEUS`, `GASTROCNEMIUS_MEDIAL`, `GASTROCNEMIUS_LATERAL`, `TIBIALIS_ANTERIOR` | `createUMs` `muscleWork` |

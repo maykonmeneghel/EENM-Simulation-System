@@ -33,7 +33,10 @@ final class EngineRequestMapper {
                 stimulus.waveform().name(),
                 toBody(stimulus.modulation()),
                 stimulus.trainOnMs(),
-                stimulus.trainPeriodMs());
+                stimulus.trainPeriodMs(),
+                stimulus.pulseWidthUs(),
+                stimulus.rampUpMs(),
+                stimulus.rampDownMs());
     }
 
     private EngineSimulationRequestBody.Modulation toBody(Modulation modulation) {

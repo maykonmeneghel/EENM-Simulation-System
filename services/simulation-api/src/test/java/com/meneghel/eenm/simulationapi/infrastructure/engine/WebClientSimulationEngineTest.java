@@ -10,6 +10,7 @@ import com.meneghel.eenm.simulationapi.application.simulation.SimulationDefaults
 import com.meneghel.eenm.simulationapi.domain.event.SimulationStarted;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModelVariant;
 import com.meneghel.eenm.simulationapi.domain.simulation.SimulationRequest;
+import com.meneghel.eenm.simulationapi.domain.simulation.Waveform;
 import com.meneghel.eenm.simulationapi.support.Drafts;
 import com.meneghel.eenm.simulationapi.support.SampleEvents;
 import java.io.IOException;
@@ -73,6 +74,8 @@ class WebClientSimulationEngineTest {
         assertThat(body.path("calibrationTarget").stringValue()).isEqualTo("WHOLE_MUSCLE");
         assertThat(body.path("stimulus").path("trainOnMs").isNull()).isTrue();
         assertThat(body.path("stimulus").path("trainPeriodMs").isNull()).isTrue();
+        assertThat(body.path("stimulus").has("pulseWidthUs")).as("duty cycle mode leaves it out").isFalse();
+        assertThat(body.path("stimulus").path("rampUpMs").doubleValue()).isZero();
         assertThat(body.path("muscle").stringValue()).isEqualTo("SOLEUS");
         assertThat(body.path("unitsPerType").path("S").intValue()).isEqualTo(5);
         assertThat(body.path("unitsPerType").path("FR").intValue()).isEqualTo(2);
@@ -94,6 +97,21 @@ class WebClientSimulationEngineTest {
         assertThat(body.path("stimulus").path("durationMs").doubleValue()).isEqualTo(60000);
         assertThat(body.path("stimulus").path("trainOnMs").doubleValue()).isEqualTo(330);
         assertThat(body.path("stimulus").path("trainPeriodMs").doubleValue()).isEqualTo(1000);
+    }
+
+    @Test
+    void relaysTheStimulatorFields() throws InterruptedException {
+        server.enqueue(ndjson(lines(SampleEvents.startedLine(), SampleEvents.completedLine())));
+        SimulationRequest device = new SimulationDefaults().resolve(Drafts.stimulusOnly(Drafts.stimulator(
+                35.0, 300.0, Waveform.BIPHASIC_SYMMETRIC, 5000.0, 10000.0, 1000.0, 500.0)));
+
+        StepVerifier.create(engine.stream(device)).expectNextCount(2).expectComplete().verify(TIMEOUT);
+
+        JsonNode stimulus = jsonMapper.readTree(server.takeRequest(1, TimeUnit.SECONDS).getBody().utf8()).path("stimulus");
+        assertThat(stimulus.path("pulseWidthUs").doubleValue()).isEqualTo(300);
+        assertThat(stimulus.path("waveform").stringValue()).isEqualTo("BIPHASIC_SYMMETRIC");
+        assertThat(stimulus.path("rampUpMs").doubleValue()).isEqualTo(1000);
+        assertThat(stimulus.path("rampDownMs").doubleValue()).isEqualTo(500);
     }
 
     @Test

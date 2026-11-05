@@ -74,7 +74,10 @@ public final class SimulationDefaults {
                 orDefault(source.waveform(), WAVEFORM),
                 resolve(source.modulation()),
                 source.trainOnMs(),
-                source.trainPeriodMs());
+                source.trainPeriodMs(),
+                source.pulseWidthUs(),
+                orDefault(source.rampUpMs(), 0.0),
+                orDefault(source.rampDownMs(), 0.0));
     }
 
     private Modulation resolve(ModulationDraft draft) {
