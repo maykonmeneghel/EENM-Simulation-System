@@ -139,6 +139,12 @@ describe('model equations — per-type unit parameters', () => {
     expect(orig.S.delayMs!.from).toBeCloseTo((0.8 / 44) * 2000, 10);
   });
 
+  it('stages: the motoneuron pool site uses the motoneuron compartments (2a) instead of the axon layer (2b)', () => {
+    expect(stagesFor('LITERATURE')).toContain('2b');
+    expect(stagesFor('LITERATURE', 'MOTONEURON_POOL')).toEqual(['1', '2a', '3', '4', '5b', '6', '7', '8b']);
+    expect(stagesFor('ORIGINAL', 'MOTONEURON_POOL')).toEqual(stagesFor('ORIGINAL'));
+  });
+
   it('calibration targets: twitch constants of model_options.TWITCH_CALIBRATION, no effect on ORIGINAL', () => {
     expect(twitchShape('LITERATURE')).toEqual({ m: 3.9461, timeScale: 1.2772 });
     expect(twitchShape('LITERATURE', 'SINGLE_UNIT')).toEqual({ m: 2.0862, timeScale: 0.7426 });

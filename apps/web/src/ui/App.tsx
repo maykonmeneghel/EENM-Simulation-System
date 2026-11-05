@@ -156,7 +156,7 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
               </div>
               <ErrorBanner error={state.error} />
               <SummaryCard state={state} />
-              <ZoomBar zoom={zoom} />
+              <ZoomBar zoom={zoom} durationMs={state.run?.durationMs ?? state.request?.stimulus.durationMs ?? null} />
               <LiveCharts state={state} buffer={controller.series} zoom={zoom} />
               <FatiguePanel state={state} fatigue={controller.fatigue} series={controller.series} zoom={zoom} />
             </>

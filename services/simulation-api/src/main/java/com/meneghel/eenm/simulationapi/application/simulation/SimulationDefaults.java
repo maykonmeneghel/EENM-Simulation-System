@@ -1,6 +1,7 @@
 package com.meneghel.eenm.simulationapi.application.simulation;
 
 import com.meneghel.eenm.simulationapi.domain.simulation.CalibrationTarget;
+import com.meneghel.eenm.simulationapi.domain.simulation.StimulationSite;
 import com.meneghel.eenm.simulationapi.domain.simulation.CompartmentGeometry;
 import com.meneghel.eenm.simulationapi.domain.simulation.InjectionSite;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModelVariant;
@@ -33,6 +34,7 @@ public final class SimulationDefaults {
     public static final ModulationShape MODULATION_SHAPE = ModulationShape.STEP;
     public static final ModelVariant MODEL_VARIANT = ModelVariant.ORIGINAL;
     public static final CalibrationTarget CALIBRATION_TARGET = CalibrationTarget.WHOLE_MUSCLE;
+    public static final StimulationSite STIMULATION_SITE = StimulationSite.SKIN_SURFACE;
     public static final Muscle MUSCLE = Muscle.SOLEUS;
     public static final int SLOW_UNITS = 5;
     public static final int FAST_RESISTANT_UNITS = 2;
@@ -52,6 +54,7 @@ public final class SimulationDefaults {
                 resolve(source.stimulus()),
                 variant,
                 orDefault(source.calibrationTarget(), CALIBRATION_TARGET),
+                orDefault(source.stimulationSite(), STIMULATION_SITE),
                 orDefault(source.muscle(), MUSCLE),
                 resolveUnits(source.unitsPerType(), variant),
                 orDefault(source.axonLengthPercent(), AXON_LENGTH_PERCENT),

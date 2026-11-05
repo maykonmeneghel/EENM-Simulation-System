@@ -280,7 +280,9 @@ export function SimulationForm({
   const pw = Number(values['stimulus.pulseWidthUs'].replace(',', '.'));
   const recruitment = axonRecruitment(Number(values['stimulus.amplitude'].replace(',', '.')), pw / 1000);
   const waveformLabel = STIMULATOR_WAVEFORMS.find((w) => w.value === values['stimulus.waveform'])?.label ?? '—';
+  const pool = values.stimulationSite === 'MOTONEURON_POOL';
   const stimulusSummary = [
+    pool ? 'no pool de motoneurônios' : 'na pele',
     `${values['stimulus.frequencyHz']} Hz`,
     `${values['stimulus.pulseWidthUs']} µs`,
     waveformLabel.toLowerCase(),
@@ -295,7 +297,9 @@ export function SimulationForm({
         <div className="row stimulus-summary">
           <p className="stimulus-summary-text">{stimulusSummary}</p>
           <p className="stimulus-summary-recruit" aria-live="polite">
-            {recruitment
+            {pool
+              ? 'recrutamento definido pelos motoneurônios (veja após simular)'
+              : recruitment
               ? `≈ ${Math.round((recruitment.status === 'none' ? 0 : recruitment.fraction) * 100)} % das unidades recrutadas no platô`
               : '—'}
           </p>
@@ -314,6 +318,7 @@ export function SimulationForm({
         </div>
       ),
     },
+    motoneuron: {},
     muscle: {
       before: isLiterature ? (
         <div className="row">
@@ -355,7 +360,7 @@ export function SimulationForm({
 
   return (
     <form id={SIM_FORM_ID} className="inspector-form" onSubmit={submit} noValidate aria-label="Parâmetros da simulação">
-      {FIELD_GROUPS.map((g) => (
+      {FIELD_GROUPS.filter((g) => g.id !== 'motoneuron' || values.stimulationSite === 'MOTONEURON_POOL').map((g) => (
         <details
           key={g.id}
           className="section"

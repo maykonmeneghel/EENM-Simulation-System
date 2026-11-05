@@ -4,6 +4,7 @@ import { SHIELDS_PROTOCOL, SHIELDS_REFERENCE, trainPeaks } from '../application/
 import type { SeriesBuffer } from '../application/seriesBuffer';
 import type { SessionState } from '../application/session';
 import { HelpPopover } from './HelpPopover';
+import { useSvgScale } from './useSvgScale';
 import type { LiveSeriesSpec } from './LiveChart';
 import { LiveChart } from './LiveChart';
 import { CHART_THEMES, useColorScheme } from './theme';
@@ -25,12 +26,13 @@ const PAD = { l: 36, r: 10, t: 10, b: 24 };
 
 /** Peak of each train ÷ the first train's peak, on a fixed 0–1 scale, with the published reference band. */
 function TrainBars({ ratios, reference }: { ratios: number[]; reference: boolean }) {
+  const [measureSvg, svgScale] = useSvgScale(W);
   const n = ratios.length;
   const bw = (W - PAD.l - PAD.r) / Math.max(n, 1);
   const y = (v: number) => H - PAD.b - Math.min(1.05, Math.max(0, v)) * ((H - PAD.t - PAD.b) / 1.05);
   const acute = SHIELDS_REFERENCE.acute;
   return (
-    <svg className="fatigue-bars" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Pico de cada trem relativo ao primeiro, ${n} trens`}>
+    <svg ref={measureSvg} style={svgScale} className="fatigue-bars" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Pico de cada trem relativo ao primeiro, ${n} trens`}>
       {reference ? (
         <rect
           className="fatigue-ref"

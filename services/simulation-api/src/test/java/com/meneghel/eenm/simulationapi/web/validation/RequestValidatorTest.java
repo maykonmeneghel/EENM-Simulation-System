@@ -77,7 +77,7 @@ class RequestValidatorTest {
 
     @Test
     void topLevelRangesAreChecked() {
-        SimulationRequestDto dto = new SimulationRequestDto(null, null, null, null, null, 0.5, 46.0, null, null, null, -1L, 10.5);
+        SimulationRequestDto dto = new SimulationRequestDto(null, null, null, null, null, null, 0.5, 46.0, null, null, null, -1L, 10.5);
 
         assertViolations(dto,
                 new FieldViolation("axonLengthPercent", "must be between 1 and 100"),
@@ -96,7 +96,7 @@ class RequestValidatorTest {
     }
 
     private static SimulationRequestDto request(StimulusDto stimulus, UnitsPerTypeDto units, Double axon, Double output) {
-        return new SimulationRequestDto(stimulus, null, null, null, units, axon, null, null, null, null, null, output);
+        return new SimulationRequestDto(stimulus, null, null, null, null, units, axon, null, null, null, null, null, output);
     }
 
     private void assertViolations(SimulationRequestDto dto, FieldViolation... expected) {

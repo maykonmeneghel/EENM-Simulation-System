@@ -39,6 +39,14 @@ export interface LiveChartProps {
   zoom?: ZoomSync;
 }
 
+/** Canvas can't use CSS variables: read the app font and type scale once. */
+function chartFonts(): { ticks: string; label: string } {
+  const css = typeof document !== 'undefined' ? getComputedStyle(document.documentElement) : null;
+  const v = (name: string, fallback: string) => css?.getPropertyValue(name).trim() || fallback;
+  const family = v('--font', '-apple-system, BlinkMacSystemFont, system-ui, sans-serif');
+  return { ticks: `${v('--fs-2xs', '10px')} ${family}`, label: `500 ${v('--fs-sm', '12px')} ${family}` };
+}
+
 /** Smaller drags are clicks, not zooms (px). */
 const MIN_DRAG_PX = 6;
 
@@ -74,6 +82,7 @@ export function LiveChart({
     const host = hostRef.current;
     if (!host) return;
     const specs = specRef.current;
+    const fonts = chartFonts();
     const paths = stepped ? uPlot.paths.stepped?.({ align: 1 }) : undefined;
     const opts: uPlot.Options = {
       width: Math.max(300, host.clientWidth),
@@ -111,6 +120,8 @@ export function LiveChart({
       axes: [
         {
           label: 'tempo',
+          font: fonts.ticks,
+          labelFont: fonts.label,
           space: 72,
           stroke: theme.axis,
           grid: { stroke: theme.grid, width: 1 },
@@ -121,7 +132,7 @@ export function LiveChart({
               ? splits.map((v) => `${formatTick(v / 1000)} s`)
               : splits.map((v) => `${formatTick(v)} ms`),
         },
-        { label: yLabel, stroke: theme.axis, grid: { stroke: theme.grid, width: 1 }, ticks: { stroke: theme.grid, width: 1 }, size: 60 },
+        { label: yLabel, font: fonts.ticks, labelFont: fonts.label, stroke: theme.axis, grid: { stroke: theme.grid, width: 1 }, ticks: { stroke: theme.grid, width: 1 }, size: 60 },
       ],
       series: [
         { label: 't (ms)', value: (_u, v) => (v == null ? '—' : v.toFixed(2)) },
@@ -157,13 +168,40 @@ export function LiveChart({
       plot.setData([d.timeMs, ...specs.map((s) => d[s.key]!)]);
     };
     plot.over.addEventListener('dblclick', onDblClick);
+    // Hand: in pan mode (or with Shift) a drag moves the shared time window instead of selecting a box.
+    const panEnd = () => xMaxRef.current ?? buffer.view().timeMs.at(-1) ?? 0;
+    const onPanStart = (e: MouseEvent) => {
+      if (!zoom || e.button !== 0 || (zoom.mode !== 'pan' && !e.shiftKey)) return;
+      e.preventDefault();
+      e.stopPropagation(); // keep uPlot from starting a selection box
+      let lastX = e.clientX;
+      plot.over.classList.add('u-over--grabbing');
+      const move = (ev: MouseEvent) => {
+        const w = zoom.x;
+        const px = plot.over.clientWidth;
+        if (w && px > 0) zoom.pan(((lastX - ev.clientX) / px) * (w[1] - w[0]), panEnd());
+        lastX = ev.clientX;
+      };
+      const up = () => {
+        plot.over.classList.remove('u-over--grabbing');
+        window.removeEventListener('mousemove', move);
+        window.removeEventListener('mouseup', up);
+      };
+      window.addEventListener('mousemove', move);
+      window.addEventListener('mouseup', up);
+    };
+    plot.over.addEventListener('mousedown', onPanStart, { capture: true });
+    const syncCursor = () => plot.over.classList.toggle('u-over--hand', zoom?.mode === 'pan');
+    syncCursor();
     // Another chart zoomed or the zoom was reset: rescale (a reset also drops this chart's amplitude zoom).
     const unsubscribe = zoom?.subscribe(() => {
       if (!zoom.x) yZoomRef.current = null;
+      syncCursor();
       redraw();
     });
     return () => {
       unsubscribe?.();
+      plot.over.removeEventListener('mousedown', onPanStart, { capture: true });
       plot.over.removeEventListener('dblclick', onDblClick);
       ro?.disconnect();
       if (frameRef.current !== null) {

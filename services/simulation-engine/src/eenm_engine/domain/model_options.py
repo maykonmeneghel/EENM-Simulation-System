@@ -69,10 +69,14 @@ class CalibrationTarget(Enum):
     f50 ≈ 9 Hz ✓, whole-muscle twitch CT ≈ 71 ms (fast)."""
 
 
-TWITCH_CALIBRATION: dict[CalibrationTarget, tuple[float, float]] = {
-    # (twitch_time_scale, twitch exponent m), fitted by ``validation/calibrate.py axons [target]``
-    CalibrationTarget.WHOLE_MUSCLE: (1.2772, 3.9461),
-    CalibrationTarget.SINGLE_UNIT: (0.7426, 2.0862),
+TWITCH_CALIBRATION: dict[tuple[StimulationSite, CalibrationTarget], tuple[float, float]] = {
+    # (twitch_time_scale, twitch exponent m), fitted by ``validation/calibrate.py <pipeline> [target]``:
+    # pipeline ``axons`` for MOTOR_AXONS, ``pool120`` for MOTONEURON_SOMA. The single-unit fit is the same for both
+    # (it depends only on each unit's twitch kernel); the whole-muscle twitch depends on spike timing.
+    (StimulationSite.MOTOR_AXONS, CalibrationTarget.WHOLE_MUSCLE): (1.2772, 3.9461),
+    (StimulationSite.MOTOR_AXONS, CalibrationTarget.SINGLE_UNIT): (0.7426, 2.0862),
+    (StimulationSite.MOTONEURON_SOMA, CalibrationTarget.WHOLE_MUSCLE): (1.2775, 3.9482),
+    (StimulationSite.MOTONEURON_SOMA, CalibrationTarget.SINGLE_UNIT): (0.7426, 2.0862),
 }
 
 
@@ -112,14 +116,19 @@ class ModelOptions:
         return cls()
 
     @classmethod
-    def literature(cls, target: CalibrationTarget = CalibrationTarget.WHOLE_MUSCLE) -> ModelOptions:
+    def literature(
+        cls,
+        target: CalibrationTarget = CalibrationTarget.WHOLE_MUSCLE,
+        site: StimulationSite = StimulationSite.MOTOR_AXONS,
+    ) -> ModelOptions:
         """Every correction validated in ``docs/validation/literature-comparison.md`` (steps 1–5).
 
         Twitch scale and exponent were fitted by ``validation/calibrate.py axons [target]`` on 120 units in the
         soleus pool's proportions, to the data chosen by ``target``; use it with ``proportional_units`` (see
-        ``LITERATURE_UNITS``).
+        ``LITERATURE_UNITS``). ``site`` = MOTONEURON_SOMA injects the stimulus into the motoneuron compartments (the
+        master's-thesis model, validated as ``pool120``) instead of exciting the motor axons through the skin.
         """
-        scale, exponent = TWITCH_CALIBRATION[target]
+        scale, exponent = TWITCH_CALIBRATION[(site, target)]
         return cls(
             unit_selection=UnitSelection.SPREAD_ACROSS_POOL,
             twitch_shape=TwitchShape(exponent=exponent),
@@ -127,7 +136,7 @@ class ModelOptions:
             twitch_drive=TwitchDrive.OWN_SPIKES,
             rate_gain=True,
             force_aggregation=ForceAggregation.SUM,
-            stimulation_site=StimulationSite.MOTOR_AXONS,
+            stimulation_site=site,
             fixed_conduction_delay=True,
             fatigue=FatigueModel(),
             represent_pool=True,

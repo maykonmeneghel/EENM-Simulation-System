@@ -231,6 +231,10 @@ Only the twitch time scale and exponent change; everything else in `ModelOptions
 
 - `WHOLE_MUSCLE` (default, the values above): fitted to the twitch of the whole human triceps surae,
   CT 120.7 ms / HRT 97.3 ms (Sale 1982; Zoughaib 2026).
+The fit depends on where the stimulus acts (`stimulationSite`): through the skin (axons, below) ×1.2772 / m 3.9461;
+injected into the motoneurons (`pool120`) ×1.2775 / m 3.9482 for `WHOLE_MUSCLE`. The `SINGLE_UNIT` fit is the same for
+both (×0.7426 / m 2.0862, `calibration-pool120-single-unit.json`): it depends only on each unit's twitch kernel.
+
 - `SINGLE_UNIT`: fitted to the **mean twitch of single human motor units**, CT **74.8 ± 3.9** ms /
   HRT **78.6 ± 6.0** ms, 19 units of the toe extensors (Macefield, Fuglevand & Bigland-Ritchie 1996,
   PMID 8793760 — values read in the abstract). The mean is over the simulated units, each weighted by the pool
@@ -287,5 +291,5 @@ force–frequency points). Consequently there is **no** published benchmark here
 - Marsh E, Sale D, McComas AJ, Quinlan J (1981). Influence of joint position on ankle dorsiflexion in humans. *J Appl Physiol* 51:160–167. doi:10.1152/jappl.1981.51.1.160
 - Fuglevand AJ, Winter DA, Patla AE (1993). Models of recruitment and rate coding organization in motor-unit pools. *J Neurophysiol* 70:2470–2488. doi:10.1152/jn.1993.70.6.2470
 - Shields RK (2002). Muscular, skeletal, and neural adaptations following spinal cord injury. *J Orthop Sports Phys Ther* 32:65–74. doi:10.2519/jospt.2002.32.2.65
-- Chang YJ, Shields RK (2011). Within-train neuromuscular propagation varies with torque in paralyzed human muscle. *Neurorehabil Neural Repair*. doi:10.1177/1545968310390224
+- Chang YJ, Shields RK (2011). Doublet electrical stimulation enhances torque production in people with spinal cord injury. *Neurorehabil Neural Repair* 25:423–432. doi:10.1177/1545968310390224 (PMID 21304018; the title was wrong here before — checked against Crossref and PubMed on 2026-11-05)
 - Cope TC, Bodine SC, Fournier M, Edgerton VR (1986). Soleus motor units in chronic spinal transected cats. *J Neurophysiol* 55:1202–1220. doi:10.1152/jn.1986.55.6.1202

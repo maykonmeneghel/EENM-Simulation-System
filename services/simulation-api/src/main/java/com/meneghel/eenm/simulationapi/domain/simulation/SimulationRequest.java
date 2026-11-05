@@ -12,6 +12,7 @@ public record SimulationRequest(
         Stimulus stimulus,
         ModelVariant modelVariant,
         CalibrationTarget calibrationTarget,
+        StimulationSite stimulationSite,
         Muscle muscle,
         MotorUnitCounts unitsPerType,
         double axonLengthPercent,
@@ -26,6 +27,7 @@ public record SimulationRequest(
         Objects.requireNonNull(stimulus, "stimulus");
         Objects.requireNonNull(modelVariant, "modelVariant");
         Objects.requireNonNull(calibrationTarget, "calibrationTarget");
+        Objects.requireNonNull(stimulationSite, "stimulationSite");
         Objects.requireNonNull(muscle, "muscle");
         Objects.requireNonNull(injectionSite, "injectionSite");
         Objects.requireNonNull(somaGeometry, "somaGeometry");

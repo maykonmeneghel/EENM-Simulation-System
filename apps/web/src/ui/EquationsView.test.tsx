@@ -119,4 +119,16 @@ describe('DiagramView', () => {
     expect(screen.getByText('limiar 56,9 … 102,1')).toBeInTheDocument();
     expect(screen.getByText('100 % recrutados')).toBeInTheDocument();
   });
+
+  it('each stage explains the equation in words and links its sources (Google Scholar and DOI)', () => {
+    render(<EquationsView snapshot={buildModelSnapshot({ values: defaultFormValues(), muscles: [soleus] })} focus={null} />);
+    const fatigue = document.querySelector('[data-stage="7"]') as HTMLElement;
+    expect(fatigue).toHaveTextContent('Em palavras');
+    expect(fatigue).toHaveTextContent('Cada disparo consome um pouco da capacidade de força');
+    const scholar = Array.from(fatigue.querySelectorAll('a')).map((a) => a.getAttribute('href'));
+    expect(scholar).toContain('https://doi.org/10.1371/journal.pcbi.1005581');
+    expect(scholar.some((h) => h?.startsWith('https://scholar.google.com/scholar?q=%22A%20motor%20unit-based'))).toBe(true);
+    const muap = document.querySelector('[data-stage="4"]') as HTMLElement;
+    expect(muap).toHaveTextContent('Do modelo original, sem fonte publicada');
+  });
 });

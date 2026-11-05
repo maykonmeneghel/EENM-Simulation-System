@@ -3,7 +3,14 @@
  * docs/model-equations.md (the single source). Nothing here is fitted or invented: each
  * function is the closed form written in that document, evaluated with request fields.
  */
-import type { CalibrationTarget, ModelVariant, MotorUnitType, MuscleId, UnitsPerType } from './simulation';
+import type {
+  CalibrationTarget,
+  ModelVariant,
+  MotorUnitType,
+  MuscleId,
+  StimulationSite,
+  UnitsPerType,
+} from './simulation';
 import { MOTOR_UNIT_TYPES } from './simulation';
 
 export type StageId = '1' | '2a' | '2b' | '3' | '4' | '5a' | '5b' | '6' | '7' | '8a' | '8b';
@@ -14,8 +21,10 @@ export const STAGES_BY_VARIANT: Record<ModelVariant, readonly StageId[]> = {
   LITERATURE: ['1', '2b', '3', '4', '5b', '6', '7', '8b'],
 };
 
-export function stagesFor(variant: ModelVariant): readonly StageId[] {
-  return STAGES_BY_VARIANT[variant];
+/** LITERATURE with the stimulus in the motoneuron pool uses the motoneuron compartments (2a), not the axon layer. */
+export function stagesFor(variant: ModelVariant, site: StimulationSite = 'SKIN_SURFACE'): readonly StageId[] {
+  const stages = STAGES_BY_VARIANT[variant];
+  return variant === 'LITERATURE' && site === 'MOTONEURON_POOL' ? stages.map((s) => (s === '2b' ? '2a' : s)) : stages;
 }
 
 // ---- constants (model-equations.md) ----

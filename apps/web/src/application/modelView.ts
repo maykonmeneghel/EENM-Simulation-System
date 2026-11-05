@@ -19,6 +19,7 @@ import {
   twitchShape,
 } from '../domain/modelEquations';
 import type {
+  StimulationSite,
   CalibrationTarget,
   Geometry,
   InjectionSite,
@@ -42,6 +43,7 @@ import type { FormValues } from './formModel';
 export interface ModelSnapshot {
   variant: ModelVariant;
   calibrationTarget: CalibrationTarget;
+  stimulationSite: StimulationSite;
   stages: readonly StageId[];
   stimulus: {
     frequencyHz: number;
@@ -107,6 +109,7 @@ export interface ModelSnapshotInput {
 export function buildModelSnapshot({ values, muscles, lastRequest, lastStarted }: ModelSnapshotInput): ModelSnapshot {
   const variant = values.modelVariant as ModelVariant;
   const calibrationTarget = values.calibrationTarget as CalibrationTarget;
+  const stimulationSite = values.stimulationSite as StimulationSite;
   const frequencyHz = num(values['stimulus.frequencyHz']);
   const dutyCyclePercent = num(values['stimulus.dutyCyclePercent']);
   const amplitude = num(values['stimulus.amplitude']);
@@ -144,7 +147,8 @@ export function buildModelSnapshot({ values, muscles, lastRequest, lastStarted }
   return {
     variant,
     calibrationTarget,
-    stages: stagesFor(variant),
+    stimulationSite,
+    stages: stagesFor(variant, stimulationSite),
     stimulus: {
       frequencyHz,
       fKHz: frequencyKHz(frequencyHz),

@@ -10,6 +10,7 @@ import type {
   MuscleId,
   MusclePreset,
   SimulationRequest,
+  StimulationSite,
   Waveform,
 } from '../domain/simulation';
 import { validateRequest } from '../domain/validation';
@@ -22,6 +23,7 @@ import { validateRequest } from '../domain/validation';
 export const FIELD_PATHS = [
   'modelVariant',
   'calibrationTarget',
+  'stimulationSite',
   'stimulus.durationMs',
   'stimulus.stepMs',
   'stimulus.frequencyHz',
@@ -62,6 +64,9 @@ export type FormValues = Record<FieldPath, string> & FormFlags;
 /** Example train shown when the user enables intermittent trains (Burke's 330 ms every 1 s). */
 export const DEFAULT_TRAIN = { onMs: 330, offMs: 670 };
 
+/** Inputs of the motoneuron compartments (only with the stimulus in the motoneuron pool). */
+export const MOTONEURON_FIELDS: readonly FieldPath[] = ['injectionSite', 'somaGeometry', 'dendriteGeometry', 'temperatureCelsius'];
+
 /** Server error paths shown on another input. */
 const FIELD_ALIASES: Readonly<Record<string, FieldPath>> = { 'stimulus.trainPeriodMs': 'stimulus.trainOffMs' };
 
@@ -74,6 +79,7 @@ export function toFormValues(r: SimulationRequest = defaultRequest()): FormValue
   return {
     modelVariant: r.modelVariant,
     calibrationTarget: r.calibrationTarget,
+    stimulationSite: r.stimulationSite,
     'stimulus.durationMs': String(s.durationMs),
     'stimulus.stepMs': String(s.stepMs),
     'stimulus.frequencyHz': String(s.frequencyHz),
@@ -121,6 +127,8 @@ export function inactiveFields(values: FormValues): ReadonlySet<FieldPath> {
     out.add('stimulus.trainOffMs');
   }
   if (values.modelVariant === 'LITERATURE') {
+    // the motoneuron compartments are simulated only when the stimulus is injected into them
+    if (values.stimulationSite !== 'MOTONEURON_POOL') for (const f of MOTONEURON_FIELDS) out.add(f);
     if (!values.manualUnits) {
       out.add('unitsPerType.S');
       out.add('unitsPerType.FR');
@@ -223,6 +231,7 @@ export function parseForm(values: FormValues, muscles: readonly MusclePreset[] =
     },
     modelVariant: variant,
     calibrationTarget: values.calibrationTarget as CalibrationTarget,
+    stimulationSite: values.stimulationSite as StimulationSite,
     muscle: values.muscle as MuscleId,
     ...(sendUnits
       ? {

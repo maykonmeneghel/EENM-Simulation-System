@@ -31,3 +31,29 @@ describe('ZoomSync', () => {
     expect(z.version).toBe(0);
   });
 });
+
+describe('ZoomSync — hand (pan)', () => {
+  it('moves the zoomed window, keeping its width, inside [0, end]', () => {
+    const z = new ZoomSync();
+    z.set(200, 400);
+    z.pan(100, 1000);
+    expect(z.x).toEqual([300, 500]);
+    z.pan(-1000, 1000);
+    expect(z.x).toEqual([0, 200]);
+    z.pan(5000, 1000);
+    expect(z.x).toEqual([800, 1000]);
+  });
+
+  it('nothing to move without zoom; the drag mode is shared and notified', () => {
+    const z = new ZoomSync();
+    const l = vi.fn();
+    z.subscribe(l);
+    z.pan(100, 1000);
+    expect(z.x).toBeNull();
+    expect(z.mode).toBe('zoom');
+    z.setMode('pan');
+    z.setMode('pan');
+    expect(z.mode).toBe('pan');
+    expect(l).toHaveBeenCalledTimes(1);
+  });
+});

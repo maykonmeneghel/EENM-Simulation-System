@@ -1,5 +1,5 @@
 import type { FieldPath } from '../application/formModel';
-import { CALIBRATION_TARGETS } from '../domain/simulation';
+import { CALIBRATION_TARGETS, GEOMETRIES, INJECTION_SITES, STIMULATION_SITES } from '../domain/simulation';
 
 /** Presentation metadata for each input (labels in Portuguese). */
 export interface NumberField {
@@ -23,7 +23,7 @@ export interface SelectField {
 }
 export type FieldSpec = NumberField | SelectField;
 
-export type GroupId = 'model' | 'stimulus' | 'muscle' | 'simulation';
+export type GroupId = 'model' | 'stimulus' | 'muscle' | 'motoneuron' | 'simulation';
 
 export interface FieldGroup {
   id: GroupId;
@@ -74,6 +74,35 @@ export const FIELD_GROUPS: FieldGroup[] = [
     ],
   },
   {
+    // shown only with the stimulus in the motoneuron pool (the compartments are simulated only then)
+    id: 'motoneuron',
+    title: 'Motoneurônio',
+    fields: [
+      {
+        path: 'injectionSite',
+        kind: 'select',
+        segmented: true,
+        label: 'Local de injeção',
+        options: opts(INJECTION_SITES, { SOMA: 'Soma', DENDRITE: 'Dendrito' }),
+      },
+      {
+        path: 'somaGeometry',
+        kind: 'select',
+        segmented: true,
+        label: 'Geometria do soma',
+        options: opts(GEOMETRIES, { CYLINDRICAL: 'Cilíndrica', SPHERICAL: 'Esférica' }),
+      },
+      {
+        path: 'dendriteGeometry',
+        kind: 'select',
+        segmented: true,
+        label: 'Geometria do dendrito',
+        options: opts(GEOMETRIES, { CYLINDRICAL: 'Cilíndrica', SPHERICAL: 'Esférica' }),
+      },
+      { path: 'temperatureCelsius', kind: 'number', stepBy: 0.1, label: 'Temperatura', unit: '°C', step: 'any', hint: '0 – 45' },
+    ],
+  },
+  {
     id: 'simulation',
     title: 'Simulação',
     fields: [
@@ -116,6 +145,18 @@ export const STIMULATOR_CONTROLS: Record<
   trainOff: { path: 'stimulus.trainOffMs', label: 'Tempo desligado', unit: 'ms', min: 0, max: 20000, step: 10, hint: 'repouso entre trens' },
   rampUp: { path: 'stimulus.rampUpMs', label: 'Rampa de subida', unit: 'ms', min: 0, max: 5000, step: 50, hint: '0 = início abrupto' },
   rampDown: { path: 'stimulus.rampDownMs', label: 'Rampa de descida', unit: 'ms', min: 0, max: 5000, step: 50, hint: '0 = fim abrupto' },
+};
+
+export const STIMULATION_SITE_OPTIONS = opts(STIMULATION_SITES, {
+  SKIN_SURFACE: 'Superfície da pele',
+  MOTONEURON_POOL: 'Pool de motoneurônios',
+});
+
+export const STIMULATION_SITE_HELP: Record<string, string> = {
+  SKIN_SURFACE:
+    'FES de superfície: a corrente excita os axônios motores (lei de Weiss), sem simular o motoneurônio. É o caso clínico.',
+  MOTONEURON_POOL:
+    'Modelo da dissertação: a corrente entra nos motoneurônios de dois compartimentos (Hodgkin–Huxley), que geram os disparos. Cerca de 3× mais lento.',
 };
 
 export const STIMULATOR_WAVEFORMS = [

@@ -14,7 +14,7 @@ from eenm_engine.application.events import (
     SimulationEvent,
     SimulationStarted,
 )
-from eenm_engine.domain.model_options import LITERATURE_UNITS, CalibrationTarget, ModelOptions
+from eenm_engine.domain.model_options import LITERATURE_UNITS, CalibrationTarget, ModelOptions, StimulationSite
 from eenm_engine.domain.motoneuron import InjectionSite
 from eenm_engine.domain.motor_unit_pool import Geometry, MotorUnitType, Muscle, MusclePreset, proportional_units
 from eenm_engine.domain.simulation import SimulationConfig
@@ -55,6 +55,20 @@ class UnitsPerTypeDto(BaseModel):
     FF: int = Field(2, ge=0)
 
 
+class StimulationSiteDto(Enum):
+    SKIN_SURFACE = "SKIN_SURFACE"
+    """Surface FES: the motor axons are excited (Weiss strength-duration), no motoneuron ODE."""
+    MOTONEURON_POOL = "MOTONEURON_POOL"
+    """The current enters the two-compartment motoneurons (the master's-thesis model; injectionSite, geometries
+    and temperature apply). About 3x slower."""
+
+
+_SITES = {
+    StimulationSiteDto.SKIN_SURFACE: StimulationSite.MOTOR_AXONS,
+    StimulationSiteDto.MOTONEURON_POOL: StimulationSite.MOTONEURON_SOMA,
+}
+
+
 class ModelVariant(Enum):
     ORIGINAL = "ORIGINAL"
     LITERATURE = "LITERATURE"
@@ -67,6 +81,8 @@ class SimulationRequest(_CamelModel):
     model_variant: ModelVariant = ModelVariant.ORIGINAL
     calibration_target: CalibrationTarget = CalibrationTarget.WHOLE_MUSCLE
     """Twitch calibration of the LITERATURE variant; no effect on ORIGINAL."""
+    stimulation_site: StimulationSiteDto = StimulationSiteDto.SKIN_SURFACE
+    """Where the LITERATURE stimulus acts; ORIGINAL always injects into the motoneurons."""
     muscle: Muscle = Muscle.SOLEUS
     units_per_type: UnitsPerTypeDto | None = None
     """``None``: 5/2/2 (ORIGINAL) or 120 units in the pool's proportions (LITERATURE)."""
@@ -105,7 +121,7 @@ class SimulationRequest(_CamelModel):
             muscle=self.muscle,
             units_per_type=self._units(),
             model=(
-                ModelOptions.literature(self.calibration_target)
+                ModelOptions.literature(self.calibration_target, _SITES[self.stimulation_site])
                 if self.model_variant is ModelVariant.LITERATURE
                 else ModelOptions()
             ),

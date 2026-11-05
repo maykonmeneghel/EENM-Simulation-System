@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { ModelSnapshot } from '../application/modelView';
 import type { StageId } from '../domain/modelEquations';
+import { REFERENCES, scholarUrl, sourceUrl } from '../domain/references';
+import { STAGE_EXPLANATIONS } from './stageExplanations';
 import { buildStageContents } from './stageTex';
 import { Tex } from './Tex';
 
@@ -48,6 +50,10 @@ export function EquationsView({ snapshot, focus }: { snapshot: ModelSnapshot; fo
             <h3 id={`${stageElementId(st.id)}-title`}>{st.title}</h3>
             <code className="stage-source">{st.source}</code>
           </header>
+          <p className="stage-plain">
+            <span className="stage-label">Em palavras</span>
+            {STAGE_EXPLANATIONS[st.id].plain}
+          </p>
           <div className="stage-math stage-math--symbolic">
             {st.symbolic.map((t, i) => (
               <Tex key={i} tex={t} display />
@@ -71,8 +77,43 @@ export function EquationsView({ snapshot, focus }: { snapshot: ModelSnapshot; fo
               ))}
             </ul>
           ) : null}
+          <StageSources id={st.id} />
         </article>
       ))}
     </div>
+  );
+}
+
+/** Published sources of a stage (Google Scholar and DOI/PubMed links) and what comes from the original model only. */
+function StageSources({ id }: { id: StageId }) {
+  const ex = STAGE_EXPLANATIONS[id];
+  if (ex.refs.length === 0 && !ex.inherited) return null;
+  return (
+    <footer className="stage-sources" aria-label="Fontes">
+      <span className="stage-label">Fontes</span>
+      {ex.refs.length > 0 ? (
+        <ol className="stage-refs">
+          {ex.refs.map(({ id: refId, supports }) => {
+            const r = REFERENCES[refId];
+            return (
+              <li key={refId}>
+                <span className="stage-ref-cite">
+                  {r.authors} ({r.year}). {r.title}. <em>{r.venue}</em>.
+                </span>{' '}
+                <span className="muted">— {supports}.</span>{' '}
+                <a href={scholarUrl(r)} target="_blank" rel="noreferrer">
+                  Google Scholar
+                </a>
+                {' · '}
+                <a href={sourceUrl(r)} target="_blank" rel="noreferrer">
+                  {r.doi ? `doi:${r.doi}` : `PubMed ${r.pmid}`}
+                </a>
+              </li>
+            );
+          })}
+        </ol>
+      ) : null}
+      {ex.inherited ? <p className="stage-inherited">Do modelo original, sem fonte publicada: {ex.inherited}</p> : null}
+    </footer>
   );
 }

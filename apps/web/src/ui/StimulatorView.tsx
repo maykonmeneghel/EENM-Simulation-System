@@ -4,7 +4,7 @@ import type { FieldPath, FormValues } from '../application/formModel';
 import { partitionFieldErrors, stepNumber } from '../application/formModel';
 import { settingsFromForm } from '../application/stimulatorForm';
 import { axonRecruitment } from '../domain/modelEquations';
-import type { FieldError } from '../domain/simulation';
+import type { FieldError, StimulationSite } from '../domain/simulation';
 import type { Point, StimulatorSettings, StimulatorWaveform } from '../domain/stimulator';
 import {
   envelopeOutline,
@@ -16,10 +16,16 @@ import {
   stimulatorProblems,
 } from '../domain/stimulator';
 import type { StimulatorControl } from './formFields';
-import { STIMULATOR_CONTROLS, STIMULATOR_WAVEFORMS } from './formFields';
+import {
+  STIMULATION_SITE_HELP,
+  STIMULATION_SITE_OPTIONS,
+  STIMULATOR_CONTROLS,
+  STIMULATOR_WAVEFORMS,
+} from './formFields';
 import { HelpPopover } from './HelpPopover';
 import { SegmentedControl } from './SegmentedControl';
 import { Switch } from './Switch';
+import { useSvgScale } from './useSvgScale';
 
 export interface StimulatorViewProps {
   values: FormValues;
@@ -79,6 +85,7 @@ function ticksOf(max: number, n = 4): number[] {
 const ampRange = (s: StimulatorSettings) => Math.max(STIMULATOR_CONTROLS.amplitude.max, s.amplitude);
 
 function PulseScope({ s }: { s: StimulatorSettings }) {
+  const [measureSvg, svgScale] = useSvgScale(W);
   const { points, spanUs } = pulseOutline(s);
   const x0 = -PULSE_SCOPE_US.lead;
   const sx = scale([x0, spanUs + x0], [PAD.l, W - PAD.r]);
@@ -91,7 +98,7 @@ function PulseScope({ s }: { s: StimulatorSettings }) {
       <figcaption>
         Pulso <span className="muted">— uma fase de {fmt(s.pulseWidthUs, 0)} µs{biphasic ? ' + fase oposta' : ''} · tempo em µs</span>
       </figcaption>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Pulso ${biphasic ? 'bifásico' : 'monofásico'} de ${s.pulseWidthUs} µs`}>
+      <svg ref={measureSvg} style={svgScale} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Pulso ${biphasic ? 'bifásico' : 'monofásico'} de ${s.pulseWidthUs} µs`}>
         <line className="scope-zero" x1={PAD.l} x2={W - PAD.r} y1={sy(0)} y2={sy(0)} />
         <text className="scope-ylabel" x={PAD.l - 6} y={sy(ampRange(s)) + 4} textAnchor="end">
           +{fmt(ampRange(s), 0)}
@@ -110,6 +117,7 @@ function PulseScope({ s }: { s: StimulatorSettings }) {
 }
 
 function EnvelopeScope({ s }: { s: StimulatorSettings }) {
+  const [measureSvg, svgScale] = useSvgScale(W);
   const windowMs = envelopeWindowMs(s);
   const outline = envelopeOutline(s, windowMs);
   const recruit = pulseRecruitment(s, windowMs, 600);
@@ -123,7 +131,7 @@ function EnvelopeScope({ s }: { s: StimulatorSettings }) {
       <figcaption>
         Envelope <span className="muted">— amplitude de cada pulso e unidades recrutadas · tempo em ms</span>
       </figcaption>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Envelope de amplitude e fração recrutada ao longo do tempo">
+      <svg ref={measureSvg} style={svgScale} viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Envelope de amplitude e fração recrutada ao longo do tempo">
         {showPulses
           ? recruit.map((p) => (
               <line key={p.tMs} className="scope-pulse" x1={sx(p.tMs)} x2={sx(p.tMs)} y1={sy(0)} y2={sy(p.amplitude)} />
@@ -233,6 +241,26 @@ export function StimulatorView({ values, onValuesChange: setValues, errors, runn
           </HelpPopover>
         </header>
 
+        <div className="dial dial--wide">
+          <span className="dial-label">
+            Local do estímulo{' '}
+            <HelpPopover label="Local do estímulo">
+              <strong>Superfície da pele:</strong> {STIMULATION_SITE_HELP.SKIN_SURFACE}
+              <br />
+              <strong>Pool de motoneurônios:</strong> {STIMULATION_SITE_HELP.MOTONEURON_POOL}
+            </HelpPopover>
+          </span>
+          <SegmentedControl<StimulationSite>
+            id="stim-site"
+            label="Local do estímulo"
+            options={STIMULATION_SITE_OPTIONS}
+            value={values.stimulationSite === 'MOTONEURON_POOL' ? 'MOTONEURON_POOL' : 'SKIN_SURFACE'}
+            disabled={running}
+            size="small"
+            onChange={(site) => update('stimulationSite', site)}
+          />
+        </div>
+
         <div className="dial-grid">
           {dial(C.frequency)}
           {dial(C.pulseWidth)}
@@ -258,6 +286,12 @@ export function StimulatorView({ values, onValuesChange: setValues, errors, runn
           </div>
         </div>
 
+        {values.stimulationSite === 'MOTONEURON_POOL' ? (
+          <p className="dial-hint" aria-live="polite">
+            No pool de motoneurônios o recrutamento não segue a lei de Weiss: depende da dinâmica de cada motoneurônio
+            (tamanho, temperatura, local de injeção, na barra lateral). Veja as unidades que disparam após simular.
+          </p>
+        ) : (
         <div className="recruit-meter" aria-live="polite">
           <div className="recruit-meter-label">
             <span>Unidades recrutadas no platô</span>
@@ -273,6 +307,7 @@ export function StimulatorView({ values, onValuesChange: setValues, errors, runn
             </small>
           ) : null}
         </div>
+        )}
 
         <div className="stimulator-section">
           <Switch
