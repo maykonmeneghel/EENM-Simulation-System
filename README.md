@@ -1,3 +1,22 @@
+# EENM Simulation System — services (2026)
+
+The MATLAB model below has been ported, unchanged, to a Python engine and wrapped in services:
+
+```
+apps/web (React, :5173)  ->  services/simulation-api (Spring Boot, :8080)  ->  services/simulation-engine (Python, :8001)
+```
+
+- `scripts/dev.sh` starts the three locally; `docker-compose.yml` runs them in containers.
+- Two model variants: `ORIGINAL` (the MATLAB model as ported) and `LITERATURE` (corrections validated against
+  published physiology, opt-in).
+- Docs: `docs/contracts.md` (API), `docs/model-equations.md` (equations per variant),
+  `docs/matlab-port-notes.md` (what maps to what; original behaviours kept on purpose),
+  `docs/validation/literature-comparison.md` (model vs literature, step by step).
+
+The original MATLAB sources (`Mathematical Model/`, `EENM System/`) are kept untouched for reference.
+
+---
+
 # PHYSIOLOGICALLY INSPIRED MATHEMATICAL MODEL OF THE NEUROMUSCULAR APPARATUS ADAPTED TO CHRONIC MEDULAR INJURY
 
 In the proposed neuromuscular model, it is assumed that (i) there are three different types of motoneurons: slow, fast and fatigue resistant and fast and easily fatiguable, (ii) each motoneuron has two cylindrical compartments and an axon whose axonal segment is represented by a cylindrical handle, (iii) each motor axon conducts an action potential of the sum compartment to the neuromotor junction with attenuated tension proportional to the length of the axonal segment, (iv) the muscle is considered as a single muscle fiber and therefore the potentiate of action of the muscle fiber equals the action potential of the motor unit, (v) the action potential peaks that arrive at a motor unit shape the muscular force and (vi) the muscular concussion produced in the motor unit, depends only on the properties of the fibers muscles.

@@ -1,0 +1,37 @@
+package com.meneghel.eenm.simulationapi.web.simulation;
+
+import com.meneghel.eenm.simulationapi.domain.event.ForceSeries;
+import com.meneghel.eenm.simulationapi.domain.event.SimulationChunk;
+import com.meneghel.eenm.simulationapi.domain.event.SimulationCompleted;
+import com.meneghel.eenm.simulationapi.domain.event.SimulationEvent;
+import com.meneghel.eenm.simulationapi.domain.event.SimulationFailed;
+import com.meneghel.eenm.simulationapi.domain.event.SimulationStarted;
+import org.springframework.http.codec.ServerSentEvent;
+
+/** Maps a domain event to an SSE whose {@code event:} is the type and whose {@code data:} is the object. */
+final class SimulationEventSseMapper {
+
+    ServerSentEvent<Object> toSse(SimulationEvent event) {
+        return ServerSentEvent.builder(toPayload(event)).event(event.type()).build();
+    }
+
+    Object toPayload(SimulationEvent event) {
+        return switch (event) {
+            case SimulationStarted started -> new SimulationEventPayloads.Started(started.type(),
+                    started.simulationId(), started.durationMs(), started.outputStepMs(),
+                    MotorUnitCountsPayload.from(started.motorUnits()), started.muscle());
+            case SimulationChunk chunk -> new SimulationEventPayloads.Chunk(chunk.type(), chunk.progress(),
+                    chunk.timeMs(), chunk.stimulus(), toPayload(chunk.force()), chunk.emg());
+            case SimulationCompleted completed -> new SimulationEventPayloads.Completed(completed.type(),
+                    completed.elapsedSeconds(), new SimulationEventPayloads.Summary(completed.summary().peakForce(),
+                            completed.summary().meanForce(), completed.summary().timeToPeakMs()));
+            case SimulationFailed failed -> new SimulationEventPayloads.Error(failed.type(), failed.message(),
+                    failed.code());
+        };
+    }
+
+    private SimulationEventPayloads.Force toPayload(ForceSeries force) {
+        return new SimulationEventPayloads.Force(force.total(), force.slow(), force.fastResistant(),
+                force.fastFatigable());
+    }
+}

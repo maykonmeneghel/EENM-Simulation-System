@@ -1,0 +1,58 @@
+[
+  {
+    "amplitude": 50,
+    "normalisedForce": 0.0
+  },
+  {
+    "amplitude": 55,
+    "normalisedForce": 0.0
+  },
+  {
+    "amplitude": 60,
+    "normalisedForce": 0.06583399194499083
+  },
+  {
+    "amplitude": 65,
+    "normalisedForce": 0.15754912349579983
+  },
+  {
+    "amplitude": 70,
+    "normalisedForce": 0.25917551998054106
+  },
+  {
+    "amplitude": 75,
+    "normalisedForce": 0.3813883597548636
+  },
+  {
+    "amplitude": 80,
+    "normalisedForce": 0.4950376246239176
+  },
+  {
+    "amplitude": 85,
+    "normalisedForce": 0.6035425036463745
+  },
+  {
+    "amplitude": 90,
+    "normalisedForce": 0.7335749836461767
+  },
+  {
+    "amplitude": 95,
+    "normalisedForce": 0.8291951335496971
+  },
+  {
+    "amplitude": 100,
+    "normalisedForce": 0.9416458879518814
+  },
+  {
+    "amplitude": 105,
+    "normalisedForce": 1.0
+  },
+  {
+    "amplitude": 110,
+    "normalisedForce": 1.0
+  },
+  {
+    "amplitude": 153,
+    "normalisedForce": 1.0
+  }
+]

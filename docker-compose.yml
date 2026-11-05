@@ -1,0 +1,23 @@
+# Runs the three services together: http://localhost:5173
+services:
+  simulation-engine:
+    build: services/simulation-engine
+    expose: ["8001"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 5s
+      retries: 10
+
+  simulation-api:
+    build: services/simulation-api
+    environment:
+      ENGINE_BASE_URL: http://simulation-engine:8001
+    ports: ["8080:8080"]
+    depends_on:
+      simulation-engine:
+        condition: service_healthy
+
+  web:
+    build: apps/web
+    ports: ["5173:80"]
+    depends_on: [simulation-api]

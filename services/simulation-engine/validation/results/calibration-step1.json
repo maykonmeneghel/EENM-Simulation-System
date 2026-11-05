@@ -1,0 +1,15 @@
+{
+  "targets": {
+    "contractionTimeMs": 120.7,
+    "halfRelaxationMs": 97.3
+  },
+  "fitted": {
+    "twitchTimeScale": 1.5718,
+    "twitchExponent": 5.1232
+  },
+  "achieved": {
+    "contractionTimeMs": 120.69999999999999,
+    "halfRelaxationMs": 97.30000000000001
+  },
+  "unitSelection": "SPREAD_ACROSS_POOL"
+}

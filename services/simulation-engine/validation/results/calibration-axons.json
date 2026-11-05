@@ -1,0 +1,16 @@
+{
+  "target": "whole-muscle",
+  "targets": {
+    "contractionTimeMs": 120.7,
+    "halfRelaxationMs": 97.3
+  },
+  "fitted": {
+    "twitchTimeScale": 1.2772,
+    "twitchExponent": 3.9461
+  },
+  "achieved": {
+    "contractionTimeMs": 120.70000000000002,
+    "halfRelaxationMs": 97.29999999999998
+  },
+  "pipeline": "axons"
+}
