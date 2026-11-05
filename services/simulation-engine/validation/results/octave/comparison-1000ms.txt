@@ -1,0 +1,15 @@
+samples 100001, units 9
+unit  spikes py/oct max |dt| ms mean |dt| ms Vs rms diff mV
+S1        40/40            0.02        0.010           0.76
+S2        40/40            0.02        0.009           0.77
+S3        40/40            0.02        0.008           0.76
+S4        40/40            0.02        0.009           0.79
+S5        40/40            0.02        0.009           0.77
+FR1       40/40            0.02        0.010           0.69
+FR2       40/40            0.02        0.009           0.67
+FF1       40/40            0.06        0.021           1.28
+FF2       40/40            0.06        0.021           1.29
+force peak python 0.0309318 @ 981.35 ms | octave 0.0309846 @ 981.35 ms
+force mean python 0.0247859 | octave 0.0248308
+relative difference: mean 0.18%, peak 0.17%; correlation 0.99999
+PASS

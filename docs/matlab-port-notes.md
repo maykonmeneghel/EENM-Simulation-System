@@ -36,6 +36,30 @@ follows `Mathematical Model/`.
 4. **Empty unit type.** `mean` over zero units is `NaN` in MATLAB and would make the total force `NaN`;
    the port treats a type with no simulated units as contributing zero.
 
+## Checked against the original code run in GNU Octave
+
+`services/simulation-engine/validation/octave/run.sh [duration_ms]` (needs Docker) runs `Mathematical Model/Main.m`
+in GNU Octave 9.4 and the Python engine (ORIGINAL, production solver and force pipeline) on the same defaults, and
+compares them; it exits 1 if a tolerance is exceeded. The harness is generated from `Main.m` by
+`make_harness.sh` and differs from it only where Octave needs it:
+
+- `batch` / `wait` / `fetchOutputs` (Parallel Computing Toolbox, absent in Octave) → direct calls to `runnn`.
+- `randi([0,1])` (MUAP shape) → the shapes drawn by the Python engine (`seed = 0`), so both sides use the same.
+- `tmax` as a parameter (1000 in `Main.m`); `clc` / `clear` / `close all` removed.
+
+Two Octave functions behave differently from MATLAB's and are shadowed by versions written from MATLAB's
+documentation: `medfilt2` (Octave's refuses inputs narrower than the 3 × 3 window — FR and FF have 2 units) and
+`findpeaks` (Octave's refuses negative data). **Consequence:** the comparison does not test the semantics of
+MATLAB's `findpeaks`, because the shadow and `force_pipeline.find_peaks_matlab` follow the same reading of the
+documentation. Octave's `ode23s` is also not MATLAB's; this is a comparison with the original *code*, run in
+Octave, not with MATLAB itself.
+
+Result for `Main.m`'s 1 s (`validation/results/octave/comparison-1000ms.txt`): every one of the 9 units fires
+40 spikes on both sides, spike times within 0.02 ms (S, FR) and 0.06 ms (FF); mean force differs by 0.18 %,
+peak force by 0.17 % at the same instant (981.35 ms), correlation 0.99999. Tolerances: same spike counts, spike
+times within 0.1 ms, mean and peak force within 1 %. Negative controls (50 ms, perturbing only the Python side)
+fail as they should: temperature 8 °C instead of 6.3 °C → mean force 1.8 % off; another MUAP-shape seed → 63 %.
+
 ## Behaviours kept as in the original (to be reviewed)
 
 | # | Behaviour | Where in MATLAB | Effect |
