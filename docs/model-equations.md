@@ -6,7 +6,7 @@ Units: time in ms, voltage in mV, current in the stimulus amplitude units (µA/c
 
 Stages, in order: **1 Stimulus → 2 Excitation (motoneuron *or* motor axon) → 3 Conduction → 4 MUAP / EMG →
 5 Twitch → 6 Rate saturation → 7 Fatigue → 8 Muscle force.** `ORIGINAL` uses 1, 2a, 3, 4, 5a, 8a;
-`LITERATURE` uses 1, 2b, 3b, 4, 5b, 6, 7, 8b.
+`LITERATURE` uses 1, 2b, 3, 4, 5b, 6, 7, 8b (stage 3 has one formula per variant).
 
 ---
 
@@ -34,7 +34,7 @@ $$ C_s \frac{dV_s}{dt} = I_{s} - g_{Na}\, m_\infty^3(V_s)\, h\,(V_s - E_{Na}) - 
 $$ C_d \frac{dV_d}{dt} = I_{d} - g_{Ca,d}\, m_{Ca,d}(V_d - E_{Ca}) - g_{NaP}\, m_{NaP} h_{NaP}(V_d - E_{Na}) - g_{KCa,d}\frac{[Ca]_d}{K_d + [Ca]_d}(V_d - E_K) - g_L (V_d - E_L) + \frac{g_c}{1-p}(V_s - V_d) $$
 
 Gates relax as `dx/dt = φ (x_∞(V) − x)/τ_x(V)`, `φ = 3^{(T_°C − 6.3)/10}`; calcium
-`d[Ca]/dt = φ(−f α I_Ca − f k_Ca [Ca])`. `I_s = I(t)` when `injectionSite = SOMA`, else `I_d = I(t)`.
+`d[Ca]/dt = φ(−f α I_Ca − f k_Ca [Ca])`. `injectionSite = SOMA`: `I_s = I(t)`, `I_d = 0`; `DENDRITE`: `I_d = I(t)`, `I_s = 0`.
 Constants (`Conductances`): `E_Na = 55, E_K = −80, E_L = −60, E_Ca = 80 mV` (as `v + v_rest`), `g_Na = 80,
 g_K = 100, g_Ca = 14, g_KCa = 6, g_L = 0.51, g_c = 0.1, g_NaP = 0.1, g_Ca,d = 0.25`, `C = 1`.
 
@@ -46,7 +46,9 @@ Each axon `k` has a rheobase `I_rh,k`; a pulse of width `PW` and amplitude `A` f
 
 $$ A \;\ge\; I_{rh,k}\left(1 + \frac{\tau_{SD}}{PW}\right), \qquad \tau_{SD} = 0.459\ \text{ms} \;\text{(Mogyoros et al. 1996)} $$
 
-`I_rh,k` spread linearly over `[I_rh,min, 1.79·I_rh,min]`, `I_rh,min = 22.5`, assigned in a seeded random order
+`I_rh,k` spread linearly over `[I_rh,min, R·I_rh,min]` with the exact definitions
+`I_rh,min = 56.9 / (1 + 0.459/0.3) ≈ 22.49` and `R = 102.1 / 56.9 ≈ 1.794` (so that a 0.3 ms pulse recruits the
+first unit at 56.9 and all units at 102.1; use these expressions, not rounded values), assigned in a seeded random order
 (non-selective recruitment, Gregory & Bickel 2005); range inherited from the original model. The spike occurs at
 the end of the pulse. Fields: `amplitude`, `dutyCyclePercent` and `frequencyHz` (→ PW), `seed`.
 
@@ -54,11 +56,28 @@ the end of the pulse. Fields: `amplitude`, `dutyCyclePercent` and `frequencyHz` 
 
 ORIGINAL (soma only): junction potential
 `V_J = V_s · 0.070·λ/2 · e^{−x/λ}`, `λ = √(1/0.070)`, `x = axonLengthPercent/100`, after a 3×3 median filter.
-Delay of unit `k` with velocity `v_k` (APAT, 44–53 m/s):
+Delay of unit `k` with conduction velocity `v_k` (APAT, read as m/s, 44–53) over the axon length `x` (m,
+`axonLengthPercent/100`, i.e. 0.8 m at 80); `T = durationMs`, so the ORIGINAL delay in ms is `x/v·T` and the
+LITERATURE delay is `x/v·1000` (18.18 ms at 44 m/s, 15.09 ms at 53 m/s for x = 0.8 m):
 
 $$ \Delta_k = \frac{x}{v_k}\cdot \frac{T}{\delta t}\ \text{samples (ORIGINAL, Q4)} \qquad \Delta_k = \frac{x}{v_k}\cdot\frac{1000}{\delta t}\ \text{samples (LITERATURE)} $$
 
 `δt = stepMs`. Fields: `axonLengthPercent`, `durationMs`, `stepMs`.
+
+### Per-type unit parameters — `domain/motor_unit_pool.py` (`TYPE_RANGES`, from `createUMs.m`)
+
+Within each type, values go linearly from the first to the last value across the muscle's pool; the simulated
+units are the first ones (ORIGINAL) or the centres of equal slices (LITERATURE).
+
+| Type | MT `P_k` (twitch peak) | MTTP `T_k` (ms, before the LITERATURE ×1.2772) | APAT `v_k` (m/s) | APSF `S_k` | APTF `λ_m` |
+|---|---|---|---|---|---|
+| S | 0.103 → 0.123 | 110 → 100 | 44 → 47 | 0.105 → 0.125 | 0.8 → 0.7 |
+| FR | 0.123 → 0.294 | 73.5 → 55.5 | 47 → 50 | 0.125 → 0.3 | 0.7 → 0.6 |
+| FF | 0.294 → 0.491 | 82.3 → 56.9 | 50 → 53 | 0.3 → 0.5 | 0.6 → 0.5 |
+
+Pool sizes (S / FR / FF): soleus 800 / 50 / 50, gastrocnemius medial 250 / 125 / 125, gastrocnemius lateral
+200 / 100 / 100, tibialis anterior 250 / 50 / 50. Fatigue's `P_min` / `P_max` are the weakest and strongest MT
+of the whole pool (0.103 / 0.491 for every muscle in the table).
 
 ## 4. Motor-unit action potential and EMG — `domain/force_pipeline.py`
 
