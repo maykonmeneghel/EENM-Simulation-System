@@ -14,6 +14,9 @@ export type ModulationShape = (typeof MODULATION_SHAPES)[number];
 
 export const MODEL_VARIANTS = ['ORIGINAL', 'LITERATURE'] as const;
 export type ModelVariant = (typeof MODEL_VARIANTS)[number];
+/** Twitch calibration of LITERATURE (no effect on ORIGINAL): whole human muscle or mean single human unit. */
+export const CALIBRATION_TARGETS = ['WHOLE_MUSCLE', 'SINGLE_UNIT'] as const;
+export type CalibrationTarget = (typeof CALIBRATION_TARGETS)[number];
 
 export const MUSCLES = [
   'SOLEUS',
@@ -56,6 +59,7 @@ export interface Stimulus {
 export interface SimulationRequest {
   stimulus: Stimulus;
   modelVariant: ModelVariant;
+  calibrationTarget: CalibrationTarget;
   muscle: MuscleId;
   /**
    * Omitted = variant default (ORIGINAL 5/2/2; LITERATURE 120 units in the pool's proportions,

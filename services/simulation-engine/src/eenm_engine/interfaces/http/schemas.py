@@ -14,7 +14,7 @@ from eenm_engine.application.events import (
     SimulationEvent,
     SimulationStarted,
 )
-from eenm_engine.domain.model_options import LITERATURE_UNITS, ModelOptions
+from eenm_engine.domain.model_options import LITERATURE_UNITS, CalibrationTarget, ModelOptions
 from eenm_engine.domain.motoneuron import InjectionSite
 from eenm_engine.domain.motor_unit_pool import Geometry, MotorUnitType, Muscle, MusclePreset, proportional_units
 from eenm_engine.domain.simulation import SimulationConfig
@@ -61,6 +61,8 @@ class SimulationRequest(_CamelModel):
 
     stimulus: StimulusDto = Field(default_factory=StimulusDto)
     model_variant: ModelVariant = ModelVariant.ORIGINAL
+    calibration_target: CalibrationTarget = CalibrationTarget.WHOLE_MUSCLE
+    """Twitch calibration of the LITERATURE variant; no effect on ORIGINAL."""
     muscle: Muscle = Muscle.SOLEUS
     units_per_type: UnitsPerTypeDto | None = None
     """``None``: 5/2/2 (ORIGINAL) or 120 units in the pool's proportions (LITERATURE)."""
@@ -95,7 +97,11 @@ class SimulationRequest(_CamelModel):
             ),
             muscle=self.muscle,
             units_per_type=self._units(),
-            model=ModelOptions.literature() if self.model_variant is ModelVariant.LITERATURE else ModelOptions(),
+            model=(
+                ModelOptions.literature(self.calibration_target)
+                if self.model_variant is ModelVariant.LITERATURE
+                else ModelOptions()
+            ),
             axon_length_percent=self.axon_length_percent,
             temperature_c=self.temperature_celsius,
             injection_site=self.injection_site,

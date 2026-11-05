@@ -70,6 +70,7 @@ class WebClientSimulationEngineTest {
         assertThat(body.path("stimulus").path("modulation").path("shape").stringValue()).isEqualTo("STEP");
         assertThat(body.path("stimulus").path("modulation").path("peakTimeMs").isNull()).isTrue();
         assertThat(body.path("modelVariant").stringValue()).isEqualTo("ORIGINAL");
+        assertThat(body.path("calibrationTarget").stringValue()).isEqualTo("WHOLE_MUSCLE");
         assertThat(body.path("stimulus").path("trainOnMs").isNull()).isTrue();
         assertThat(body.path("stimulus").path("trainPeriodMs").isNull()).isTrue();
         assertThat(body.path("muscle").stringValue()).isEqualTo("SOLEUS");

@@ -57,5 +57,6 @@ describe('twitchCurve', () => {
     const peak = (c: Array<[number, number]>) => c.reduce((a, b) => (b[1] > a[1] ? b : a));
     expect(peak(twitchCurve('ORIGINAL', 500))[0]).toBeCloseTo(1, 1);
     expect(peak(twitchCurve('LITERATURE', 500))[0]).toBeCloseTo(1.2772, 1);
+    expect(peak(twitchCurve('LITERATURE', 500, 5, 'SINGLE_UNIT'))[0]).toBeCloseTo(0.7426, 1);
   });
 });

@@ -8,12 +8,14 @@
    Burke et al.'s Fig 5. This is a consistency check of the per-spike integration, since the model's
    fatigabilities were derived from those same numbers.
 
-Run: uv run --group validation python -m validation.fatigue
+Run: uv run --group validation python -m validation.fatigue [variant, default axons]
+(``axons-single-unit``: the twitch calibrated to single human units; results in ``results/fatigue-<variant>``.)
 """
 
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import replace
 
 import numpy as np
@@ -29,8 +31,10 @@ STEP_MS = 0.05  # 0.3 ms pulses = 6 samples; keeps 4 min of 120 units tractable
 BLOCK = 2000  # samples per streaming block
 
 
-def run(frequency_hz: float, seconds: float) -> tuple[np.ndarray, np.ndarray, dict[MotorUnitType, np.ndarray]]:
-    base = VARIANTS["axons"]
+def run(
+    frequency_hz: float, seconds: float, variant: str = "axons"
+) -> tuple[np.ndarray, np.ndarray, dict[MotorUnitType, np.ndarray]]:
+    base = VARIANTS[variant]
     model = replace(base.model, fatigue=FatigueModel(), fixed_conduction_delay=True)
     protocol = StimulusProtocol(
         duration_ms=seconds * 1000.0,
@@ -62,10 +66,10 @@ def train_peaks(time: np.ndarray, force: np.ndarray) -> np.ndarray:
     return np.array([force[(time >= 1000 * s) & (time < 1000 * (s + 1))].max() for s in range(seconds)])
 
 
-def main() -> None:
+def main(variant: str = "axons") -> None:
     report: dict[str, object] = {}
 
-    time, force, _ = run(20.0, 240.0)
+    time, force, _ = run(20.0, 240.0, variant)
     peaks = train_peaks(time, force)
     report["shields20Hz4min"] = {
         "fatigueIndexAt120s": float(peaks[119] / peaks[0]),
@@ -74,7 +78,7 @@ def main() -> None:
     }
     print("Shields 20 Hz:", json.dumps(report["shields20Hz4min"]))
 
-    _, _, capacity = run(40.0, 120.0)
+    _, _, capacity = run(40.0, 120.0, variant)
     ranked = np.concatenate([capacity[t] for t in UNIT_TYPES])  # S, FR, FF = increasing pool rank
     report["burke40Hz2min"] = {
         "capacityWeakestUnit": float(ranked[0]),
@@ -82,10 +86,10 @@ def main() -> None:
         "capacityByTypeMean": {t.value: float(capacity[t].mean()) for t in UNIT_TYPES},
     }
     print("Burke 40 Hz:", json.dumps(report["burke40Hz2min"]))
-    out = RESULTS / "fatigue"
+    out = RESULTS / ("fatigue" if variant == "axons" else f"fatigue-{variant}")
     out.mkdir(parents=True, exist_ok=True)
     (out / "metrics.json").write_text(json.dumps(report, indent=2))
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1] if len(sys.argv) > 1 else "axons")

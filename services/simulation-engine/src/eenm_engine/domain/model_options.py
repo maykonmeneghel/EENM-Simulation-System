@@ -52,6 +52,30 @@ class StimulationSite(Enum):
     """Surface stimulation of motor axons through the analytic recruitment layer (``axon_stimulation``)."""
 
 
+class CalibrationTarget(Enum):
+    """Which human data the twitch time scale and exponent of ``ModelOptions.literature()`` are fitted to.
+
+    The two verified datasets cannot both be met (``docs/validation/literature-comparison.md``,
+    "Calibration target"): unit twitches fast enough for the single-unit force–frequency curve make the
+    whole-muscle twitch faster than measured, and vice versa.
+    """
+
+    WHOLE_MUSCLE = "WHOLE_MUSCLE"
+    """Twitch of the whole human triceps surae (Sale 1982; Zoughaib 2026): CT 120.7, HRT 97.3 ms.
+    Whole-muscle twitch ✓, f50 ≈ 5 Hz (low)."""
+
+    SINGLE_UNIT = "SINGLE_UNIT"
+    """Mean twitch of single human motor units, toe extensors (Macefield et al. 1996): CT 74.8, HRT 78.6 ms.
+    f50 ≈ 9 Hz ✓, whole-muscle twitch CT ≈ 71 ms (fast)."""
+
+
+TWITCH_CALIBRATION: dict[CalibrationTarget, tuple[float, float]] = {
+    # (twitch_time_scale, twitch exponent m), fitted by ``validation/calibrate.py axons [target]``
+    CalibrationTarget.WHOLE_MUSCLE: (1.2772, 3.9461),
+    CalibrationTarget.SINGLE_UNIT: (0.7426, 2.0862),
+}
+
+
 @dataclass(frozen=True)
 class ModelOptions:
     unit_selection: UnitSelection = UnitSelection.FIRST_OF_POOL
@@ -88,16 +112,18 @@ class ModelOptions:
         return cls()
 
     @classmethod
-    def literature(cls) -> ModelOptions:
+    def literature(cls, target: CalibrationTarget = CalibrationTarget.WHOLE_MUSCLE) -> ModelOptions:
         """Every correction validated in ``docs/validation/literature-comparison.md`` (steps 1–5).
 
-        Twitch scale and exponent were fitted by ``validation/calibrate.py axons`` on 120 units in the soleus
-        pool's proportions; use it with ``proportional_units`` (see ``LITERATURE_UNITS``).
+        Twitch scale and exponent were fitted by ``validation/calibrate.py axons [target]`` on 120 units in the
+        soleus pool's proportions, to the data chosen by ``target``; use it with ``proportional_units`` (see
+        ``LITERATURE_UNITS``).
         """
+        scale, exponent = TWITCH_CALIBRATION[target]
         return cls(
             unit_selection=UnitSelection.SPREAD_ACROSS_POOL,
-            twitch_shape=TwitchShape(exponent=3.9461),
-            twitch_time_scale=1.2772,
+            twitch_shape=TwitchShape(exponent=exponent),
+            twitch_time_scale=scale,
             twitch_drive=TwitchDrive.OWN_SPIKES,
             rate_gain=True,
             force_aggregation=ForceAggregation.SUM,

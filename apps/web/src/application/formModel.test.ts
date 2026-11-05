@@ -66,6 +66,16 @@ describe('form model — defaults per variant', () => {
     expect(orig.has('unitsPerType.S')).toBe(false);
     expect(orig.has('stimulus.trainOnMs')).toBe(true);
   });
+
+  it('calibration target: whole muscle by default, sent with the request, inactive for ORIGINAL', () => {
+    expect(defaultFormValues('LITERATURE').calibrationTarget).toBe('WHOLE_MUSCLE');
+    const single = { ...defaultFormValues('LITERATURE'), calibrationTarget: 'SINGLE_UNIT' };
+    const parsed = parseForm(single, [soleus]);
+    expect(parsed.ok && parsed.request.calibrationTarget).toBe('SINGLE_UNIT');
+    expect(changeVariant(single, 'ORIGINAL').calibrationTarget).toBe('SINGLE_UNIT');
+    expect(inactiveFields(defaultFormValues('ORIGINAL')).has('calibrationTarget')).toBe(true);
+    expect(inactiveFields(single).has('calibrationTarget')).toBe(false);
+  });
 });
 
 describe('form model — parsing and validation', () => {

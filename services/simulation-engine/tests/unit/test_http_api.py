@@ -89,6 +89,20 @@ def test_literature_variant_maps_to_the_validated_options() -> None:
     assert sum(explicit.to_config().units_per_type.values()) == 5
 
 
+def test_calibration_target_selects_the_literature_twitch() -> None:
+    from eenm_engine.domain.model_options import CalibrationTarget, ModelOptions
+    from eenm_engine.interfaces.http.schemas import SimulationRequest
+
+    def model(body: dict[str, object]) -> ModelOptions:
+        return SimulationRequest.model_validate(body).to_config().model
+
+    assert model({"modelVariant": "LITERATURE"}) == ModelOptions.literature(CalibrationTarget.WHOLE_MUSCLE)
+    single = model({"modelVariant": "LITERATURE", "calibrationTarget": "SINGLE_UNIT"})
+    assert single == ModelOptions.literature(CalibrationTarget.SINGLE_UNIT)
+    assert model({"calibrationTarget": "SINGLE_UNIT"}) == ModelOptions()  # no effect on ORIGINAL
+    assert client.post("/v1/simulations/stream", json={"calibrationTarget": "FASTEST"}).status_code == 422
+
+
 def test_trains_are_passed_to_the_stimulus() -> None:
     from eenm_engine.interfaces.http.schemas import SimulationRequest
 

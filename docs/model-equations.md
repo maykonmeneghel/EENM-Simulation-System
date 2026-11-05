@@ -69,7 +69,7 @@ $$ \Delta_k = \frac{x}{v_k}\cdot \frac{T}{\delta t}\ \text{samples (ORIGINAL, Q4
 Within each type, values go linearly from the first to the last value across the muscle's pool; the simulated
 units are the first ones (ORIGINAL) or the centres of equal slices (LITERATURE).
 
-| Type | MT `P_k` (twitch peak) | MTTP `T_k` (ms, before the LITERATURE ×1.2772) | APAT `v_k` (m/s) | APSF `S_k` | APTF `λ_m` |
+| Type | MT `P_k` (twitch peak) | MTTP `T_k` (ms, before the LITERATURE time scale) | APAT `v_k` (m/s) | APSF `S_k` | APTF `λ_m` |
 |---|---|---|---|---|---|
 | S | 0.103 → 0.123 | 110 → 100 | 44 → 47 | 0.105 → 0.125 | 0.8 → 0.7 |
 | FR | 0.123 → 0.294 | 73.5 → 55.5 | 47 → 50 | 0.125 → 0.3 | 0.7 → 0.6 |
@@ -93,7 +93,10 @@ EMG shown = sum over types of the mean MUAP.
 
 5a (ORIGINAL, Fuglevand 1993): critically damped, `P_k` = MT, `T_k` = MTTP:
 $$ h_k(t) = P_k \frac{t}{T_k} e^{1 - t/T_k} $$
-5b (LITERATURE): generalised, `T_k` scaled ×1.2772, `m = 3.9461` (fitted to human soleus: CT 120.7 ms, HRT 97.3 ms):
+5b (LITERATURE): generalised, `T_k` scaled and `m` fitted to the data chosen by `calibrationTarget`
+(`model_options.TWITCH_CALIBRATION`): `WHOLE_MUSCLE` ×1.2772, `m = 3.9461` (whole human triceps surae: CT 120.7 ms,
+HRT 97.3 ms); `SINGLE_UNIT` ×0.7426, `m = 2.0862` (mean of single human units, Macefield 1996: CT 74.8 ms,
+HRT 78.6 ms):
 $$ h_k(t) = P_k \left(\frac{t}{T_k}\right)^{m} e^{m(1 - t/T_k)} $$
 
 Unit force = sum of twitches started by its drive spikes: ORIGINAL — peaks of the type's summed MUAP, weighted

@@ -1,5 +1,6 @@
 import type { FieldPath } from '../application/formModel';
 import {
+  CALIBRATION_TARGETS,
   GEOMETRIES,
   INJECTION_SITES,
   MODEL_VARIANTS,
@@ -50,6 +51,13 @@ export const MODEL_VARIANT_HELP: Record<string, string> = {
     'saturação de força, estimulação dos axônios motores (Weiss) e fadiga periférica.',
 };
 
+export const CALIBRATION_TARGET_HELP: Record<string, string> = {
+  WHOLE_MUSCLE:
+    'Twitch ajustado ao músculo inteiro (tríceps sural humano, CT 121 ms). O twitch confere; a f50 fica baixa (≈ 5 Hz contra 9,6 Hz).',
+  SINGLE_UNIT:
+    'Twitch ajustado às unidades motoras humanas isoladas (Macefield 1996, CT 75 ms). A f50 confere (≈ 9 Hz); o twitch do músculo inteiro fica rápido (CT ≈ 71 ms).',
+};
+
 export const FIELD_GROUPS: FieldGroup[] = [
   {
     id: 'model',
@@ -63,6 +71,16 @@ export const FIELD_GROUPS: FieldGroup[] = [
         options: opts(MODEL_VARIANTS, {
           ORIGINAL: 'Original (MATLAB fiel)',
           LITERATURE: 'Corrigido pela literatura',
+        }),
+      },
+      {
+        path: 'calibrationTarget',
+        kind: 'select',
+        segmented: true,
+        label: 'Calibração do twitch',
+        options: opts(CALIBRATION_TARGETS, {
+          WHOLE_MUSCLE: 'Músculo inteiro',
+          SINGLE_UNIT: 'Unidade isolada',
         }),
       },
     ],

@@ -1,4 +1,5 @@
 {
+  "target": "whole-muscle",
   "targets": {
     "contractionTimeMs": 120.7,
     "halfRelaxationMs": 97.3

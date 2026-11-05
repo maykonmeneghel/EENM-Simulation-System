@@ -3,6 +3,7 @@ package com.meneghel.eenm.simulationapi.application.simulation;
 import static com.meneghel.eenm.simulationapi.support.Drafts.variant;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.meneghel.eenm.simulationapi.domain.simulation.CalibrationTarget;
 import com.meneghel.eenm.simulationapi.domain.simulation.CompartmentGeometry;
 import com.meneghel.eenm.simulationapi.domain.simulation.InjectionSite;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModelVariant;
@@ -28,6 +29,7 @@ class SimulationDefaultsTest {
                 new Stimulus(1000, 0.01, 40, 20, 100, Waveform.MONOPHASIC,
                         new Modulation(ModulationTarget.AMPLITUDE, ModulationShape.STEP, null), null, null),
                 ModelVariant.ORIGINAL,
+                CalibrationTarget.WHOLE_MUSCLE,
                 Muscle.SOLEUS,
                 new MotorUnitCounts(5, 2, 2),
                 80, 6.3,
@@ -67,6 +69,7 @@ class SimulationDefaultsTest {
                 new StimulusDraft(500.0, null, 60.0, null, null, Waveform.BIPHASIC,
                         new ModulationDraft(null, ModulationShape.TRIANGLE, 250.0), 330.0, 1000.0),
                 null,
+                CalibrationTarget.SINGLE_UNIT,
                 Muscle.TIBIALIS_ANTERIOR,
                 new MotorUnitCountsDraft(null, 7, null),
                 null, 37.0, InjectionSite.DENDRITE, null, CompartmentGeometry.SPHERICAL, 42L, null);
@@ -76,6 +79,7 @@ class SimulationDefaultsTest {
         assertThat(request.stimulus()).isEqualTo(new Stimulus(500, 0.01, 60, 20, 100, Waveform.BIPHASIC,
                 new Modulation(ModulationTarget.AMPLITUDE, ModulationShape.TRIANGLE, 250.0), 330.0, 1000.0));
         assertThat(request.modelVariant()).isEqualTo(ModelVariant.ORIGINAL);
+        assertThat(request.calibrationTarget()).isEqualTo(CalibrationTarget.SINGLE_UNIT);
         assertThat(request.muscle()).isEqualTo(Muscle.TIBIALIS_ANTERIOR);
         assertThat(request.unitsPerType()).isEqualTo(new MotorUnitCounts(5, 7, 2));
         assertThat(request.axonLengthPercent()).isEqualTo(80);

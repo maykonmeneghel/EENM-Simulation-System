@@ -29,6 +29,7 @@ Same body on the public API and on the engine. Defaults reproduce `Mathematical 
     "trainPeriodMs": null
   },
   "modelVariant": "ORIGINAL",
+  "calibrationTarget": "WHOLE_MUSCLE",
   "muscle": "SOLEUS",
   "unitsPerType": { "S": 5, "FR": 2, "FF": 2 },
   "axonLengthPercent": 80,
@@ -54,6 +55,7 @@ Same body on the public API and on the engine. Defaults reproduce `Mathematical 
 | `stimulus.modulation.peakTimeMs` | number \| null | null | required (0 < x < durationMs) when shape = `TRIANGLE` | `tmed` |
 | `stimulus.trainOnMs`, `stimulus.trainPeriodMs` | number \| null | null | both or neither; 0 < on ≤ period ≤ durationMs | — (new: intermittent trains, e.g. 330 / 1000) |
 | `modelVariant` | enum | `ORIGINAL` | `ORIGINAL`, `LITERATURE` | — (new, see below) |
+| `calibrationTarget` | enum | `WHOLE_MUSCLE` | `WHOLE_MUSCLE`, `SINGLE_UNIT` | — (new, see below; LITERATURE only) |
 | `muscle` | enum | `SOLEUS` | `SOLEUS`, `GASTROCNEMIUS_MEDIAL`, `GASTROCNEMIUS_LATERAL`, `TIBIALIS_ANTERIOR` | `createUMs` `muscleWork` |
 | `unitsPerType.S/FR/FF` | int | 5 / 2 / 2 (`ORIGINAL`); 120 units in the pool's proportions (`LITERATURE`, soleus 106 / 7 / 7) | 0 – 200 each, sum ≥ 1, each ≤ the muscle's pool size | `demangeMNs` |
 | `axonLengthPercent` | number | 80 | 1 – 100 | `compAxonal` / `compAxonioMotor` |
@@ -75,6 +77,16 @@ Every field is optional; missing fields take the default. A partial `unitsPerTyp
   recovery). With this variant `injectionSite`, `somaGeometry`, `dendriteGeometry` and `temperatureCelsius`
   have no effect (the motoneuron compartments are not simulated), and `amplitude` is a current in the same
   units, whose recruitment range (≈ 57–102 with 0.3 ms pulses) is inherited from the original model.
+
+### `calibrationTarget`
+
+Which human data the LITERATURE twitch is calibrated to; ignored by `ORIGINAL`. The two verified datasets
+cannot both be met (`docs/validation/literature-comparison.md`, "Calibration target"):
+
+- `WHOLE_MUSCLE` — twitch of the whole human triceps surae (CT 120.7 ms): whole-muscle twitch matches,
+  f50 ≈ 5 Hz is low.
+- `SINGLE_UNIT` — mean twitch of single human motor units (Macefield 1996, CT 74.8 ms): f50 ≈ 9 Hz matches
+  9.6 ± 0.6 Hz, the whole-muscle twitch (CT ≈ 71 ms) is faster than measured.
 
 ---
 

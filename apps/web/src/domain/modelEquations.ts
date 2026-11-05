@@ -3,7 +3,7 @@
  * docs/model-equations.md (the single source). Nothing here is fitted or invented: each
  * function is the closed form written in that document, evaluated with request fields.
  */
-import type { ModelVariant, MotorUnitType, MuscleId, UnitsPerType } from './simulation';
+import type { CalibrationTarget, ModelVariant, MotorUnitType, MuscleId, UnitsPerType } from './simulation';
 import { MOTOR_UNIT_TYPES } from './simulation';
 
 export type StageId = '1' | '2a' | '2b' | '3' | '4' | '5a' | '5b' | '6' | '7' | '8a' | '8b';
@@ -34,11 +34,6 @@ export const CONSTANTS = {
   conductionVelocitiesMs: [44, 53] as const,
   /** §4 MUAP window (ms). */
   muapWindowMs: 1.25,
-  /** §5b generalised twitch. */
-  literatureTwitchTimeScale: 1.2772,
-  literatureTwitchExponent: 3.9461,
-  literatureSoleusCtMs: 120.7,
-  literatureSoleusHrtMs: 97.3,
   /** §6 rate saturation. */
   nfLinearSlope: 0.3,
   nfKnee: 0.4,
@@ -150,11 +145,29 @@ export function twitch(t: number, P: number, T: number, m: number): number {
   return P * Math.pow(r, m) * Math.exp(m * (1 - r));
 }
 
-/** Twitch exponent and time scale per variant (§5a / §5b). */
-export function twitchShape(variant: ModelVariant): { m: number; timeScale: number } {
-  return variant === 'ORIGINAL'
-    ? { m: 1, timeScale: 1 }
-    : { m: CONSTANTS.literatureTwitchExponent, timeScale: CONSTANTS.literatureTwitchTimeScale };
+/** §5b fitted twitch per calibration target (model_options.TWITCH_CALIBRATION; model-equations.md §5b). */
+export const TWITCH_CALIBRATION: Record<
+  CalibrationTarget,
+  { timeScale: number; m: number; ctMs: number; hrtMs: number; fittedTo: string }
+> = {
+  WHOLE_MUSCLE: { timeScale: 1.2772, m: 3.9461, ctMs: 120.7, hrtMs: 97.3, fittedTo: 'twitch do tríceps sural humano' },
+  SINGLE_UNIT: {
+    timeScale: 0.7426,
+    m: 2.0862,
+    ctMs: 74.8,
+    hrtMs: 78.6,
+    fittedTo: 'twitch médio de unidades motoras humanas (Macefield 1996)',
+  },
+};
+
+/** Twitch exponent and time scale per variant and calibration target (§5a / §5b). */
+export function twitchShape(
+  variant: ModelVariant,
+  target: CalibrationTarget = 'WHOLE_MUSCLE',
+): { m: number; timeScale: number } {
+  if (variant === 'ORIGINAL') return { m: 1, timeScale: 1 };
+  const { m, timeScale } = TWITCH_CALIBRATION[target];
+  return { m, timeScale };
 }
 
 // ---- §6 rate saturation ----
@@ -194,7 +207,7 @@ export interface ValueRange {
 export interface TypeRanges {
   /** MT — twitch peak P_k. */
   mt: ValueRange;
-  /** MTTP — twitch time to peak T_k (ms, before the LITERATURE ×1.2772). */
+  /** MTTP — twitch time to peak T_k (ms, before the LITERATURE time scale). */
   mttpMs: ValueRange;
   /** APAT — conduction velocity v_k (m/s). */
   apat: ValueRange;
@@ -286,7 +299,7 @@ export interface TypeParameterSpans {
   /** Simulated units of this type, or null when "automático" (spans then cover the whole pool). */
   count: number | null;
   mt: SpanValue | null;
-  /** T_k (ms) as used by the variant: MTTP, ×1.2772 for LITERATURE. */
+  /** T_k (ms) as used by the variant: MTTP, × the calibration's time scale for LITERATURE. */
   tkMs: SpanValue | null;
   velocity: SpanValue | null;
   delayMs: SpanValue | null;
@@ -309,8 +322,9 @@ export function typeParameterSpans(
   counts: UnitsPerType | null,
   axonLengthPercent: number,
   durationMs: number,
+  target: CalibrationTarget = 'WHOLE_MUSCLE',
 ): Record<MotorUnitType, TypeParameterSpans> {
-  const tScale = variant === 'LITERATURE' ? CONSTANTS.literatureTwitchTimeScale : 1;
+  const tScale = twitchShape(variant, target).timeScale;
   const x = axonLength(axonLengthPercent);
   const scale = variant === 'ORIGINAL' ? durationMs : 1000;
   const out = {} as Record<MotorUnitType, TypeParameterSpans>;

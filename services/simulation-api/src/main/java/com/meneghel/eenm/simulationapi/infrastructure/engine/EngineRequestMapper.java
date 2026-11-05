@@ -11,6 +11,7 @@ final class EngineRequestMapper {
         return new EngineSimulationRequestBody(
                 toBody(request.stimulus()),
                 request.modelVariant().name(),
+                request.calibrationTarget().name(),
                 request.muscle().name(),
                 request.requestedUnits().map(this::toBody).orElse(null),
                 request.axonLengthPercent(),

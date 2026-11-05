@@ -3,7 +3,7 @@
  * same form with the current values. Pure presentation — every number comes from ModelSnapshot.
  */
 import type { ModelSnapshot } from '../application/modelView';
-import { CONSTANTS } from '../domain/modelEquations';
+import { CONSTANTS, TWITCH_CALIBRATION } from '../domain/modelEquations';
 import type { SpanValue, StageId } from '../domain/modelEquations';
 import { MOTOR_UNIT_TYPES } from '../domain/simulation';
 
@@ -261,8 +261,9 @@ function stage5(s: ModelSnapshot): StageContent {
       ],
     };
   }
-  const k = CONSTANTS.literatureTwitchTimeScale;
-  const m = CONSTANTS.literatureTwitchExponent;
+  const fit = TWITCH_CALIBRATION[s.calibrationTarget];
+  const k = fit.timeScale;
+  const m = fit.m;
   return {
     id: '5b',
     title: 'Twitch generalizado',
@@ -274,7 +275,7 @@ function stage5(s: ModelSnapshot): StageContent {
       ...perType(s, (t) => `P_k = ${texSpan(s.typeSpans[t].mt, 4)}, \\quad T_k = ${texSpan(s.typeSpans[t].tkMs, 2)}\\ \\text{ms}`),
     ],
     notes: [
-      `Ajustado ao sóleo humano: CT ${txtNum(CONSTANTS.literatureSoleusCtMs)} ms, HRT ${txtNum(CONSTANTS.literatureSoleusHrtMs)} ms.`,
+      `Ajustado ao ${fit.fittedTo}: CT ${txtNum(fit.ctMs)} ms, HRT ${txtNum(fit.hrtMs)} ms.`,
       'Força da unidade = soma dos twitches dos seus próprios disparos, peso 1.',
       ...countsNote(s),
     ],

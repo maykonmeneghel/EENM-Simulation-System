@@ -11,6 +11,7 @@ import java.util.Optional;
 public record SimulationRequest(
         Stimulus stimulus,
         ModelVariant modelVariant,
+        CalibrationTarget calibrationTarget,
         Muscle muscle,
         MotorUnitCounts unitsPerType,
         double axonLengthPercent,
@@ -24,6 +25,7 @@ public record SimulationRequest(
     public SimulationRequest {
         Objects.requireNonNull(stimulus, "stimulus");
         Objects.requireNonNull(modelVariant, "modelVariant");
+        Objects.requireNonNull(calibrationTarget, "calibrationTarget");
         Objects.requireNonNull(muscle, "muscle");
         Objects.requireNonNull(injectionSite, "injectionSite");
         Objects.requireNonNull(somaGeometry, "somaGeometry");

@@ -1,5 +1,6 @@
 package com.meneghel.eenm.simulationapi.application.simulation;
 
+import com.meneghel.eenm.simulationapi.domain.simulation.CalibrationTarget;
 import com.meneghel.eenm.simulationapi.domain.simulation.CompartmentGeometry;
 import com.meneghel.eenm.simulationapi.domain.simulation.InjectionSite;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModelVariant;
@@ -12,6 +13,7 @@ import com.meneghel.eenm.simulationapi.domain.simulation.Muscle;
 public record SimulationDraft(
         StimulusDraft stimulus,
         ModelVariant modelVariant,
+        CalibrationTarget calibrationTarget,
         Muscle muscle,
         MotorUnitCountsDraft unitsPerType,
         Double axonLengthPercent,
@@ -23,6 +25,6 @@ public record SimulationDraft(
         Double outputStepMs) {
 
     public static SimulationDraft empty() {
-        return new SimulationDraft(null, null, null, null, null, null, null, null, null, null, null);
+        return new SimulationDraft(null, null, null, null, null, null, null, null, null, null, null, null);
     }
 }

@@ -6,6 +6,7 @@ import {
   MAX_POINTS_PER_SERIES,
 } from '../domain/defaults';
 import type {
+  CalibrationTarget,
   FieldError,
   Geometry,
   InjectionSite,
@@ -26,6 +27,7 @@ import { validateRequest } from '../domain/validation';
  */
 export const FIELD_PATHS = [
   'modelVariant',
+  'calibrationTarget',
   'stimulus.durationMs',
   'stimulus.stepMs',
   'stimulus.frequencyHz',
@@ -78,6 +80,7 @@ export function toFormValues(r: SimulationRequest = defaultRequest()): FormValue
   const trainsEnabled = s.trainOnMs !== null || s.trainPeriodMs !== null;
   return {
     modelVariant: r.modelVariant,
+    calibrationTarget: r.calibrationTarget,
     'stimulus.durationMs': String(s.durationMs),
     'stimulus.stepMs': String(s.stepMs),
     'stimulus.frequencyHz': String(s.frequencyHz),
@@ -123,6 +126,7 @@ export function inactiveFields(values: FormValues): ReadonlySet<FieldPath> {
     out.add('stimulus.trainOnMs');
     out.add('stimulus.trainPeriodMs');
   }
+  if (values.modelVariant === 'ORIGINAL') out.add('calibrationTarget');
   if (values.modelVariant === 'LITERATURE') {
     for (const f of LITERATURE_INACTIVE_FIELDS) out.add(f);
     if (!values.manualUnits) {
@@ -245,6 +249,7 @@ export function parseForm(values: FormValues, muscles: readonly MusclePreset[] =
       trainPeriodMs: values.trainsEnabled ? num('stimulus.trainPeriodMs') : null,
     },
     modelVariant: variant,
+    calibrationTarget: values.calibrationTarget as CalibrationTarget,
     muscle: values.muscle as MuscleId,
     ...(sendUnits
       ? {

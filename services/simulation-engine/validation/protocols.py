@@ -109,6 +109,24 @@ VARIANTS: dict[str, Variant] = {
         amplitude=153.0,
         units=proportional_units(Muscle.SOLEUS, 120),
     ),
+    # Calibration target "single-unit": the axons configuration with the twitch fitted to the mean twitch of
+    # single human motor units (Macefield et al. 1996: CT 74.8, HRT 78.6 ms) instead of the whole-muscle twitch
+    # (validation/calibrate.py axons single-unit).
+    "axons-single-unit": Variant(
+        ModelOptions(
+            unit_selection=UnitSelection.SPREAD_ACROSS_POOL,
+            twitch_shape=TwitchShape(exponent=2.0862),
+            twitch_time_scale=0.7426,
+            twitch_drive=TwitchDrive.OWN_SPIKES,
+            force_aggregation=ForceAggregation.SUM,
+            rate_gain=True,
+            represent_pool=True,
+            stimulation_site=StimulationSite.MOTOR_AXONS,
+        ),
+        pulse_ms=0.3,
+        amplitude=153.0,
+        units=proportional_units(Muscle.SOLEUS, 120),
+    ),
 }
 
 

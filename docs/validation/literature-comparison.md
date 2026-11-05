@@ -158,8 +158,8 @@ occurs at `NR ≈ 0.70`, i.e. `f50 ≈ 0.70 / CT`. Reaching Macefield's 9.6 Hz n
 ≈ 73 ms — which is what Macefield measured in human units (75 ms) — but then the whole-muscle twitch would be
 much faster than the 112–129 ms measured for human triceps surae. The two datasets come from different
 muscles (toe extensors vs triceps surae) and preparations (single axons vs whole nerve). One possible reason
-for a slower whole-muscle twitch, **not verified here**, is tendon/series elasticity. Choosing which target
-to calibrate against is an open decision.
+for a slower whole-muscle twitch, **not verified here**, is tendon/series elasticity. Both targets are
+available as an option — see "Calibration target" below.
 
 ### Step 4 — stimulation of motor axons (analytic recruitment layer)
 
@@ -191,7 +191,8 @@ by a recruitment layer (`domain/axon_stimulation.py`):
 
 As expected when option (c) was chosen, moving the stimulus to the axons removes the high-frequency
 failures but **does not change f50**, which depends on the units' contraction times: the conflict between
-whole-muscle and single-unit human data described above is still open.
+whole-muscle and single-unit human data described above is resolved by making the target an option
+("Calibration target" below).
 
 ### Step 5 — peripheral fatigue
 
@@ -221,6 +222,38 @@ first run failed the benchmarks (fatigue index 0.50 instead of 0.89):
 
 The model is a healthy (acute-like) soleus: reproducing the chronic-SCI fatigue index (0.19) needs the
 slow-to-fast transformation of the paralysed muscle (Shields 2002; Chang & Shields 2011), not done here.
+
+### Calibration target — whole muscle or single units
+
+The two verified human datasets above cannot both be met by one twitch calibration, so the target is a
+model option, `calibration_target` (API field `calibrationTarget`, LITERATURE only; no effect on ORIGINAL).
+Only the twitch time scale and exponent change; everything else in `ModelOptions.literature()` is the same.
+
+- `WHOLE_MUSCLE` (default, the values above): fitted to the twitch of the whole human triceps surae,
+  CT 120.7 ms / HRT 97.3 ms (Sale 1982; Zoughaib 2026).
+- `SINGLE_UNIT`: fitted to the **mean twitch of single human motor units**, CT **74.8 ± 3.9** ms /
+  HRT **78.6 ± 6.0** ms, 19 units of the toe extensors (Macefield, Fuglevand & Bigland-Ritchie 1996,
+  PMID 8793760 — values read in the abstract). The mean is over the simulated units, each weighted by the pool
+  units it represents (`validation/calibrate.py axons single-unit`): × **0.7426**, **m = 2.0862**.
+
+| Metric | Literature | **WHOLE_MUSCLE** (axons) | **SINGLE_UNIT** (axons-single-unit) |
+|---|---|---|---|
+| Mean unit twitch CT / HRT (ms) | 74.8 / 78.6 (human units, toe extensors) | not fitted (S 132 / 96) | **74.8 / 78.6** (fitted) |
+| Whole-muscle twitch CT / HRT (ms) | 112–129 / 95–100 (triceps surae) | **121 / 97** ✓ (fitted) | 71 / 80 ✗ (fast) |
+| f50 (Hz) | 9.6 ± 0.6 (human units) | 5.2 ✗ | **9.2** ✓ |
+| Twitch / tetanus, whole | 0.22 ± 0.02 (0.15–0.41) | 0.21 ✓ | 0.16 ≈ (inside the range, below the mean) |
+| Force at 100 Hz / max | plateau | 1.00 ✓ | 0.99 ✓ |
+| Frequency of max force (Hz) | 15–100 (median 50) | 15 | 30 |
+| Shields 20 Hz, 4 min — fatigue index | 0.89 ± 0.08 | 0.85 ✓ | 0.88 ✓ (0.94 at 2 min) |
+| Burke 40 Hz, 2 min — weakest / strongest unit | ≈ 0.995 / ≈ 0.10 | 0.995 / 0.19 | 0.995 / 0.19 (unchanged) |
+
+How to choose: `WHOLE_MUSCLE` when the output compared with measurements is the twitch of the whole muscle
+(time course of a single response); `SINGLE_UNIT` when it is the force–frequency relation (FES frequency
+choice). Caveats: Macefield's units are from the toe extensors, not the soleus, and the f50 that they report
+is of single units, compared here with the f50 of the whole simulated muscle. The explanation proposed above
+for the gap between the two datasets (tendon/series elasticity) is still **not verified** and not modelled.
+Results: `validation/results/axons-single-unit/`, `validation/results/fatigue-axons-single-unit/`,
+`validation/results/calibration-axons-single-unit.json`.
 
 ## What this means for the next steps
 

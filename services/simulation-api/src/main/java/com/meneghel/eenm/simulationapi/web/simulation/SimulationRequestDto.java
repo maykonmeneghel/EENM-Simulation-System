@@ -1,5 +1,6 @@
 package com.meneghel.eenm.simulationapi.web.simulation;
 
+import com.meneghel.eenm.simulationapi.domain.simulation.CalibrationTarget;
 import com.meneghel.eenm.simulationapi.domain.simulation.CompartmentGeometry;
 import com.meneghel.eenm.simulationapi.domain.simulation.InjectionSite;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModelVariant;
@@ -16,6 +17,7 @@ import jakarta.validation.constraints.PositiveOrZero;
 public record SimulationRequestDto(
         @Valid StimulusDto stimulus,
         ModelVariant modelVariant,
+        CalibrationTarget calibrationTarget,
         Muscle muscle,
         @Valid UnitsPerTypeDto unitsPerType,
         @Between(min = "1", max = "100") Double axonLengthPercent,

@@ -19,6 +19,7 @@ import {
   twitchShape,
 } from '../domain/modelEquations';
 import type {
+  CalibrationTarget,
   Geometry,
   InjectionSite,
   ModelVariant,
@@ -40,6 +41,7 @@ import type { FormValues } from './formModel';
  */
 export interface ModelSnapshot {
   variant: ModelVariant;
+  calibrationTarget: CalibrationTarget;
   stages: readonly StageId[];
   stimulus: {
     frequencyHz: number;
@@ -100,6 +102,7 @@ export interface ModelSnapshotInput {
 
 export function buildModelSnapshot({ values, muscles, lastRequest, lastStarted }: ModelSnapshotInput): ModelSnapshot {
   const variant = values.modelVariant as ModelVariant;
+  const calibrationTarget = values.calibrationTarget as CalibrationTarget;
   const frequencyHz = num(values['stimulus.frequencyHz']);
   const dutyCyclePercent = num(values['stimulus.dutyCyclePercent']);
   const amplitude = num(values['stimulus.amplitude']);
@@ -134,6 +137,7 @@ export function buildModelSnapshot({ values, muscles, lastRequest, lastStarted }
 
   return {
     variant,
+    calibrationTarget,
     stages: stagesFor(variant),
     stimulus: {
       frequencyHz,
@@ -177,15 +181,21 @@ export function buildModelSnapshot({ values, muscles, lastRequest, lastStarted }
       units.counts,
       axonLengthPercent,
       durationMs,
+      calibrationTarget,
     ),
     poolMt: { min: POOL_MT_MIN, max: POOL_MT_MAX },
-    twitchShape: twitchShape(variant),
+    twitchShape: twitchShape(variant, calibrationTarget),
   };
 }
 
 /** Normalised twitch curve for thumbnails: x ∈ [0, xMax] in units of T (ORIGINAL), y ∈ [0, 1]. */
-export function twitchCurve(variant: ModelVariant, points = 48, xMax = 5): Array<[number, number]> {
-  const { m, timeScale } = twitchShape(variant);
+export function twitchCurve(
+  variant: ModelVariant,
+  points = 48,
+  xMax = 5,
+  target: CalibrationTarget = 'WHOLE_MUSCLE',
+): Array<[number, number]> {
+  const { m, timeScale } = twitchShape(variant, target);
   const out: Array<[number, number]> = [];
   for (let i = 0; i <= points; i++) {
     const x = (i / points) * xMax;

@@ -1,0 +1,16 @@
+{
+  "target": "single-unit",
+  "targets": {
+    "contractionTimeMs": 74.8,
+    "halfRelaxationMs": 78.6
+  },
+  "fitted": {
+    "twitchTimeScale": 0.7426,
+    "twitchExponent": 2.0862
+  },
+  "achieved": {
+    "contractionTimeMs": 74.8000643905361,
+    "halfRelaxationMs": 78.5995507637017
+  },
+  "pipeline": "axons"
+}

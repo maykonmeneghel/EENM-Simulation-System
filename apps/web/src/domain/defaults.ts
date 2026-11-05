@@ -15,6 +15,7 @@ export function defaultRequest(variant: ModelVariant = 'ORIGINAL'): SimulationRe
       trainPeriodMs: null,
     },
     modelVariant: variant,
+    calibrationTarget: 'WHOLE_MUSCLE',
     muscle: 'SOLEUS',
     unitsPerType: { S: 5, FR: 2, FF: 2 },
     axonLengthPercent: 80,

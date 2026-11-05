@@ -14,7 +14,7 @@ import {
 import { LITERATURE_AUTO_UNITS } from '../domain/defaults';
 import type { FieldError, ModelVariant, MusclePreset, SimulationRequest, UnitsPerType } from '../domain/simulation';
 import type { FieldSpec, GroupId, NumberField } from './formFields';
-import { FIELD_GROUPS, MODEL_VARIANT_HELP } from './formFields';
+import { CALIBRATION_TARGET_HELP, FIELD_GROUPS, MODEL_VARIANT_HELP } from './formFields';
 import { HelpPopover } from './HelpPopover';
 import { SegmentedControl } from './SegmentedControl';
 import { Switch } from './Switch';
@@ -37,6 +37,7 @@ export interface SimulationFormProps {
 
 /** Inputs hidden (not just disabled) while inactive: trains off, or LITERATURE automatic unit counts. */
 const HIDDEN_WHEN_INACTIVE: ReadonlySet<FieldPath> = new Set([
+  'calibrationTarget',
   'stimulus.trainOnMs',
   'stimulus.trainPeriodMs',
   'unitsPerType.S',
@@ -206,7 +207,7 @@ export function SimulationForm({
     const describedBy = [hasHint ? `${id}-hint` : '', errs ? `${id}-err` : ''].filter(Boolean).join(' ') || undefined;
     const options = spec.kind === 'select' ? (spec.options ?? muscleOptions) : [];
     const segmented = spec.kind === 'select' && spec.segmented;
-    const wide = spec.path === 'modelVariant';
+    const wide = spec.path === 'modelVariant' || spec.path === 'calibrationTarget';
     return (
       <div
         key={spec.path}
@@ -222,6 +223,15 @@ export function SimulationForm({
                 <strong>Original:</strong> {MODEL_VARIANT_HELP.ORIGINAL}
                 <br />
                 <strong>Corrigido:</strong> {MODEL_VARIANT_HELP.LITERATURE}
+              </HelpPopover>
+            ) : null}
+            {spec.path === 'calibrationTarget' ? (
+              <HelpPopover label="Calibração do twitch">
+                Os dados humanos verificados não podem ser atendidos ao mesmo tempo; escolha qual o modelo reproduz.
+                <br />
+                <strong>Músculo inteiro:</strong> {CALIBRATION_TARGET_HELP.WHOLE_MUSCLE}
+                <br />
+                <strong>Unidade isolada:</strong> {CALIBRATION_TARGET_HELP.SINGLE_UNIT}
               </HelpPopover>
             ) : null}
             {hasHint ? (

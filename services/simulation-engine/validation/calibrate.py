@@ -1,13 +1,19 @@
-"""Fit the twitch time scale and shape to human whole-soleus twitch timing.
+"""Fit the twitch time scale and shape to human twitch timing.
 
-Targets (means of two verified studies, see docs/validation/literature-comparison.md):
+Two calibration targets (see docs/validation/literature-comparison.md, "Calibration target"):
+
+whole-muscle (default) — the twitch of the whole muscle, human triceps surae (means of two verified studies):
   contraction time 120.7 ms = mean(112.4 [Sale 1982], 129 [Zoughaib 2026])
   half-relaxation   97.3 ms = mean(99.6 [Sale 1982], 95 [Zoughaib 2026])
+single-unit — the mean twitch of single human motor units, toe extensors, 19 units (Macefield et al. 1996,
+  PMID 8793760, abstract): contraction time 74.8 ± 3.9 ms, half-relaxation 78.6 ± 6.0 ms. The mean is taken
+  over the simulated units, each weighted by the pool units it represents when ``represent_pool`` is set.
+
 Only two numbers are fitted: a global multiplier of every unit's contraction time (keeping the S/FR/FF
 proportions of the original table) and the twitch exponent m. Twitch parameters do not change the
 motoneuron spikes, so the ODE is integrated once and only the force pipeline is re-evaluated.
 
-Run: uv run --group validation python -m validation.calibrate
+Run: uv run --group validation python -m validation.calibrate [pipeline] [whole-muscle|single-unit]
 """
 
 from __future__ import annotations
@@ -29,8 +35,10 @@ from eenm_engine.domain.twitch import TwitchShape
 from eenm_engine.infrastructure.scipy_solver import ScipyBdfSolver
 from validation.protocols import RESULTS, twitch_metrics
 
-TARGET_CT_MS = (112.4 + 129.0) / 2
-TARGET_HRT_MS = (99.6 + 95.0) / 2
+TARGETS = {  # (contraction time, half-relaxation time) in ms
+    "whole-muscle": ((112.4 + 129.0) / 2, (99.6 + 95.0) / 2),
+    "single-unit": (74.8, 78.6),
+}
 
 
 def single_twitch_voltage(config: SimulationConfig) -> tuple[MotorUnitSetup, np.ndarray]:
@@ -66,6 +74,32 @@ def whole_twitch(
         summed = options.force_aggregation is ForceAggregation.SUM
         total += signals.summed_force() * weight if summed else signals.mean_force()
     return total
+
+
+def mean_unit_timing(
+    setup: MotorUnitSetup, voltage: np.ndarray, config: SimulationConfig, scale: float, shape: TwitchShape
+) -> tuple[float, float]:
+    """Contraction and half-relaxation time of each unit's own twitch, averaged over the pool."""
+    options = replace(config.model, twitch_shape=shape, twitch_time_scale=1.0)
+    pool = MUSCLE_PRESETS[config.muscle].pool_size
+    time = config.stimulus.time_grid()
+    cts, hrts, weights = [], [], []
+    for t, cols in setup.column_slices().items():
+        if not setup.groups[t].size:
+            continue
+        weight = pool[t] / setup.groups[t].size if options.represent_pool else 1.0
+        group = replace(setup.groups[t], twitch_time_to_peak_ms=setup.groups[t].twitch_time_to_peak_ms * scale)
+        signals = type_signals(
+            voltage[:, cols], group, setup.muap_shapes[t], config.axon_length_percent, config.stimulus.step_ms, options
+        )
+        for k in range(signals.force.shape[1]):
+            if signals.force[:, k].max() <= 0:
+                raise ValueError(f"unit {t.value}{k + 1} did not twitch: raise the amplitude")
+            m = twitch_metrics(time, signals.force[:, k])
+            cts.append(m["contractionTimeMs"])
+            hrts.append(m["halfRelaxationMs"])
+            weights.append(weight)
+    return float(np.average(cts, weights=weights)), float(np.average(hrts, weights=weights))
 
 
 @dataclass(frozen=True)
@@ -116,7 +150,8 @@ PIPELINES = {
 }
 
 
-def main(pipeline: str) -> None:
+def main(pipeline: str, target: str = "whole-muscle") -> None:
+    target_ct, target_hrt = TARGETS[target]
     chosen = PIPELINES[pipeline]
     protocol = StimulusProtocol(  # one pulse at t = 0 in a 1 s record
         duration_ms=1000.0, frequency_hz=1.0, duty_cycle_percent=chosen.pulse_ms / 10.0, amplitude=chosen.amplitude
@@ -127,27 +162,30 @@ def main(pipeline: str) -> None:
     time = protocol.time_grid()
 
     def timing(x: np.ndarray) -> tuple[float, float]:
-        m = twitch_metrics(
-            time, whole_twitch(setup, voltage, config, float(np.exp(x[0])), TwitchShape(float(np.exp(x[1]))))
-        )
+        scale, shape = float(np.exp(x[0])), TwitchShape(float(np.exp(x[1])))
+        if target == "single-unit":
+            return mean_unit_timing(setup, voltage, config, scale, shape)
+        m = twitch_metrics(time, whole_twitch(setup, voltage, config, scale, shape))
         return m["contractionTimeMs"], m["halfRelaxationMs"]
 
     def loss(x: np.ndarray) -> float:
         ct, hrt = timing(x)
-        return ((ct - TARGET_CT_MS) / TARGET_CT_MS) ** 2 + ((hrt - TARGET_HRT_MS) / TARGET_HRT_MS) ** 2
+        return ((ct - target_ct) / target_ct) ** 2 + ((hrt - target_hrt) / target_hrt) ** 2
 
     best = minimize(loss, x0=np.log([1.5, 2.0]), method="Nelder-Mead", options={"xatol": 1e-4, "fatol": 1e-10})
     scale, exponent = (float(v) for v in np.exp(best.x))
     ct, hrt = timing(best.x)
     result = {
-        "targets": {"contractionTimeMs": TARGET_CT_MS, "halfRelaxationMs": TARGET_HRT_MS},
+        "target": target,
+        "targets": {"contractionTimeMs": target_ct, "halfRelaxationMs": target_hrt},
         "fitted": {"twitchTimeScale": round(scale, 4), "twitchExponent": round(exponent, 4)},
         "achieved": {"contractionTimeMs": ct, "halfRelaxationMs": hrt},
         "pipeline": pipeline,
     }
-    (RESULTS / f"calibration-{pipeline}.json").write_text(json.dumps(result, indent=2))
+    suffix = "" if target == "whole-muscle" else f"-{target}"
+    (RESULTS / f"calibration-{pipeline}{suffix}.json").write_text(json.dumps(result, indent=2))
     print(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "step2")
+    main(sys.argv[1] if len(sys.argv) > 1 else "step2", sys.argv[2] if len(sys.argv) > 2 else "whole-muscle")

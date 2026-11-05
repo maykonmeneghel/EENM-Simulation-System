@@ -14,7 +14,7 @@ public final class Drafts {
 
     public static SimulationDraft draft(StimulusDraft stimulus, ModelVariant variant, MotorUnitCountsDraft units,
             Double outputStepMs) {
-        return new SimulationDraft(stimulus, variant, null, units, null, null, null, null, null, null, outputStepMs);
+        return new SimulationDraft(stimulus, variant, null, null, units, null, null, null, null, null, null, outputStepMs);
     }
 
     public static SimulationDraft stimulusOnly(StimulusDraft stimulus) {

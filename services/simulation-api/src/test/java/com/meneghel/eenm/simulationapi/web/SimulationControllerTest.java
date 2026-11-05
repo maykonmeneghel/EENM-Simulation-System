@@ -10,6 +10,7 @@ import com.meneghel.eenm.simulationapi.application.port.EngineUnavailableExcepti
 import com.meneghel.eenm.simulationapi.application.port.SimulationEngine;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationEvent;
 import com.meneghel.eenm.simulationapi.domain.muscle.MusclePreset;
+import com.meneghel.eenm.simulationapi.domain.simulation.CalibrationTarget;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModelVariant;
 import com.meneghel.eenm.simulationapi.domain.simulation.MotorUnitCounts;
 import com.meneghel.eenm.simulationapi.domain.simulation.Muscle;
@@ -119,6 +120,28 @@ class SimulationControllerTest {
                 .expectBody()
                 .jsonPath("$.errors[0].field").isEqualTo("stimulus.trainPeriodMs")
                 .jsonPath("$.errors[0].message").isEqualTo("is required when stimulus.trainOnMs is set");
+        verify(engine, never()).stream(any());
+    }
+
+    @Test
+    void calibrationTargetIsPassedToTheEngine() {
+        when(engine.stream(any())).thenReturn(Flux.just(SampleEvents.started(), SampleEvents.completed()));
+
+        post("{\"modelVariant\":\"LITERATURE\",\"calibrationTarget\":\"SINGLE_UNIT\"}")
+                .expectStatus().isOk().returnResult(SSE).getResponseBody().blockLast();
+
+        ArgumentCaptor<SimulationRequest> request = ArgumentCaptor.forClass(SimulationRequest.class);
+        verify(engine).stream(request.capture());
+        assertThat(request.getValue().calibrationTarget()).isEqualTo(CalibrationTarget.SINGLE_UNIT);
+    }
+
+    @Test
+    void unknownCalibrationTargetIsAProblem() {
+        post("{\"calibrationTarget\":\"FASTEST\"}")
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.errors[0].field").isEqualTo("calibrationTarget")
+                .jsonPath("$.errors[0].message").isEqualTo("must be one of [WHOLE_MUSCLE, SINGLE_UNIT]");
         verify(engine, never()).stream(any());
     }
 

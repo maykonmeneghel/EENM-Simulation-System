@@ -95,6 +95,16 @@ describe('SimulationForm', () => {
     expect(screen.getByLabelText('Unidades S')).toBeEnabled();
   });
 
+  it('LITERATURE: calibration target control, hidden for ORIGINAL, sent with the request', async () => {
+    const { onSubmit, user } = setup();
+    expect(screen.queryByRole('radiogroup', { name: 'Calibração do twitch' })).not.toBeInTheDocument();
+    await chooseLiterature(user);
+    expect(screen.getByRole('radio', { name: 'Músculo inteiro' })).toHaveAttribute('aria-checked', 'true');
+    await user.click(screen.getByRole('radio', { name: 'Unidade isolada' }));
+    await user.click(screen.getByRole('button', { name: 'Simular' }));
+    expect((onSubmit.mock.calls[0]?.[0] as SimulationRequest).calibrationTarget).toBe('SINGLE_UNIT');
+  });
+
   it('LITERATURE: "Aplicar estímulo clínico" fills duty cycle and amplitude only on click', async () => {
     const { user } = setup();
     await chooseLiterature(user);

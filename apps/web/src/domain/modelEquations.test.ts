@@ -17,6 +17,7 @@ import {
   temperatureFactor,
   TYPE_RANGES,
   twitch,
+  twitchShape,
   typeParameterSpans,
 } from './modelEquations';
 
@@ -136,5 +137,14 @@ describe('model equations — per-type unit parameters', () => {
     expect(orig.S.tkMs!.from).toBe(110);
     expect(orig.FR.mt).toBeNull();
     expect(orig.S.delayMs!.from).toBeCloseTo((0.8 / 44) * 2000, 10);
+  });
+
+  it('calibration targets: twitch constants of model_options.TWITCH_CALIBRATION, no effect on ORIGINAL', () => {
+    expect(twitchShape('LITERATURE')).toEqual({ m: 3.9461, timeScale: 1.2772 });
+    expect(twitchShape('LITERATURE', 'SINGLE_UNIT')).toEqual({ m: 2.0862, timeScale: 0.7426 });
+    expect(twitchShape('ORIGINAL', 'SINGLE_UNIT')).toEqual({ m: 1, timeScale: 1 });
+    const pool = { S: 800, FR: 50, FF: 50 };
+    const unit = typeParameterSpans('LITERATURE', pool, null, 80, 1000, 'SINGLE_UNIT');
+    expect(unit.S.tkMs!.from).toBeCloseTo(110 * 0.7426, 10);
   });
 });
