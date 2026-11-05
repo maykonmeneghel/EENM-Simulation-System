@@ -27,6 +27,9 @@ dev = [
     "pytest-cov>=7.1.0",
     "ruff>=0.17.3",
 ]
+validation = [
+    "matplotlib>=3.11.2",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
