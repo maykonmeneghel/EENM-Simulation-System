@@ -7,7 +7,9 @@ import com.meneghel.eenm.simulationapi.application.port.EngineProtocolException;
 import com.meneghel.eenm.simulationapi.application.port.EngineUnavailableException;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationEvent;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationFailed;
+import com.meneghel.eenm.simulationapi.domain.simulation.ModelVariant;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModulationShape;
+import com.meneghel.eenm.simulationapi.support.Drafts;
 import com.meneghel.eenm.simulationapi.support.FakeSimulationEngine;
 import com.meneghel.eenm.simulationapi.support.SampleEvents;
 import java.time.Duration;
@@ -37,9 +39,8 @@ class RunSimulationUseCaseTest {
 
     @Test
     void crossFieldViolationsFailBeforeTheEngineIsCalled() {
-        SimulationDraft draft = new SimulationDraft(
-                new StimulusDraft(null, null, null, null, null, null, new ModulationDraft(null, ModulationShape.TRIANGLE, null)),
-                null, null, null, null, null, null, null, null, null);
+        SimulationDraft draft = Drafts.stimulusOnly(
+                Drafts.stimulus(null, null, new ModulationDraft(null, ModulationShape.TRIANGLE, null)));
         engine.withPresets(Mono.error(new EngineUnavailableException("down")));
 
         StepVerifier.create(useCase.run(draft))
@@ -53,13 +54,24 @@ class RunSimulationUseCaseTest {
 
     @Test
     void unitsAboveThePoolSizeAreRejected() {
-        SimulationDraft draft = new SimulationDraft(null, null, new MotorUnitCountsDraft(null, 51, null),
-                null, null, null, null, null, null, null);
+        SimulationDraft draft = Drafts.variant(null, new MotorUnitCountsDraft(null, 51, null));
 
         StepVerifier.create(useCase.run(draft))
                 .expectError(InvalidSimulationRequestException.class)
                 .verify();
         assertThat(engine.requests()).isEmpty();
+    }
+
+    @Test
+    void engineChosenUnitsSkipThePresetLookup() {
+        engine.withPresets(Mono.error(new EngineUnavailableException("presets must not be needed")));
+        engine.streaming(Flux.just(SampleEvents.started(), SampleEvents.completed()));
+
+        StepVerifier.create(useCase.run(Drafts.variant(ModelVariant.LITERATURE, null)))
+                .expectNext(SampleEvents.started(), SampleEvents.completed())
+                .verifyComplete();
+        assertThat(engine.requests()).singleElement()
+                .satisfies(request -> assertThat(request.requestedUnits()).isEmpty());
     }
 
     @Test

@@ -34,15 +34,19 @@ public final class RunSimulationUseCase {
             if (!violations.isEmpty()) {
                 return Flux.error(new InvalidSimulationRequestException(violations));
             }
+            Flux<SimulationEvent> events = EventStreamGuard.guard(engine.stream(request));
+            if (request.requestedUnits().isEmpty()) {
+                return events;
+            }
             return catalog.find(request.muscle())
                     .flatMapMany(preset -> checkPoolSize(request, preset))
-                    .thenMany(EventStreamGuard.guard(engine.stream(request)));
+                    .thenMany(events);
         });
     }
 
     private Flux<Void> checkPoolSize(SimulationRequest request, Optional<MusclePreset> preset) {
-        List<FieldViolation> violations = preset
-                .map(found -> rules.checkPoolSize(request.unitsPerType(), found))
+        List<FieldViolation> violations = request.requestedUnits()
+                .flatMap(units -> preset.map(found -> rules.checkPoolSize(units, found)))
                 .orElse(List.of());
         return violations.isEmpty() ? Flux.empty() : Flux.error(new InvalidSimulationRequestException(violations));
     }

@@ -16,12 +16,15 @@ import java.util.List;
 public final class SimulationRequestRules {
 
     private static final double MULTIPLE_TOLERANCE = 1e-6;
+    private static final String TRAIN_ON = "stimulus.trainOnMs";
+    private static final String TRAIN_PERIOD = "stimulus.trainPeriodMs";
 
     public List<FieldViolation> check(SimulationRequest request) {
         List<FieldViolation> violations = new ArrayList<>();
         checkPeakTime(request.stimulus(), violations);
+        checkTrains(request.stimulus(), violations);
         checkOutputStep(request, violations);
-        checkAtLeastOneUnit(request.unitsPerType(), violations);
+        request.requestedUnits().ifPresent(units -> checkAtLeastOneUnit(units, violations));
         return List.copyOf(violations);
     }
 
@@ -45,6 +48,27 @@ public final class SimulationRequestRules {
         } else if (peakTimeMs <= 0 || peakTimeMs >= stimulus.durationMs()) {
             violations.add(new FieldViolation(field,
                     "must be greater than 0 and less than stimulus.durationMs (" + format(stimulus.durationMs()) + ")"));
+        }
+    }
+
+    private void checkTrains(Stimulus stimulus, List<FieldViolation> violations) {
+        Double onMs = stimulus.trainOnMs();
+        Double periodMs = stimulus.trainPeriodMs();
+        if (onMs == null && periodMs == null) {
+            return;
+        }
+        if (periodMs == null) {
+            violations.add(new FieldViolation(TRAIN_PERIOD, "is required when stimulus.trainOnMs is set"));
+        } else if (onMs == null) {
+            violations.add(new FieldViolation(TRAIN_ON, "is required when stimulus.trainPeriodMs is set"));
+        } else if (onMs <= 0) {
+            violations.add(new FieldViolation(TRAIN_ON, "must be greater than 0"));
+        } else if (onMs > periodMs) {
+            violations.add(new FieldViolation(TRAIN_ON,
+                    "must be less than or equal to stimulus.trainPeriodMs (" + format(periodMs) + ")"));
+        } else if (periodMs > stimulus.durationMs()) {
+            violations.add(new FieldViolation(TRAIN_PERIOD,
+                    "must be less than or equal to stimulus.durationMs (" + format(stimulus.durationMs()) + ")"));
         }
     }
 

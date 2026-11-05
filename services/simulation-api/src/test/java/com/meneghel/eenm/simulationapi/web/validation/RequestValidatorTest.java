@@ -36,17 +36,18 @@ class RequestValidatorTest {
     @ParameterizedTest
     @CsvSource({
         "10, 0.005, 1, 1, 0",
-        "5000, 0.1, 200, 99, 500"
+        "300000, 0.1, 200, 99, 500"
     })
     void stimulusBoundsAreInclusive(double duration, double step, double frequency, double dutyCycle, double amplitude) {
-        StimulusDto stimulus = new StimulusDto(duration, step, frequency, dutyCycle, amplitude, null, null);
+        StimulusDto stimulus = new StimulusDto(duration, step, frequency, dutyCycle, amplitude, null, null, null, null);
 
         assertThatCode(() -> validator.validate(request(stimulus, null, null, null))).doesNotThrowAnyException();
     }
 
     @ParameterizedTest
     @CsvSource(delimiter = '|', value = {
-        "9.99   | 0.01  | 40  | 20  | 100 | stimulus.durationMs       | must be between 10 and 5000",
+        "9.99   | 0.01  | 40  | 20  | 100 | stimulus.durationMs       | must be between 10 and 300000",
+        "300001 | 0.01  | 40  | 20  | 100 | stimulus.durationMs       | must be between 10 and 300000",
         "1000   | 0.004 | 40  | 20  | 100 | stimulus.stepMs           | must be between 0.005 and 0.1",
         "1000   | 0.01  | 201 | 20  | 100 | stimulus.frequencyHz      | must be between 1 and 200",
         "1000   | 0.01  | 40  | 100 | 100 | stimulus.dutyCyclePercent | must be between 1 and 99",
@@ -54,21 +55,27 @@ class RequestValidatorTest {
     })
     void stimulusOutOfRangeIsReportedWithItsJsonPath(double duration, double step, double frequency, double dutyCycle,
             double amplitude, String field, String message) {
-        StimulusDto stimulus = new StimulusDto(duration, step, frequency, dutyCycle, amplitude, null, null);
+        StimulusDto stimulus = new StimulusDto(duration, step, frequency, dutyCycle, amplitude, null, null, null, null);
 
         assertViolations(request(stimulus, null, null, null), new FieldViolation(field, message));
     }
 
     @Test
     void unitCountsUseTheContractKeys() {
-        assertViolations(request(null, new UnitsPerTypeDto(51, -1, 50), null, null),
-                new FieldViolation("unitsPerType.FR", "must be between 0 and 50"),
-                new FieldViolation("unitsPerType.S", "must be between 0 and 50"));
+        assertViolations(request(null, new UnitsPerTypeDto(201, -1, 200), null, null),
+                new FieldViolation("unitsPerType.FR", "must be between 0 and 200"),
+                new FieldViolation("unitsPerType.S", "must be between 0 and 200"));
+    }
+
+    @Test
+    void unitCountsUpTo200AreValid() {
+        assertThatCode(() -> validator.validate(request(null, new UnitsPerTypeDto(200, 0, 200), null, null)))
+                .doesNotThrowAnyException();
     }
 
     @Test
     void topLevelRangesAreChecked() {
-        SimulationRequestDto dto = new SimulationRequestDto(null, null, null, 0.5, 46.0, null, null, null, -1L, 10.5);
+        SimulationRequestDto dto = new SimulationRequestDto(null, null, null, null, 0.5, 46.0, null, null, null, -1L, 10.5);
 
         assertViolations(dto,
                 new FieldViolation("axonLengthPercent", "must be between 1 and 100"),
@@ -79,14 +86,15 @@ class RequestValidatorTest {
 
     @Test
     void nonFiniteNumbersAreRejected() {
-        StimulusDto stimulus = new StimulusDto(Double.NaN, null, null, null, null, null, new ModulationDto(null, null, null));
+        StimulusDto stimulus = new StimulusDto(Double.NaN, null, null, null, null, null, new ModulationDto(null, null, null),
+                null, null);
 
         assertViolations(request(stimulus, null, null, null),
-                new FieldViolation("stimulus.durationMs", "must be between 10 and 5000"));
+                new FieldViolation("stimulus.durationMs", "must be between 10 and 300000"));
     }
 
     private static SimulationRequestDto request(StimulusDto stimulus, UnitsPerTypeDto units, Double axon, Double output) {
-        return new SimulationRequestDto(stimulus, null, units, axon, null, null, null, null, null, output);
+        return new SimulationRequestDto(stimulus, null, null, units, axon, null, null, null, null, null, output);
     }
 
     private void assertViolations(SimulationRequestDto dto, FieldViolation... expected) {

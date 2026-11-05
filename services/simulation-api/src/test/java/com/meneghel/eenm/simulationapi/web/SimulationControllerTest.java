@@ -10,6 +10,7 @@ import com.meneghel.eenm.simulationapi.application.port.EngineUnavailableExcepti
 import com.meneghel.eenm.simulationapi.application.port.SimulationEngine;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationEvent;
 import com.meneghel.eenm.simulationapi.domain.muscle.MusclePreset;
+import com.meneghel.eenm.simulationapi.domain.simulation.ModelVariant;
 import com.meneghel.eenm.simulationapi.domain.simulation.MotorUnitCounts;
 import com.meneghel.eenm.simulationapi.domain.simulation.Muscle;
 import com.meneghel.eenm.simulationapi.domain.simulation.SimulationRequest;
@@ -95,6 +96,42 @@ class SimulationControllerTest {
     }
 
     @Test
+    void literatureRequestWithoutUnitsLeavesThemToTheEngine() {
+        when(engine.stream(any())).thenReturn(Flux.just(SampleEvents.started(), SampleEvents.completed()));
+
+        post("{\"modelVariant\":\"LITERATURE\",\"stimulus\":{\"durationMs\":300000,\"trainOnMs\":330,"
+                + "\"trainPeriodMs\":1000}}").expectStatus().isOk().returnResult(SSE).getResponseBody().blockLast();
+
+        ArgumentCaptor<SimulationRequest> request = ArgumentCaptor.forClass(SimulationRequest.class);
+        verify(engine).stream(request.capture());
+        assertThat(request.getValue().modelVariant()).isEqualTo(ModelVariant.LITERATURE);
+        assertThat(request.getValue().requestedUnits()).isEmpty();
+        assertThat(request.getValue().stimulus().trainOnMs()).isEqualTo(330);
+        assertThat(request.getValue().stimulus().trainPeriodMs()).isEqualTo(1000);
+        verify(engine, never()).listMuscles();
+    }
+
+    @Test
+    void trainWithoutPeriodIsAProblem() {
+        post("{\"stimulus\":{\"trainOnMs\":330}}")
+                .expectStatus().isBadRequest()
+                .expectHeader().contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .expectBody()
+                .jsonPath("$.errors[0].field").isEqualTo("stimulus.trainPeriodMs")
+                .jsonPath("$.errors[0].message").isEqualTo("is required when stimulus.trainOnMs is set");
+        verify(engine, never()).stream(any());
+    }
+
+    @Test
+    void unknownModelVariantIsAProblem() {
+        post("{\"modelVariant\":\"MODERN\"}")
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.errors[0].field").isEqualTo("modelVariant")
+                .jsonPath("$.errors[0].message").isEqualTo("must be one of [ORIGINAL, LITERATURE]");
+    }
+
+    @Test
     void engineLostAfterStreamingStartedEndsWithAnErrorEvent() {
         when(engine.stream(any())).thenReturn(Flux.concat(Flux.just(SampleEvents.started()),
                 Flux.error(new EngineUnavailableException("connection reset"))));
@@ -114,7 +151,7 @@ class SimulationControllerTest {
 
     @Test
     void outOfRangeFieldsAreAProblemWithFieldErrors() {
-        post("{\"stimulus\":{\"frequencyHz\":500},\"unitsPerType\":{\"FR\":60}}")
+        post("{\"stimulus\":{\"frequencyHz\":500},\"unitsPerType\":{\"FR\":201}}")
                 .expectStatus().isBadRequest()
                 .expectHeader().contentType(MediaType.APPLICATION_PROBLEM_JSON)
                 .expectBody()
@@ -124,7 +161,7 @@ class SimulationControllerTest {
                 .jsonPath("$.errors[0].field").isEqualTo("stimulus.frequencyHz")
                 .jsonPath("$.errors[0].message").isEqualTo("must be between 1 and 200")
                 .jsonPath("$.errors[1].field").isEqualTo("unitsPerType.FR")
-                .jsonPath("$.errors[1].message").isEqualTo("must be between 0 and 50");
+                .jsonPath("$.errors[1].message").isEqualTo("must be between 0 and 200");
         verify(engine, never()).stream(any());
     }
 

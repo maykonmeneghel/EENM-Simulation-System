@@ -10,5 +10,11 @@ public record StimulusDraft(
         Double dutyCyclePercent,
         Double amplitude,
         Waveform waveform,
-        ModulationDraft modulation) {
+        ModulationDraft modulation,
+        Double trainOnMs,
+        Double trainPeriodMs) {
+
+    public static StimulusDraft empty() {
+        return new StimulusDraft(null, null, null, null, null, null, null, null, null);
+    }
 }

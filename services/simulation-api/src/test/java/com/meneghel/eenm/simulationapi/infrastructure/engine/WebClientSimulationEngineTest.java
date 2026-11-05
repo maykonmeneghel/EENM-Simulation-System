@@ -8,7 +8,9 @@ import com.meneghel.eenm.simulationapi.application.port.EngineUnavailableExcepti
 import com.meneghel.eenm.simulationapi.application.simulation.FieldViolation;
 import com.meneghel.eenm.simulationapi.application.simulation.SimulationDefaults;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationStarted;
+import com.meneghel.eenm.simulationapi.domain.simulation.ModelVariant;
 import com.meneghel.eenm.simulationapi.domain.simulation.SimulationRequest;
+import com.meneghel.eenm.simulationapi.support.Drafts;
 import com.meneghel.eenm.simulationapi.support.SampleEvents;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -67,11 +69,30 @@ class WebClientSimulationEngineTest {
         assertThat(body.path("stimulus").path("stepMs").doubleValue()).isEqualTo(0.01);
         assertThat(body.path("stimulus").path("modulation").path("shape").stringValue()).isEqualTo("STEP");
         assertThat(body.path("stimulus").path("modulation").path("peakTimeMs").isNull()).isTrue();
+        assertThat(body.path("modelVariant").stringValue()).isEqualTo("ORIGINAL");
+        assertThat(body.path("stimulus").path("trainOnMs").isNull()).isTrue();
+        assertThat(body.path("stimulus").path("trainPeriodMs").isNull()).isTrue();
         assertThat(body.path("muscle").stringValue()).isEqualTo("SOLEUS");
         assertThat(body.path("unitsPerType").path("S").intValue()).isEqualTo(5);
         assertThat(body.path("unitsPerType").path("FR").intValue()).isEqualTo(2);
         assertThat(body.path("somaGeometry").stringValue()).isEqualTo("CYLINDRICAL");
         assertThat(body.path("outputStepMs").doubleValue()).isEqualTo(0.1);
+    }
+
+    @Test
+    void relaysTheVariantAndTrainsAndOmitsUnitsTheEngineChooses() throws InterruptedException {
+        server.enqueue(ndjson(lines(SampleEvents.startedLine(), SampleEvents.completedLine())));
+        SimulationRequest literature = new SimulationDefaults().resolve(Drafts.draft(
+                Drafts.trains(60000.0, 330.0, 1000.0), ModelVariant.LITERATURE, null, null));
+
+        StepVerifier.create(engine.stream(literature)).expectNextCount(2).expectComplete().verify(TIMEOUT);
+
+        JsonNode body = jsonMapper.readTree(server.takeRequest(1, TimeUnit.SECONDS).getBody().utf8());
+        assertThat(body.path("modelVariant").stringValue()).isEqualTo("LITERATURE");
+        assertThat(body.has("unitsPerType")).as("unitsPerType left to the engine").isFalse();
+        assertThat(body.path("stimulus").path("durationMs").doubleValue()).isEqualTo(60000);
+        assertThat(body.path("stimulus").path("trainOnMs").doubleValue()).isEqualTo(330);
+        assertThat(body.path("stimulus").path("trainPeriodMs").doubleValue()).isEqualTo(1000);
     }
 
     @Test

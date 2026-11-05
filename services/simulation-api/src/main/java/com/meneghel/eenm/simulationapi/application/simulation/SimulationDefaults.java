@@ -2,6 +2,7 @@ package com.meneghel.eenm.simulationapi.application.simulation;
 
 import com.meneghel.eenm.simulationapi.domain.simulation.CompartmentGeometry;
 import com.meneghel.eenm.simulationapi.domain.simulation.InjectionSite;
+import com.meneghel.eenm.simulationapi.domain.simulation.ModelVariant;
 import com.meneghel.eenm.simulationapi.domain.simulation.Modulation;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModulationShape;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModulationTarget;
@@ -13,6 +14,11 @@ import com.meneghel.eenm.simulationapi.domain.simulation.Waveform;
 
 /**
  * The single place where the contract defaults (which reproduce {@code Main.m}) are applied.
+ *
+ * <p>Motor units: an absent {@code unitsPerType} becomes 5 / 2 / 2 for {@link ModelVariant#ORIGINAL} and
+ * stays unset for {@link ModelVariant#LITERATURE}, so the engine applies its own default (120 units in
+ * the pool's proportions). When {@code unitsPerType} is present, a missing type takes its 5 / 2 / 2
+ * default in both variants, as the engine does.
  */
 public final class SimulationDefaults {
 
@@ -24,6 +30,7 @@ public final class SimulationDefaults {
     public static final Waveform WAVEFORM = Waveform.MONOPHASIC;
     public static final ModulationTarget MODULATION_TARGET = ModulationTarget.AMPLITUDE;
     public static final ModulationShape MODULATION_SHAPE = ModulationShape.STEP;
+    public static final ModelVariant MODEL_VARIANT = ModelVariant.ORIGINAL;
     public static final Muscle MUSCLE = Muscle.SOLEUS;
     public static final int SLOW_UNITS = 5;
     public static final int FAST_RESISTANT_UNITS = 2;
@@ -38,10 +45,12 @@ public final class SimulationDefaults {
 
     public SimulationRequest resolve(SimulationDraft draft) {
         SimulationDraft source = draft == null ? SimulationDraft.empty() : draft;
+        ModelVariant variant = orDefault(source.modelVariant(), MODEL_VARIANT);
         return new SimulationRequest(
                 resolve(source.stimulus()),
+                variant,
                 orDefault(source.muscle(), MUSCLE),
-                resolve(source.unitsPerType()),
+                resolveUnits(source.unitsPerType(), variant),
                 orDefault(source.axonLengthPercent(), AXON_LENGTH_PERCENT),
                 orDefault(source.temperatureCelsius(), TEMPERATURE_CELSIUS),
                 orDefault(source.injectionSite(), INJECTION_SITE),
@@ -52,7 +61,7 @@ public final class SimulationDefaults {
     }
 
     private Stimulus resolve(StimulusDraft draft) {
-        StimulusDraft source = draft == null ? new StimulusDraft(null, null, null, null, null, null, null) : draft;
+        StimulusDraft source = draft == null ? StimulusDraft.empty() : draft;
         return new Stimulus(
                 orDefault(source.durationMs(), DURATION_MS),
                 orDefault(source.stepMs(), STEP_MS),
@@ -60,7 +69,9 @@ public final class SimulationDefaults {
                 orDefault(source.dutyCyclePercent(), DUTY_CYCLE_PERCENT),
                 orDefault(source.amplitude(), AMPLITUDE),
                 orDefault(source.waveform(), WAVEFORM),
-                resolve(source.modulation()));
+                resolve(source.modulation()),
+                source.trainOnMs(),
+                source.trainPeriodMs());
     }
 
     private Modulation resolve(ModulationDraft draft) {
@@ -71,7 +82,10 @@ public final class SimulationDefaults {
                 source.peakTimeMs());
     }
 
-    private MotorUnitCounts resolve(MotorUnitCountsDraft draft) {
+    private MotorUnitCounts resolveUnits(MotorUnitCountsDraft draft, ModelVariant variant) {
+        if (draft == null && variant == ModelVariant.LITERATURE) {
+            return null;
+        }
         MotorUnitCountsDraft source = draft == null ? new MotorUnitCountsDraft(null, null, null) : draft;
         return new MotorUnitCounts(
                 orDefault(source.slow(), SLOW_UNITS),

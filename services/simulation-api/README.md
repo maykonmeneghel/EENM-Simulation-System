@@ -14,7 +14,9 @@ browser as Server-Sent Events while the engine produces it. The binding contract
 | POST | `/api/v1/simulations` | `200 text/event-stream` (`started`, `chunk`..., then `completed` or `error`); `400` problem+json with an `errors` array on invalid input; `502` problem+json if the engine is unreachable before the first event |
 
 Every request field is optional; missing fields take the contract defaults (an empty body runs the
-`Main.m` default simulation). If the engine is lost after streaming started, the stream ends with an
+`Main.m` default simulation). The one variant-dependent default: without `unitsPerType`, `ORIGINAL`
+sends 5 / 2 / 2 while `LITERATURE` sends no `unitsPerType`, so the engine picks 120 units in the pool's
+proportions (the `started` event reports them). If the engine is lost after streaming started, the stream ends with an
 `error` event with code `ENGINE_UNAVAILABLE`. Closing the browser connection cancels the engine call.
 
 ```bash

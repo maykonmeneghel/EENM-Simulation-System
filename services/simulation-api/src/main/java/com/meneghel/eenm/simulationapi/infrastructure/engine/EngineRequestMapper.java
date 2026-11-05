@@ -10,8 +10,9 @@ final class EngineRequestMapper {
     EngineSimulationRequestBody toBody(SimulationRequest request) {
         return new EngineSimulationRequestBody(
                 toBody(request.stimulus()),
+                request.modelVariant().name(),
                 request.muscle().name(),
-                toBody(request.unitsPerType()),
+                request.requestedUnits().map(this::toBody).orElse(null),
                 request.axonLengthPercent(),
                 request.temperatureCelsius(),
                 request.injectionSite().name(),
@@ -29,7 +30,9 @@ final class EngineRequestMapper {
                 stimulus.dutyCyclePercent(),
                 stimulus.amplitude(),
                 stimulus.waveform().name(),
-                toBody(stimulus.modulation()));
+                toBody(stimulus.modulation()),
+                stimulus.trainOnMs(),
+                stimulus.trainPeriodMs());
     }
 
     private EngineSimulationRequestBody.Modulation toBody(Modulation modulation) {

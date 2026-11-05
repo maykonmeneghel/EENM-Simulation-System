@@ -64,6 +64,24 @@ class SimulationApiEndToEndTest {
     }
 
     @Test
+    void relaysALiteratureRequestWithoutUnitsToTheEngine() {
+        var events = client.post().uri("/api/v1/simulations")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"modelVariant\":\"LITERATURE\",\"stimulus\":{\"trainOnMs\":330,\"trainPeriodMs\":1000}}")
+                .exchange()
+                .expectStatus().isOk()
+                .returnResult(new ParameterizedTypeReference<ServerSentEvent<String>>() {
+                })
+                .getResponseBody()
+                .map(ServerSentEvent::event);
+
+        StepVerifier.create(events)
+                .expectNext("started", "chunk", "chunk", "completed")
+                .expectComplete()
+                .verify(Duration.ofSeconds(10));
+    }
+
+    @Test
     void relaysTheEngineMuscles() {
         client.get().uri("/api/v1/muscles").exchange()
                 .expectStatus().isOk()
@@ -83,11 +101,14 @@ class SimulationApiEndToEndTest {
                         .body("[{\"id\":\"SOLEUS\",\"label\":\"Soleus\",\"poolSize\":{\"S\":800,\"FR\":50,\"FF\":50}}]")
                         .build();
             }
-            if ("/v1/simulations/stream".equals(target)
-                    && request.getBody().utf8().contains("\"amplitude\":120.0")) {
-                String body = String.join("\n", SampleEvents.startedLine(), SampleEvents.chunkLine(0.5),
+            String body = request.getBody() == null ? "" : request.getBody().utf8();
+            boolean originalWithAmplitude = body.contains("\"amplitude\":120.0");
+            boolean literatureWithEngineUnits = body.contains("\"modelVariant\":\"LITERATURE\"")
+                    && body.contains("\"trainOnMs\":330.0") && !body.contains("unitsPerType");
+            if ("/v1/simulations/stream".equals(target) && (originalWithAmplitude || literatureWithEngineUnits)) {
+                String events = String.join("\n", SampleEvents.startedLine(), SampleEvents.chunkLine(0.5),
                         SampleEvents.chunkLine(1.0), SampleEvents.completedLine()) + "\n";
-                return new MockResponse.Builder().addHeader("Content-Type", NDJSON).chunkedBody(body, 64).build();
+                return new MockResponse.Builder().addHeader("Content-Type", NDJSON).chunkedBody(events, 64).build();
             }
             assertThat(target).as("unexpected engine call").isNull();
             return new MockResponse.Builder().code(404).build();

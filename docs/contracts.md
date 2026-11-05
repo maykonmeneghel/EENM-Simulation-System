@@ -63,7 +63,7 @@ Same body on the public API and on the engine. Defaults reproduce `Mathematical 
 | `seed` | int | 0 | ≥ 0 | replaces `randi` (MUAP shape choice) |
 | `outputStepMs` | number | 0.1 | ≥ `stepMs`, multiple of it, ≤ 10 | downsampling of the streamed series |
 
-Every field is optional; missing fields take the default.
+Every field is optional; missing fields take the default. A partial `unitsPerType` (e.g. only `S`) fills the missing types with 5 / 2 / 2 under either variant; omit `unitsPerType` entirely to get the variant default.
 
 ### `modelVariant`
 

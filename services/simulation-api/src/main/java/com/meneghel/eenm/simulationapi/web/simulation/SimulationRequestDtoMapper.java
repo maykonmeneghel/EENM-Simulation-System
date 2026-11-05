@@ -13,6 +13,7 @@ final class SimulationRequestDtoMapper {
         }
         return new SimulationDraft(
                 toDraft(dto.stimulus()),
+                dto.modelVariant(),
                 dto.muscle(),
                 toDraft(dto.unitsPerType()),
                 dto.axonLengthPercent(),
@@ -29,7 +30,7 @@ final class SimulationRequestDtoMapper {
             return null;
         }
         return new StimulusDraft(dto.durationMs(), dto.stepMs(), dto.frequencyHz(), dto.dutyCyclePercent(),
-                dto.amplitude(), dto.waveform(), toDraft(dto.modulation()));
+                dto.amplitude(), dto.waveform(), toDraft(dto.modulation()), dto.trainOnMs(), dto.trainPeriodMs());
     }
 
     private ModulationDraft toDraft(ModulationDto dto) {
