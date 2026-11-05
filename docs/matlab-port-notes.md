@@ -40,7 +40,7 @@ follows `Mathematical Model/`.
 
 | # | Behaviour | Where in MATLAB | Effect |
 |---|---|---|---|
-| Q1 | The stimulus current is injected **directly into the motoneuron soma** (or dendrite), not through skin/electrodes. | `rates.m` (`IappS`) | This is the master's-thesis committee's main criticism; future work. |
+| Q1 | The stimulus current is injected **directly into the motoneuron soma** (or dendrite), not through skin/electrodes. | `rates.m` (`IappS`) | The master's-thesis committee's main criticism. Opt-in fix: `stimulation_site = MOTOR_AXONS` (analytic recruitment layer, step 4). |
 | Q2 | Twitches of every unit of a type are driven by the peaks of the **summed MUAP signal of the type** (`detectSpike(e_S)`), not by that unit's own spikes, and the impulse weight is the **peak value of that sum**, not 1. | `Main.m`, lines with `spikeS = detectSpike(e_S)` and the `f_S` loop | Force depends on MUAP amplitudes and on how MUAPs of different units overlap. |
 | Q3 | Overlapping MUAPs of a unit **overwrite** each other instead of adding. | `UMAP_S(...) = ...` assignment | At high firing rates part of the earlier MUAP disappears. |
 | Q4 | The MUAP **conduction delay in samples is `round((x/100)/APAT · tmax/step)`**, i.e. it scales with the simulated duration (18 ms for 1 s, 0.9 ms for 50 ms). | `createUMs.m` (`APAT.Value = round(...)`) | Delay is not a physical constant. |

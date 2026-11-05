@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
+from eenm_engine.domain.axon_stimulation import AxonExcitability
 from eenm_engine.domain.twitch import TwitchShape
 
 
@@ -42,6 +43,14 @@ class ForceAggregation(Enum):
     """Linear sum of all unit forces (Potvin & Fuglevand 2017), so force grows with recruitment."""
 
 
+class StimulationSite(Enum):
+    MOTONEURON_SOMA = "MOTONEURON_SOMA"
+    """The original: the stimulus current enters the motoneuron compartments (Q1)."""
+
+    MOTOR_AXONS = "MOTOR_AXONS"
+    """Surface stimulation of motor axons through the analytic recruitment layer (``axon_stimulation``)."""
+
+
 @dataclass(frozen=True)
 class ModelOptions:
     unit_selection: UnitSelection = UnitSelection.FIRST_OF_POOL
@@ -52,6 +61,8 @@ class ModelOptions:
     rate_gain: bool = False
     """Force saturation with firing rate (``twitch.RateGain``); requires ``OWN_SPIKES``."""
     force_aggregation: ForceAggregation = ForceAggregation.MEAN_PER_TYPE
+    stimulation_site: StimulationSite = StimulationSite.MOTONEURON_SOMA
+    axon_excitability: AxonExcitability = field(default_factory=AxonExcitability)
     represent_pool: bool = False
     """Weight each simulated unit by the number of pool units it stands for (pool size / simulated units of
     its type), so the summed force has the composition and scale of the whole muscle. Requires ``SUM``."""

@@ -17,11 +17,12 @@ from numpy.typing import NDArray
 
 from eenm_engine.application.events import SimulationChunk
 from eenm_engine.application.run_simulation import RunSimulation
+from eenm_engine.domain.axon_stimulation import axon_spikes
 from eenm_engine.domain.force_pipeline import find_peaks_matlab
-from eenm_engine.domain.model_options import ForceAggregation, ModelOptions, TwitchDrive, UnitSelection
+from eenm_engine.domain.model_options import ForceAggregation, ModelOptions, StimulationSite, TwitchDrive, UnitSelection
 from eenm_engine.domain.motor_unit_pool import MotorUnitType, Muscle, proportional_units
 from eenm_engine.domain.simulation import MotorUnitSetup, SimulationConfig
-from eenm_engine.domain.stimulus import StimulusProtocol, stimulus_current
+from eenm_engine.domain.stimulus import StimulusProtocol, stimulus_current, stimulus_series
 from eenm_engine.domain.twitch import TwitchShape
 from eenm_engine.infrastructure.scipy_solver import ScipyBdfSolver
 
@@ -91,6 +92,23 @@ VARIANTS: dict[str, Variant] = {
         amplitude=153.0,
         units=proportional_units(Muscle.SOLEUS, 120),
     ),
+    # Step 4: the pool120 configuration stimulated through its motor axons (analytic recruitment layer:
+    # Weiss strength-duration, tau 0.459 ms, non-selective fixed order); twitch re-fitted (calibrate axons).
+    "axons": Variant(
+        ModelOptions(
+            unit_selection=UnitSelection.SPREAD_ACROSS_POOL,
+            twitch_shape=TwitchShape(exponent=3.9461),
+            twitch_time_scale=1.2772,
+            twitch_drive=TwitchDrive.OWN_SPIKES,
+            force_aggregation=ForceAggregation.SUM,
+            rate_gain=True,
+            represent_pool=True,
+            stimulation_site=StimulationSite.MOTOR_AXONS,
+        ),
+        pulse_ms=0.3,
+        amplitude=153.0,
+        units=proportional_units(Muscle.SOLEUS, 120),
+    ),
 }
 
 
@@ -122,9 +140,12 @@ def simulate(frequency_hz: float, variant: Variant) -> Run:
 
 
 def _spike_counts(config: SimulationConfig) -> list[int]:
-    """Soma action potentials (> 0 mV) per unit."""
+    """Action potentials per unit: soma spikes (> 0 mV), or axon spikes with axon stimulation."""
     setup = MotorUnitSetup.from_config(config)
     pool, p = setup.motoneurons, config.stimulus
+    if config.model.stimulation_site is StimulationSite.MOTOR_AXONS:
+        spikes = axon_spikes(stimulus_series(p), p.step_ms, setup.axon_rheobase, config.model.axon_excitability)
+        return [int(n) for n in spikes.sum(axis=0)]
     times = p.time_grid()[::10]
     integration = ScipyBdfSolver().start(
         lambda t, s: pool.derivatives(t, s, lambda u: stimulus_current(u, p)),

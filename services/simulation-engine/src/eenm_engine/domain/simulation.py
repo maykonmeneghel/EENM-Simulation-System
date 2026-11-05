@@ -64,6 +64,8 @@ class MotorUnitSetup:
     groups: dict[MotorUnitType, MotorUnitGroup]
     muap_shapes: dict[MotorUnitType, NDArray[np.int64]]
     motoneurons: MotoneuronPool
+    axon_rheobase: NDArray[np.float64]
+    """One rheobase per unit, in the column order of ``column_slices`` (used with axon stimulation)."""
 
     @classmethod
     def from_config(cls, config: SimulationConfig) -> MotorUnitSetup:
@@ -92,7 +94,10 @@ class MotorUnitSetup:
             temperature_c=config.temperature_c,
             injection_site=config.injection_site,
         )
-        return cls(groups=groups, muap_shapes=shapes, motoneurons=motoneurons)
+        units = sum(g.size for g in groups.values())
+        # a generator of its own, so the MUAP-shape draws above stay those of the original seed
+        rheobase = config.model.axon_excitability.rheobases(units, seed=config.seed + 1)
+        return cls(groups=groups, muap_shapes=shapes, motoneurons=motoneurons, axon_rheobase=rheobase)
 
     def column_slices(self) -> dict[MotorUnitType, slice]:
         """Which columns of the all-units voltage matrix belong to each type."""
@@ -152,12 +157,13 @@ class IncrementalForce:
             for t in UNIT_TYPES
         }
 
-    def add(self, soma_voltage: NDArray[np.float64]) -> ForceSeries | None:
-        """Append ``(rows, units)`` soma voltages; return the newly final samples, if any."""
-        rows = soma_voltage.shape[0]
+    def add(self, samples: NDArray[np.float64]) -> ForceSeries | None:
+        """Append ``(rows, units)`` samples — soma voltages, or axon spike trains with axon stimulation —
+        and return the newly final samples, if any."""
+        rows = samples.shape[0]
         if self._known + rows > self._total:
             raise ValueError("more samples than the simulation duration")
-        self._voltage[self._known : self._known + rows] = soma_voltage
+        self._voltage[self._known : self._known + rows] = samples
         self._known += rows
         final = self._total if self._known == self._total else self._final_sample()
         if final <= self._released:

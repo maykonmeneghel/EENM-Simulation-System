@@ -19,11 +19,12 @@ from dataclasses import dataclass, replace
 import numpy as np
 from scipy.optimize import minimize
 
+from eenm_engine.domain.axon_stimulation import axon_spikes
 from eenm_engine.domain.force_pipeline import type_signals
-from eenm_engine.domain.model_options import ForceAggregation, ModelOptions, TwitchDrive, UnitSelection
+from eenm_engine.domain.model_options import ForceAggregation, ModelOptions, StimulationSite, TwitchDrive, UnitSelection
 from eenm_engine.domain.motor_unit_pool import MUSCLE_PRESETS, MotorUnitType, Muscle, proportional_units
 from eenm_engine.domain.simulation import MotorUnitSetup, SimulationConfig
-from eenm_engine.domain.stimulus import StimulusProtocol, stimulus_current
+from eenm_engine.domain.stimulus import StimulusProtocol, stimulus_current, stimulus_series
 from eenm_engine.domain.twitch import TwitchShape
 from eenm_engine.infrastructure.scipy_solver import ScipyBdfSolver
 from validation.protocols import RESULTS, twitch_metrics
@@ -35,6 +36,9 @@ TARGET_HRT_MS = (99.6 + 95.0) / 2
 def single_twitch_voltage(config: SimulationConfig) -> tuple[MotorUnitSetup, np.ndarray]:
     setup = MotorUnitSetup.from_config(config)
     pool, p = setup.motoneurons, config.stimulus
+    if config.model.stimulation_site is StimulationSite.MOTOR_AXONS:
+        spikes = axon_spikes(stimulus_series(p), p.step_ms, setup.axon_rheobase, config.model.axon_excitability)
+        return setup, spikes.astype(np.float64)
     times = p.time_grid()
     integration = ScipyBdfSolver().start(
         lambda t, s: pool.derivatives(t, s, lambda u: stimulus_current(u, p)),
@@ -91,6 +95,19 @@ PIPELINES = {
             twitch_drive=TwitchDrive.OWN_SPIKES,
             force_aggregation=ForceAggregation.SUM,
             represent_pool=True,
+        ),
+        units=proportional_units(Muscle.SOLEUS, 120),
+        pulse_ms=0.3,
+        amplitude=153.0,
+    ),
+    # step 4: the same pool stimulated through its motor axons (analytic recruitment layer)
+    "axons": Pipeline(
+        ModelOptions(
+            unit_selection=UnitSelection.SPREAD_ACROSS_POOL,
+            twitch_drive=TwitchDrive.OWN_SPIKES,
+            force_aggregation=ForceAggregation.SUM,
+            represent_pool=True,
+            stimulation_site=StimulationSite.MOTOR_AXONS,
         ),
         units=proportional_units(Muscle.SOLEUS, 120),
         pulse_ms=0.3,

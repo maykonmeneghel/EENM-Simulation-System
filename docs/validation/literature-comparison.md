@@ -44,6 +44,7 @@ Each hypothesis points to a behaviour already listed in `docs/matlab-port-notes.
 | 5 — fast units too slow | `demangeMNs` simulates the **first** units of each interpolated range (Q8), and the MTTP ranges go from slow to fast (FF 82.3 → 56.9 ms), so the 2 simulated FF units are the slowest FF of the pool. Even the fastest values in the table (FR 55.5, FF 56.9 ms) are ~2× the literature. | Q8 + parameter table. |
 | 7, 8, 10 — no saturation, right-shifted curve, high tetanus/twitch | Forces are summed **linearly** (no sigmoidal gain as in Fuglevand 1993), so mean force grows ∝ frequency until spikes fail. The impulse weight is the **peak of the summed MUAP** (Q2), not 1, and the force is a **mean** over units (Q7). | Q2, Q7; missing force saturation. |
 | 8 (decline), 12 — force falls above 50 Hz | Fast motoneurons enter **depolarisation block** with long (5 ms) pulses at high rates (Q11): spikes drop (FF 23/100 at 100 Hz) and the force with them. This is neuronal failure, not muscle fatigue. | Q11; would not happen with clinical 0.1–0.5 ms pulses or nerve stimulation. |
+| 8 (decline) — force falls above 50–60 Hz, revisited | Spike failures come from soma injection (Q1); with axon stimulation (step 4) every unit follows every pulse up to 100 Hz. | Fixed by step 4. |
 | 12 — missing spikes at 15–20 Hz | **Solver artefact, not physiology** (found in step 3): the unbounded stiff solver stepped over pulses. With the step bounded by half the pulse width the motoneurons fire 15/15 and 20/20. The earlier candidate explanation (dendritic Ca / persistent Na) was wrong. | Fixed; `docs/matlab-port-notes.md`, numerical difference 3. |
 | 11 — fusion order inverted | Consequence of 5: the simulated "fast" units are slow. | Q8. |
 
@@ -159,6 +160,38 @@ much faster than the 112–129 ms measured for human triceps surae. The two data
 muscles (toe extensors vs triceps surae) and preparations (single axons vs whole nerve). One possible reason
 for a slower whole-muscle twitch, **not verified here**, is tendon/series elasticity. Choosing which target
 to calibrate against is an open decision.
+
+### Step 4 — stimulation of motor axons (analytic recruitment layer)
+
+Per the PhD project's choice of an analytic electrode model ("recruitment curve and strength–duration
+relation", OE1), `stimulation_site = MOTOR_AXONS` replaces the current injected into the motoneuron soma (Q1)
+by a recruitment layer (`domain/axon_stimulation.py`):
+
+- **Strength–duration (Weiss):** a pulse of width `PW` excites an axon when its amplitude reaches
+  `I_rh·(1 + τ_SD/PW)`. Weiss's formula fits human peripheral-nerve data and `τ_SD = 0.459 ms` is the
+  mean for compound muscle action potentials (459 ± 126 µs, n = 20) — Mogyoros, Kiernan & Burke 1996,
+  *Brain* 119:439–447, doi:10.1093/brain/119.2.439 (abstract).
+- **Order:** non-selective and spatially fixed (Gregory & Bickel 2005, *Phys Ther* 85:358–364,
+  doi:10.1093/ptj/85.4.358, abstract): rheobases are spread over a range and assigned in a seeded random
+  order, independent of unit type.
+- **Range — inherited, not literature:** no verified threshold-to-maximal current ratio was found, so the
+  defaults reproduce the original model's own recruitment with 0.3 ms soma pulses (first unit 56.9, all
+  units 102.1). The resulting force–amplitude curve at 40 Hz is therefore almost linear from 57 to 102
+  (`validation/results/axons/recruitment.json`); its shape is a consequence of that assumption, not a
+  validated result.
+- The axon fires at the end of each suprathreshold pulse; no ODE is integrated (120 units: 1 s of
+  simulated time in ≈ 2.5 s instead of ≈ 24 s).
+
+| Metric | Literature | pool120 (soma) | **axons** |
+|---|---|---|---|
+| Units following 1:1 at 60 / 80 / 100 Hz | axons follow (nerve stimulation) | min 45 / 41 / 51 of 60 / 81 / 101 | **all, every pulse** ✓ |
+| Twitch CT / HRT (ms) | 112–129 / 95–100 | 121 / 97 | 121 / 97 (re-fitted: × 1.2772, m = 3.9461) |
+| Twitch / tetanus | 0.22 ± 0.02 | 0.21 | 0.21 ✓ |
+| f50 (Hz) | 9.6 ± 0.6; ≈ 7 | 5.2 | **5.2** ✗ (unchanged) |
+
+As expected when option (c) was chosen, moving the stimulus to the axons removes the high-frequency
+failures but **does not change f50**, which depends on the units' contraction times: the conflict between
+whole-muscle and single-unit human data described above is still open.
 
 ## What this means for the next steps
 

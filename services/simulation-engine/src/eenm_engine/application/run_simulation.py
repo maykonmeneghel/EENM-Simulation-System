@@ -17,6 +17,8 @@ from eenm_engine.application.events import (
     SimulationSummary,
 )
 from eenm_engine.application.ports import OdeSolver
+from eenm_engine.domain.axon_stimulation import axon_spikes
+from eenm_engine.domain.model_options import StimulationSite
 from eenm_engine.domain.motoneuron import MotoneuronPool
 from eenm_engine.domain.simulation import (
     UNIT_TYPES,
@@ -59,8 +61,12 @@ class RunSimulation:
             muscle=config.muscle,
         )
 
+        if config.model.stimulation_site is StimulationSite.MOTOR_AXONS:
+            blocks = self._axon_blocks(setup, config, stimulus, force)
+        else:
+            blocks = self._integrate_in_blocks(setup.motoneurons, config, times, force)
         totals: list[NDArray[np.float64]] = []
-        for series in self._integrate_in_blocks(setup.motoneurons, config, times, force):
+        for series in blocks:
             totals.append(series.total_force)
             chunk = self._chunk(series, times, stimulus, config.output_stride)
             if chunk.time_ms.size:
@@ -76,6 +82,24 @@ class RunSimulation:
                 time_to_peak_ms=float(times[peak]),
             ),
         )
+
+    def _axon_blocks(
+        self,
+        setup: MotorUnitSetup,
+        config: SimulationConfig,
+        stimulus: NDArray[np.float64],
+        force: IncrementalForce,
+    ) -> Iterator[ForceSeries]:
+        """Axon stimulation: spikes follow from the stimulus directly, no ODE; still released block by block."""
+        protocol = config.stimulus
+        spikes = axon_spikes(stimulus, protocol.step_ms, setup.axon_rheobase, config.model.axon_excitability).astype(
+            np.float64
+        )
+        block = max(1, round(self._block_ms / protocol.step_ms))
+        for start in range(0, spikes.shape[0], block):
+            released = force.add(spikes[start : start + block])
+            if released is not None:
+                yield released
 
     def _integrate_in_blocks(
         self,

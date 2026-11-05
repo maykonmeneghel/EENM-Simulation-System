@@ -22,7 +22,7 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.ndimage import median_filter
 
-from eenm_engine.domain.model_options import ModelOptions, TwitchDrive
+from eenm_engine.domain.model_options import ModelOptions, StimulationSite, TwitchDrive
 from eenm_engine.domain.motor_unit_pool import MotorUnitGroup
 from eenm_engine.domain.twitch import RateGain, TwitchFilter
 
@@ -167,13 +167,14 @@ class TypeForce:
         self.history = longest_delay + MUAP_TIME.size + self._WINDOW_SLACK
 
     def compute(self, voltage: NDArray[np.float64], start: int, stop: int) -> TypeSignals:
-        """Force and MUAP of samples ``[start, stop)``; ``voltage`` holds every known sample (rows)."""
+        """Force and MUAP of samples ``[start, stop)``; ``voltage`` holds every known sample (rows).
+
+        With axon stimulation ``voltage`` is the axons' spike train (1 at each action potential): its peaks
+        are the spikes, so the same MUAP and twitch stages apply, without the soma-specific median filter
+        and axonal attenuation; MUAP amplitudes are then in normalised units.
+        """
         window_start = max(0, start - self.history)
-        filtered = median_filter_3x3(voltage[window_start:])
-        if window_start > 0:
-            # medfilt2's zero padding belongs to the start of the record, not to the window start
-            filtered[0] = median_filter_3x3(voltage[window_start - 1 : window_start + 2])[1]
-        junction = junction_potential(filtered, self._axon)
+        junction = self._junction(voltage, window_start)
         muap = muap_train(junction, self._group, self._shapes)
         local = slice(start - window_start, stop - window_start)
 
@@ -186,6 +187,15 @@ class TypeForce:
             drive = spike_train(muap.sum(axis=1))[local]
         return TypeSignals(muap=muap[local], force=self._twitch.segment(drive))
 
+    def _junction(self, voltage: NDArray[np.float64], window_start: int) -> NDArray[np.float64]:
+        if self._options.stimulation_site is StimulationSite.MOTOR_AXONS:
+            return np.asarray(voltage[window_start:], dtype=np.float64)
+        filtered = median_filter_3x3(voltage[window_start:])
+        if window_start > 0:
+            # medfilt2's zero padding belongs to the start of the record, not to the window start
+            filtered[0] = median_filter_3x3(voltage[window_start - 1 : window_start + 2])[1]
+        return junction_potential(filtered, self._axon)
+
     def unresolved_from(self, voltage: NDArray[np.float64]) -> int:
         """First sample whose force may still change because a peak is not decided yet.
 
@@ -196,7 +206,7 @@ class TypeForce:
         """
         known = voltage.shape[0]
         tail_start = max(0, known - self.history)
-        junction = junction_potential(median_filter_3x3(voltage[tail_start:]), self._axon)[:-1]
+        junction = self._junction(voltage, tail_start)[:-1]
         unresolved = known
         for k in range(self._group.size):
             run = _trailing_run_start(junction[:, k])
