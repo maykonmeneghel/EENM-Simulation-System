@@ -16,7 +16,7 @@ export async function loadMuscleCatalog(api: ApiClient, signal?: AbortSignal): P
   } catch (err) {
     if (signal?.aborted) throw err;
     return {
-      muscles: MUSCLES.map((id) => ({ id, label: id, poolSize: { S: 50, FR: 50, FF: 50 } })),
+      muscles: MUSCLES.map((id) => ({ id, label: id, poolSize: { S: 200, FR: 200, FF: 200 } })),
       error: `Não foi possível carregar os músculos (${err instanceof Error ? err.message : String(err)}). Usando lista padrão.`,
     };
   }

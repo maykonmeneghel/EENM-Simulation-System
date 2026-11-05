@@ -1,5 +1,5 @@
 import type { FieldError, MusclePreset, SimulationRequest } from './simulation';
-import { MAX_UNITS_PER_TYPE } from './defaults';
+import { MAX_DURATION_MS, MAX_OUTPUT_STEP_MS, MAX_UNITS_PER_TYPE, MIN_DURATION_MS } from './defaults';
 import { MOTOR_UNIT_TYPES } from './simulation';
 
 /**
@@ -23,7 +23,7 @@ export function validateRequest(
   };
 
   const s = req.stimulus;
-  range('stimulus.durationMs', s.durationMs, 10, 5000);
+  range('stimulus.durationMs', s.durationMs, MIN_DURATION_MS, MAX_DURATION_MS);
   range('stimulus.stepMs', s.stepMs, 0.005, 0.1);
   range('stimulus.frequencyHz', s.frequencyHz, 1, 200);
   range('stimulus.dutyCyclePercent', s.dutyCyclePercent, 1, 99);
@@ -41,16 +41,36 @@ export function validateRequest(
     }
   }
 
-  let sum = 0;
-  for (const type of MOTOR_UNIT_TYPES) {
-    const field = `unitsPerType.${type}`;
-    const value = req.unitsPerType[type];
-    const max = Math.min(MAX_UNITS_PER_TYPE, muscle?.poolSize[type] ?? MAX_UNITS_PER_TYPE);
-    range(field, value, 0, max);
-    integer(field, value);
-    if (Number.isFinite(value)) sum += value;
+  const on = s.trainOnMs;
+  const period = s.trainPeriodMs;
+  if ((on === null) !== (period === null)) {
+    const missing = on === null ? 'stimulus.trainOnMs' : 'stimulus.trainPeriodMs';
+    errors.push({ field: missing, message: 'informe a duração ligada e o período do trem juntos' });
+  } else if (on !== null && period !== null) {
+    if (!Number.isFinite(on) || on <= 0) {
+      errors.push({ field: 'stimulus.trainOnMs', message: 'deve ser > 0' });
+    } else if (Number.isFinite(period) && on > period) {
+      errors.push({ field: 'stimulus.trainOnMs', message: 'deve ser ≤ período do trem' });
+    }
+    if (!Number.isFinite(period) || period <= 0) {
+      errors.push({ field: 'stimulus.trainPeriodMs', message: 'deve ser > 0' });
+    } else if (Number.isFinite(s.durationMs) && period > s.durationMs) {
+      errors.push({ field: 'stimulus.trainPeriodMs', message: 'deve ser ≤ duração' });
+    }
   }
-  if (sum < 1) errors.push({ field: 'unitsPerType', message: 'pelo menos uma unidade motora' });
+
+  if (req.unitsPerType) {
+    let sum = 0;
+    for (const type of MOTOR_UNIT_TYPES) {
+      const field = `unitsPerType.${type}`;
+      const value = req.unitsPerType[type];
+      const max = Math.min(MAX_UNITS_PER_TYPE, muscle?.poolSize[type] ?? MAX_UNITS_PER_TYPE);
+      range(field, value, 0, max);
+      integer(field, value);
+      if (Number.isFinite(value)) sum += value;
+    }
+    if (sum < 1) errors.push({ field: 'unitsPerType', message: 'pelo menos uma unidade motora' });
+  }
 
   range('axonLengthPercent', req.axonLengthPercent, 1, 100);
   range('temperatureCelsius', req.temperatureCelsius, 0, 45);
@@ -62,8 +82,8 @@ export function validateRequest(
   const out = req.outputStepMs;
   if (!Number.isFinite(out)) {
     errors.push({ field: 'outputStepMs', message: 'deve ser um número' });
-  } else if (out > 10) {
-    errors.push({ field: 'outputStepMs', message: 'deve ser ≤ 10' });
+  } else if (out > MAX_OUTPUT_STEP_MS) {
+    errors.push({ field: 'outputStepMs', message: `deve ser ≤ ${MAX_OUTPUT_STEP_MS}` });
   } else if (Number.isFinite(s.stepMs) && s.stepMs > 0) {
     const ratio = out / s.stepMs;
     if (out < s.stepMs - 1e-12) {

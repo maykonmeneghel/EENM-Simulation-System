@@ -12,6 +12,9 @@ export type ModulationTarget = (typeof MODULATION_TARGETS)[number];
 export const MODULATION_SHAPES = ['STEP', 'RAMP', 'TRIANGLE', 'SINUSOIDAL'] as const;
 export type ModulationShape = (typeof MODULATION_SHAPES)[number];
 
+export const MODEL_VARIANTS = ['ORIGINAL', 'LITERATURE'] as const;
+export type ModelVariant = (typeof MODEL_VARIANTS)[number];
+
 export const MUSCLES = [
   'SOLEUS',
   'GASTROCNEMIUS_MEDIAL',
@@ -45,12 +48,20 @@ export interface Stimulus {
   amplitude: number;
   waveform: Waveform;
   modulation: Modulation;
+  /** Intermittent trains: both or neither; 0 < on ≤ period ≤ durationMs. */
+  trainOnMs: number | null;
+  trainPeriodMs: number | null;
 }
 
 export interface SimulationRequest {
   stimulus: Stimulus;
+  modelVariant: ModelVariant;
   muscle: MuscleId;
-  unitsPerType: UnitsPerType;
+  /**
+   * Omitted = variant default (ORIGINAL 5/2/2; LITERATURE 120 units in the pool's proportions,
+   * computed server-side).
+   */
+  unitsPerType?: UnitsPerType;
   axonLengthPercent: number;
   temperatureCelsius: number;
   injectionSite: InjectionSite;

@@ -3,6 +3,9 @@ import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import type { SeriesBuffer, SeriesKey } from '../application/seriesBuffer';
 
+const LONG_RUN_MS = 10_000;
+const formatTick = (v: number) => v.toLocaleString('pt-BR', { maximumFractionDigits: 3 });
+
 export interface LiveSeriesSpec {
   key: Exclude<SeriesKey, 'timeMs'>;
   label: string;
@@ -65,7 +68,17 @@ export function LiveChart({
         },
       },
       axes: [
-        { label: 'tempo (ms)', stroke: '#52514e', grid: { stroke: '#ecebe8' }, ticks: { stroke: '#ecebe8' } },
+        {
+          label: 'tempo',
+          stroke: '#52514e',
+          grid: { stroke: '#ecebe8' },
+          ticks: { stroke: '#ecebe8' },
+          // Long (fatigue) runs read better in seconds.
+          values: (_u, splits) =>
+            (xMaxRef.current ?? 0) > LONG_RUN_MS
+              ? splits.map((v) => `${formatTick(v / 1000)} s`)
+              : splits.map((v) => `${formatTick(v)} ms`),
+        },
         { label: yLabel, stroke: '#52514e', grid: { stroke: '#ecebe8' }, ticks: { stroke: '#ecebe8' }, size: 60 },
       ],
       series: [

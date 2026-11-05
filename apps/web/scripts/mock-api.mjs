@@ -21,6 +21,8 @@ import { randomUUID } from 'node:crypto';
 const PORT = Number(process.env.PORT ?? 8080);
 const CHUNK_DELAY_MS = Number(process.env.MOCK_CHUNK_DELAY_MS ?? 60);
 const TARGET_CHUNKS = 40;
+const MAX_CHUNK_SAMPLES = 5000;
+const LITERATURE_AUTO_UNITS = 120;
 
 const MUSCLES = [
   { id: 'SOLEUS', label: 'Sóleo (mock)', poolSize: { S: 800, FR: 50, FF: 50 } },
@@ -33,8 +35,10 @@ const DEFAULTS = {
   stimulus: {
     durationMs: 1000, stepMs: 0.01, frequencyHz: 40, dutyCyclePercent: 20, amplitude: 100,
     waveform: 'MONOPHASIC', modulation: { target: 'AMPLITUDE', shape: 'STEP', peakTimeMs: null },
+    trainOnMs: null, trainPeriodMs: null,
   },
-  muscle: 'SOLEUS', unitsPerType: { S: 5, FR: 2, FF: 2 }, axonLengthPercent: 80,
+  modelVariant: 'ORIGINAL',
+  muscle: 'SOLEUS', unitsPerType: undefined, axonLengthPercent: 80,
   temperatureCelsius: 6.3, injectionSite: 'SOMA', somaGeometry: 'CYLINDRICAL',
   dendriteGeometry: 'CYLINDRICAL', seed: 0, outputStepMs: 0.1,
 };
@@ -59,7 +63,7 @@ function validate(r) {
     if (!values.includes(v)) errors.push({ field, message: `must be one of ${values.join(', ')}` });
   };
   const s = r.stimulus;
-  range('stimulus.durationMs', s.durationMs, 10, 5000);
+  range('stimulus.durationMs', s.durationMs, 10, 300000);
   range('stimulus.stepMs', s.stepMs, 0.005, 0.1);
   range('stimulus.frequencyHz', s.frequencyHz, 1, 200);
   range('stimulus.dutyCyclePercent', s.dutyCyclePercent, 1, 99);
@@ -72,16 +76,26 @@ function validate(r) {
     if (typeof p !== 'number' || !(p > 0 && p < s.durationMs))
       errors.push({ field: 'stimulus.modulation.peakTimeMs', message: 'required, 0 < peakTimeMs < durationMs' });
   }
+  const on = s.trainOnMs ?? null;
+  const period = s.trainPeriodMs ?? null;
+  if ((on === null) !== (period === null)) {
+    errors.push({ field: on === null ? 'stimulus.trainOnMs' : 'stimulus.trainPeriodMs', message: 'trainOnMs and trainPeriodMs must be given together' });
+  } else if (on !== null && !(on > 0 && on <= period && period <= s.durationMs)) {
+    errors.push({ field: 'stimulus.trainOnMs', message: 'must satisfy 0 < trainOnMs <= trainPeriodMs <= durationMs' });
+  }
+  oneOf('modelVariant', r.modelVariant, ['ORIGINAL', 'LITERATURE']);
   const muscle = MUSCLES.find((m) => m.id === r.muscle);
   if (!muscle) oneOf('muscle', r.muscle, MUSCLES.map((m) => m.id));
-  let sum = 0;
-  for (const t of ['S', 'FR', 'FF']) {
-    const v = r.unitsPerType[t];
-    range(`unitsPerType.${t}`, v, 0, Math.min(50, muscle?.poolSize[t] ?? 50));
-    if (!Number.isInteger(v)) errors.push({ field: `unitsPerType.${t}`, message: 'must be an integer' });
-    sum += Number(v) || 0;
+  if (r.unitsPerType !== undefined) {
+    let sum = 0;
+    for (const t of ['S', 'FR', 'FF']) {
+      const v = r.unitsPerType?.[t];
+      range(`unitsPerType.${t}`, v, 0, Math.min(200, muscle?.poolSize[t] ?? 200));
+      if (!Number.isInteger(v)) errors.push({ field: `unitsPerType.${t}`, message: 'must be an integer' });
+      sum += Number(v) || 0;
+    }
+    if (sum < 1) errors.push({ field: 'unitsPerType', message: 'at least one motor unit is required' });
   }
-  if (sum < 1) errors.push({ field: 'unitsPerType', message: 'at least one motor unit is required' });
   range('axonLengthPercent', r.axonLengthPercent, 1, 100);
   range('temperatureCelsius', r.temperatureCelsius, 0, 45);
   oneOf('injectionSite', r.injectionSite, ['SOMA', 'DENDRITE']);
@@ -111,17 +125,42 @@ const TYPES = {
   FR: { threshold: 60, tc: 50, peak: 0.5 },
   FF: { threshold: 90, tc: 30, peak: 1.0 },
 };
+// LITERATURE: axonal stimulation, recruitment range ≈ 57–102 with 0.3 ms pulses (contract).
+const LITERATURE_TYPES = {
+  S: { threshold: 57, tc: 90, peak: 0.2 },
+  FR: { threshold: 72, tc: 55, peak: 0.6 },
+  FF: { threshold: 87, tc: 35, peak: 1.0 },
+};
+
+/**
+ * Variant default when unitsPerType is omitted. LITERATURE: 120 units in the pool's proportions
+ * (small types rounded, S takes the rest → soleus 106 / 7 / 7, as in the contract).
+ */
+function resolveUnits(r) {
+  if (r.unitsPerType !== undefined) return r.unitsPerType;
+  if (r.modelVariant !== 'LITERATURE') return { S: 5, FR: 2, FF: 2 };
+  const pool = MUSCLES.find((m) => m.id === r.muscle).poolSize;
+  const total = pool.S + pool.FR + pool.FF;
+  const FR = Math.max(1, Math.round((LITERATURE_AUTO_UNITS * pool.FR) / total));
+  const FF = Math.max(1, Math.round((LITERATURE_AUTO_UNITS * pool.FF) / total));
+  return { S: LITERATURE_AUTO_UNITS - FR - FF, FR, FF };
+}
 
 /** Generator of [timeMs, stimulus, force{total,S,FR,FF}, emg] samples. */
 function* simulate(r) {
   const s = r.stimulus;
+  const literature = r.modelVariant === 'LITERATURE';
   const T = s.durationMs;
   const dt = r.outputStepMs;
   const n = Math.floor(T / dt + 1e-9) + 1;
   const rand = mulberry32(r.seed + 1);
-  const q10 = Math.pow(1.5, (r.temperatureCelsius - 6.3) / 10); // faster twitches when warmer
-  const latency = 1 + r.axonLengthPercent * 0.04; // ms
-  const injectionGain = r.injectionSite === 'DENDRITE' ? 0.7 : 1;
+  // LITERATURE ignores temperature / injection site (no motoneuron compartments).
+  const q10 = literature ? 1 : Math.pow(1.5, (r.temperatureCelsius - 6.3) / 10);
+  const latency = literature ? 5 : 1 + r.axonLengthPercent * 0.04; // ms
+  const injectionGain = !literature && r.injectionSite === 'DENDRITE' ? 0.7 : 1;
+  const types = literature ? LITERATURE_TYPES : TYPES;
+  const inTrain = (t) =>
+    s.trainOnMs == null || t % s.trainPeriodMs < s.trainOnMs;
   const envelope = (t) => {
     switch (s.modulation.shape) {
       case 'RAMP': return t / T;
@@ -148,14 +187,16 @@ function* simulate(r) {
     const freq = s.modulation.target === 'FREQUENCY' ? Math.max(1, s.frequencyHz * m) : s.frequencyHz;
     const duty = s.modulation.target === 'PULSE_WIDTH' ? Math.max(1, s.dutyCyclePercent * m) : s.dutyCyclePercent;
 
-    if (t >= nextPulse) {
+    if (t >= nextPulse && !inTrain(t)) {
+      nextPulse = t + 1000 / freq; // skip pulses during the train's off phase
+    } else if (t >= nextPulse) {
       const period = 1000 / freq;
       pulseStart = t;
       pulseWidth = (period * duty) / 100;
       pulseAmp = amp;
       nextPulse = t + period;
       let recruited = 0;
-      for (const [type, p] of Object.entries(TYPES)) {
+      for (const [type, p] of Object.entries(types)) {
         const units = r.unitsPerType[type];
         if (!units) continue;
         const fraction = Math.min(1, Math.max(0, (amp * injectionGain - p.threshold) / 40));
@@ -176,13 +217,18 @@ function* simulate(r) {
     const force = { S: 0, FR: 0, FF: 0 };
     for (let k = twitches.length - 1; k >= 0; k--) {
       const tw = twitches[k];
-      const tc = TYPES[tw.type].tc / q10;
+      const tc = types[tw.type].tc / q10;
       const x = (t - tw.t0) / tc;
       if (x > 10) { twitches.splice(k, 1); continue; }
-      if (x > 0) force[tw.type] += TYPES[tw.type].peak * tw.weight * x * Math.exp(1 - x);
+      if (x > 0) force[tw.type] += types[tw.type].peak * tw.weight * x * Math.exp(1 - x);
     }
     // Mild saturation so tetanic fusion plateaus instead of growing linearly.
     for (const k of ['S', 'FR', 'FF']) force[k] = force[k] / (1 + 0.15 * force[k]);
+    // LITERATURE: peripheral fatigue without recovery (fast units fatigue first).
+    if (literature) {
+      force.FF *= Math.exp(-t / 40000);
+      force.FR *= Math.exp(-t / 120000);
+    }
 
     let emg = (rand() - 0.5) * 0.004;
     for (let k = muaps.length - 1; k >= 0; k--) {
@@ -219,6 +265,7 @@ async function streamSimulation(req, res, r) {
   const emit = (obj) => res.write(`event: ${obj.type}\ndata: ${JSON.stringify(obj)}\n\n`);
   const t0 = Date.now();
 
+  r = { ...r, unitsPerType: resolveUnits(r) };
   emit({
     type: 'started',
     simulationId: `mock-${randomUUID()}`,
@@ -231,7 +278,7 @@ async function streamSimulation(req, res, r) {
   const sim = simulate(r);
   let first = sim.next();
   const total = first.value.n;
-  const chunkSize = Math.max(1, Math.ceil(total / TARGET_CHUNKS));
+  const chunkSize = Math.min(MAX_CHUNK_SAMPLES, Math.max(1, Math.ceil(total / TARGET_CHUNKS)));
   let sent = 0;
   let peak = -Infinity, peakT = 0, sum = 0;
 

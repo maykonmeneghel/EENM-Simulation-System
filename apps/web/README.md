@@ -30,6 +30,21 @@ Mock fault injection (set the *Semente* field): `502` → HTTP 502 problem+json,
 Out-of-range values give a 400 problem+json with `errors`. `PORT` and `MOCK_CHUNK_DELAY_MS`
 (default 60) tune it.
 
+LITERATURE runs without `unitsPerType` get 106 / 7 / 7 units in `started` (soleus), like the real API.
+
+## Model variants and long runs
+
+- **Modelo**: `ORIGINAL` (MATLAB port, sends explicit unit counts, 5 / 2 / 2 by default) or
+  `LITERATURE` (literature-corrected). With `LITERATURE`, injection site, soma/dendrite geometry
+  and temperature are disabled (no effect), unit counts default to *automático* (`unitsPerType`
+  omitted, 120 units in the pool's proportions) unless *Definir contagens manualmente* is ticked,
+  and *Aplicar estímulo clínico* sets a 0.3 ms pulse (duty cycle = 0.03 × f %) and amplitude 153.
+  Below ~33 Hz the duty cycle is clamped to the contract's 1 % minimum and the resulting pulse is shown.
+- **Trens intermitentes**: optional `trainOnMs` / `trainPeriodMs` (prefilled 330 / 1000 ms).
+- **Long runs** (up to 300 s): the form keeps each series ≤ 100 000 points. When the output step
+  would exceed that it suggests the smallest valid multiple of the integration step, and on
+  *Simular* raises it automatically and says so. Charts switch the time axis to seconds above 10 s.
+
 ## Structure
 
 ```

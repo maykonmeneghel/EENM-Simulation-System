@@ -75,3 +75,13 @@ code { font-size: 0.85em; }
 .chart { margin: 0; background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.75rem; }
 .chart figcaption { font-weight: 600; margin-bottom: 0.25rem; }
 .chart-host { width: 100%; min-width: 0; }
+
+.field--wide { grid-column: 1 / -1; }
+.help { margin: 0.4rem 0 0; font-size: 0.8rem; color: var(--text-secondary); }
+.toggle { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.5rem; font-size: 0.85rem; }
+.units-mode { margin-bottom: 0.4rem; }
+.notice { margin-top: 0.5rem; padding: 0.4rem 0.55rem; border-radius: 6px; background: var(--warn-bg); border: 1px solid #eda100; font-size: 0.8rem; }
+.clinical { margin-top: 0.5rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; font-size: 0.8rem; }
+.clinical > div { flex-basis: 100%; }
+.btn--small { padding: 0.2rem 0.55rem; font-size: 0.8rem; }
+.form-notices { margin: 0; padding-left: 1.2rem; color: var(--text-secondary); font-size: 0.85rem; }
