@@ -579,3 +579,8 @@ body { overflow: hidden; }
 /* ---------- Zoom ---------- */
 .zoom-bar { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; font-size: 12px; }
 .chart .u-select { background: rgba(0, 113, 227, 0.14); border: 1px solid rgba(0, 113, 227, 0.5); }
+
+.zoom-bar .segmented { width: 150px; flex: none; }
+.zoom-bar-text { flex: 1; min-width: 0; }
+.chart .u-over.u-over--hand { cursor: grab; }
+.chart .u-over.u-over--grabbing { cursor: grabbing; }

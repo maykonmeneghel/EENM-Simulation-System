@@ -157,13 +157,40 @@ export function LiveChart({
       plot.setData([d.timeMs, ...specs.map((s) => d[s.key]!)]);
     };
     plot.over.addEventListener('dblclick', onDblClick);
+    // Hand: in pan mode (or with Shift) a drag moves the shared time window instead of selecting a box.
+    const panEnd = () => xMaxRef.current ?? buffer.view().timeMs.at(-1) ?? 0;
+    const onPanStart = (e: MouseEvent) => {
+      if (!zoom || e.button !== 0 || (zoom.mode !== 'pan' && !e.shiftKey)) return;
+      e.preventDefault();
+      e.stopPropagation(); // keep uPlot from starting a selection box
+      let lastX = e.clientX;
+      plot.over.classList.add('u-over--grabbing');
+      const move = (ev: MouseEvent) => {
+        const w = zoom.x;
+        const px = plot.over.clientWidth;
+        if (w && px > 0) zoom.pan(((lastX - ev.clientX) / px) * (w[1] - w[0]), panEnd());
+        lastX = ev.clientX;
+      };
+      const up = () => {
+        plot.over.classList.remove('u-over--grabbing');
+        window.removeEventListener('mousemove', move);
+        window.removeEventListener('mouseup', up);
+      };
+      window.addEventListener('mousemove', move);
+      window.addEventListener('mouseup', up);
+    };
+    plot.over.addEventListener('mousedown', onPanStart, { capture: true });
+    const syncCursor = () => plot.over.classList.toggle('u-over--hand', zoom?.mode === 'pan');
+    syncCursor();
     // Another chart zoomed or the zoom was reset: rescale (a reset also drops this chart's amplitude zoom).
     const unsubscribe = zoom?.subscribe(() => {
       if (!zoom.x) yZoomRef.current = null;
+      syncCursor();
       redraw();
     });
     return () => {
       unsubscribe?.();
+      plot.over.removeEventListener('mousedown', onPanStart, { capture: true });
       plot.over.removeEventListener('dblclick', onDblClick);
       ro?.disconnect();
       if (frameRef.current !== null) {

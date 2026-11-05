@@ -4,15 +4,42 @@
  * differ.)
  */
 export type TimeWindow = readonly [number, number];
+/** What a plain drag does: select a box to zoom, or move the time window (hand). Shift+drag always moves. */
+export type DragMode = 'zoom' | 'pan';
 
 export class ZoomSync {
   private window: TimeWindow | null = null;
+  private dragMode: DragMode = 'zoom';
   private generation = 0;
   private readonly listeners = new Set<() => void>();
 
   /** The zoomed time window, or null for the whole run. */
   get x(): TimeWindow | null {
     return this.window;
+  }
+
+  get mode(): DragMode {
+    return this.dragMode;
+  }
+
+  setMode(mode: DragMode): void {
+    if (mode === this.dragMode) return;
+    this.dragMode = mode;
+    this.notify();
+  }
+
+  /**
+   * Shift the zoomed window by `deltaMs`, kept inside [0, endMs] (its width does not change). Nothing to move when
+   * the whole run is shown.
+   */
+  pan(deltaMs: number, endMs: number): void {
+    const w = this.window;
+    if (!w || !Number.isFinite(deltaMs) || deltaMs === 0) return;
+    const width = w[1] - w[0];
+    const lo = Math.min(Math.max(0, w[0] + deltaMs), Math.max(0, endMs - width));
+    if (lo === w[0]) return;
+    this.window = [lo, lo + width];
+    this.notify();
   }
 
   /** Increases on every change; charts compare it to drop their own amplitude zoom on a reset. */
