@@ -32,8 +32,9 @@ class RunSimulation:
     """Integrates the motoneuron pool in time blocks and emits the force samples that become final.
 
     The original integrates the whole duration in one ``ode23s`` call per unit and only then computes
-    the force. Integrating in blocks of ``block_ms`` is what makes the result visible while it is being
-    computed; the post-processing of each block is exact (see ``IncrementalForce``).
+    the force. Here one solver runs for the whole duration and is read every ``block_ms``, which makes
+    the result visible while it is computed without restarting the solver; the force of each block is
+    exact (see ``IncrementalForce``).
     """
 
     def __init__(self, solver: OdeSolver, block_ms: float = 5.0) -> None:
@@ -89,22 +90,19 @@ class RunSimulation:
         def derivatives(t: float, y: NDArray[np.float64]) -> NDArray[np.float64]:
             return motoneurons.derivatives(t, y, lambda s: stimulus_current(s, protocol))
 
-        sparsity = motoneurons.jacobian_sparsity()
         state = motoneurons.initial_state()
-        first = MotoneuronPool.soma_voltage(state[:, None], motoneurons.n_units)
-        released = force.add(first)
+        integration = self._solver.start(
+            derivatives, state, float(times[0]), float(times[-1]), motoneurons.jacobian_sparsity()
+        )
+        released = force.add(MotoneuronPool.soma_voltage(state[:, None], motoneurons.n_units))
         if released is not None:
             yield released
 
-        start = 0
-        while start < times.size - 1:
-            stop = min(start + block, times.size - 1)
-            solution = self._solver.integrate(derivatives, state, times[start : stop + 1], sparsity)
-            state = solution[:, -1]
-            released = force.add(MotoneuronPool.soma_voltage(solution[:, 1:], motoneurons.n_units))
+        for start in range(1, times.size, block):
+            states = integration.advance(times[start : start + block])
+            released = force.add(MotoneuronPool.soma_voltage(states, motoneurons.n_units))
             if released is not None:
                 yield released
-            start = stop
 
     @staticmethod
     def _chunk(

@@ -53,12 +53,12 @@ def test_result_does_not_depend_on_block_size() -> None:
     np.testing.assert_array_equal(force(1.0), force(37.0))
 
 
-def test_integration_proceeds_in_contiguous_blocks() -> None:
+def test_one_integration_is_advanced_block_after_block_without_gaps() -> None:
     solver = SpikingSolver()
     run(CONFIG, block_ms=10.0, solver=solver)
-    assert solver.calls[0][0] == 0.0 and solver.calls[-1][1] == pytest.approx(100.0)
-    for (_, end), (start, _) in zip(solver.calls, solver.calls[1:], strict=False):
-        assert start == end
+    assert solver.advances[0][0] == pytest.approx(0.01) and solver.advances[-1][1] == pytest.approx(100.0)
+    for (_, end), (start, _) in zip(solver.advances, solver.advances[1:], strict=False):
+        assert start == pytest.approx(end + 0.01)
 
 
 def test_force_is_produced_and_summarised() -> None:

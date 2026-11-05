@@ -7,7 +7,16 @@ from dataclasses import dataclass, field
 import numpy as np
 from numpy.typing import NDArray
 
-from eenm_engine.domain.force_pipeline import type_signals
+from eenm_engine.domain.force_pipeline import (
+    MUAP_TIME,
+    TwitchState,
+    junction_potential,
+    mean_over_units,
+    median_filter_3x3,
+    muap_train,
+    spike_train,
+    twitch_force_segment,
+)
 from eenm_engine.domain.motoneuron import REFERENCE_TEMPERATURE_C, InjectionSite, MotoneuronPool
 from eenm_engine.domain.motor_unit_pool import (
     MUSCLE_PRESETS,
@@ -117,11 +126,16 @@ class IncrementalForce:
     The ``Main.m`` pipeline is global (median filter, peak detection), but each output sample only
     depends on voltages up to a couple of samples later: ``medfilt2`` looks one sample ahead, a peak
     needs its right neighbour, and the twitch is driven by ``s(n-1)``. Samples further than
-    ``LOOKAHEAD`` from the end of the data are therefore final, and the streamed series equals the one
-    computed on the complete signal.
+    ``LOOKAHEAD`` from the end of the data are therefore final.
+
+    Each update only reprocesses a trailing window: a MUAP reaches at most ``delay + 251`` samples
+    after its peak, so voltages older than that cannot change the new samples, and the twitch filters
+    carry their state across updates. The streamed series is identical to the one computed on the
+    complete signal (``tests/unit/test_incremental_force.py``).
     """
 
     LOOKAHEAD = 3
+    _WINDOW_SLACK = 8
 
     def __init__(self, setup: MotorUnitSetup, config: SimulationConfig, total_samples: int) -> None:
         self._setup = setup
@@ -130,6 +144,9 @@ class IncrementalForce:
         self._voltage = np.empty((total_samples, setup.motoneurons.n_units))
         self._known = 0
         self._released = 0
+        self._twitch = {t: TwitchState.initial(setup.groups[t]) for t in UNIT_TYPES}
+        longest_delay = max((int(g.muap_delay_samples.max()) for g in setup.groups.values() if g.size), default=0)
+        self._history = longest_delay + MUAP_TIME.size + self._WINDOW_SLACK
 
     def add(self, soma_voltage: NDArray[np.float64]) -> ForceSeries | None:
         """Append ``(rows, units)`` soma voltages; return the newly final samples, if any."""
@@ -146,16 +163,23 @@ class IncrementalForce:
         return series
 
     def _compute(self, start: int, stop: int) -> ForceSeries:
-        known = self._voltage[: self._known]
+        window_start = max(0, start - self._history)
+        window = self._voltage[window_start : self._known]
+        local = slice(start - window_start, stop - window_start)
+        step = self._config.stimulus.step_ms
         force, emg = {}, np.zeros(stop - start)
         for t, columns in self._setup.column_slices().items():
-            signals = type_signals(
-                known[:, columns],
-                self._setup.groups[t],
-                self._setup.muap_shapes[t],
-                self._config.axon_length_percent,
-                self._config.stimulus.step_ms,
+            group = self._setup.groups[t]
+            filtered = median_filter_3x3(window[:, columns])
+            if window_start > 0:
+                # the zero padding of medfilt2 belongs to the signal start, not to the window start
+                filtered[0] = median_filter_3x3(self._voltage[window_start - 1 : window_start + 2, columns])[1]
+            junction = junction_potential(filtered, self._config.axon_length_percent)
+            muap = muap_train(junction, group, self._setup.muap_shapes[t])
+            spikes = spike_train(muap.sum(axis=1))[local]
+            unit_force, self._twitch[t] = twitch_force_segment(
+                spikes, group, step, self._twitch[t], starts_at_zero=start == 0
             )
-            force[t] = signals.mean_force()[start:stop]
-            emg += signals.mean_muap()[start:stop]
+            force[t] = mean_over_units(unit_force)
+            emg += mean_over_units(muap[local])
         return ForceSeries(start=start, stop=stop, force_by_type=force, emg=emg)

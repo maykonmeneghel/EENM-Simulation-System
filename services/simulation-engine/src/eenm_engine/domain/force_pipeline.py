@@ -50,13 +50,13 @@ class TypeSignals:
     force: NDArray[np.float64]  # (samples, units) — f_<type> transposed
 
     def mean_force(self) -> NDArray[np.float64]:
-        return _mean_over_units(self.force)
+        return mean_over_units(self.force)
 
     def mean_muap(self) -> NDArray[np.float64]:
-        return _mean_over_units(self.muap)
+        return mean_over_units(self.muap)
 
 
-def _mean_over_units(matrix: NDArray[np.float64]) -> NDArray[np.float64]:
+def mean_over_units(matrix: NDArray[np.float64]) -> NDArray[np.float64]:
     # MATLAB's mean over zero units is NaN and would poison the total; a type with no simulated
     # units contributes zero instead (the original never ran with an empty type).
     if matrix.shape[1] == 0:
@@ -140,16 +140,41 @@ def twitch_force(spikes: NDArray[np.float64], group: MotorUnitGroup, step_ms: fl
     ``f(n) = 2e^{-Δ/T} f(n-1) - e^{-2Δ/T} f(n-2) + (P Δ² / T) e^{1-Δ/T} s(n-1)`` for ``n ≥ 3`` (1-based),
     with ``f(1) = f(2) = 0``; ``P`` = twitch peak (MT), ``T`` = time to peak (MTTP).
     """
+    force, _ = twitch_force_segment(spikes, group, step_ms, TwitchState.initial(group), starts_at_zero=True)
+    return force
+
+
+@dataclass(frozen=True)
+class TwitchState:
+    """Filter memory of every unit's twitch filter, so the force can be computed segment by segment."""
+
+    delays: NDArray[np.float64]  # (units, 2) — scipy ``lfilter`` ``zi``
+
+    @classmethod
+    def initial(cls, group: MotorUnitGroup) -> TwitchState:
+        return cls(np.zeros((group.size, 2)))
+
+
+def twitch_force_segment(
+    spikes: NDArray[np.float64],
+    group: MotorUnitGroup,
+    step_ms: float,
+    state: TwitchState,
+    starts_at_zero: bool,
+) -> tuple[NDArray[np.float64], TwitchState]:
+    """``twitch_force`` on consecutive segments: feeding the pieces with the returned state gives the
+    same result as filtering the whole spike train at once."""
     drive = spikes.copy()
-    if drive.size:
+    if starts_at_zero and drive.size:
         drive[0] = 0.0  # f(2) = 0 in the original regardless of s(1)
     out = np.zeros((spikes.size, group.size))
+    delays = np.empty_like(state.delays)
     for k in range(group.size):
         period = float(group.twitch_time_to_peak_ms[k])
         decay = np.exp(-step_ms / period)
         gain = float(group.twitch_peak[k]) * step_ms**2 / period * np.exp(1 - step_ms / period)
-        out[:, k] = lfilter([0.0, gain], [1.0, -2.0 * decay, decay**2], drive)
-    return out
+        out[:, k], delays[k] = lfilter([0.0, gain], [1.0, -2.0 * decay, decay**2], drive, zi=state.delays[k])
+    return out, TwitchState(delays)
 
 
 def type_signals(

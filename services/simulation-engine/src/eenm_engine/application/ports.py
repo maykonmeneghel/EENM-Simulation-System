@@ -11,18 +11,26 @@ from numpy.typing import NDArray
 Derivatives = Callable[[float, NDArray[np.float64]], NDArray[np.float64]]
 
 
-class OdeSolver(Protocol):
-    """Integrates a stiff ODE system and returns the state at the requested times."""
+class OdeIntegration(Protocol):
+    """One ongoing integration that is advanced piece by piece without restarting the solver."""
 
-    def integrate(
+    def advance(self, times: NDArray[np.float64]) -> NDArray[np.float64]:
+        """Integrate up to ``times[-1]`` and return the state at every entry of ``times``.
+
+        ``times`` must be increasing and not earlier than the previous call's last time. Returns
+        ``(n_states, len(times))``.
+        """
+        ...
+
+
+class OdeSolver(Protocol):
+    """Factory of integrations of a stiff ODE system."""
+
+    def start(
         self,
         derivatives: Derivatives,
         initial_state: NDArray[np.float64],
-        times: NDArray[np.float64],
+        start_time: float,
+        end_time: float,
         jacobian_sparsity: NDArray[np.bool_] | None = None,
-    ) -> NDArray[np.float64]:
-        """Return the state at every entry of ``times`` as ``(n_states, len(times))``.
-
-        ``times[0]`` is the time of ``initial_state``.
-        """
-        ...
+    ) -> OdeIntegration: ...
