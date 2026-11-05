@@ -12,8 +12,8 @@ from eenm_engine.application.ports import Derivatives
 class ScipyBdfSolver:
     """Stiff solver standing in for MATLAB's ``ode23s``.
 
-    Tolerances default to ``ode23s``'s (``RelTol = 1e-3``, ``AbsTol = 1e-6``). ``max_step_ms`` bounds the
-    internal step.
+    Tolerances default to ``ode23s``'s (``RelTol = 1e-3``, ``AbsTol = 1e-6``). The internal step is bounded
+    by the smaller of ``max_step_ms`` and the ``max_step`` of each integration.
     """
 
     def __init__(self, rtol: float = 1e-3, atol: float = 1e-6, max_step_ms: float = np.inf) -> None:
@@ -28,6 +28,7 @@ class ScipyBdfSolver:
         start_time: float,
         end_time: float,
         jacobian_sparsity: NDArray[np.bool_] | None = None,
+        max_step: float = np.inf,
     ) -> ScipyBdfIntegration:
         stepper = BDF(
             derivatives,
@@ -36,7 +37,7 @@ class ScipyBdfSolver:
             end_time,
             rtol=self._rtol,
             atol=self._atol,
-            max_step=self._max_step,
+            max_step=min(self._max_step, max_step),
             vectorized=True,
             jac_sparsity=jacobian_sparsity,
         )

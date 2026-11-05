@@ -91,3 +91,21 @@ def test_spread_selection_covers_fast_and_slow_units_of_a_type() -> None:
     spread = build_group(MotorUnitType.FF, Muscle.SOLEUS, 2, 80, 1e5, selection=UnitSelection.SPREAD_ACROSS_POOL)
     assert first.twitch_time_to_peak_ms.min() > 81  # the two slowest FF units (82.3, 81.8 ms)
     assert spread.twitch_time_to_peak_ms.min() < 66  # reaches into the fast half of the range
+
+
+def test_proportional_units_follow_the_pool_composition() -> None:
+    from eenm_engine.domain.motor_unit_pool import proportional_units
+
+    counts = proportional_units(Muscle.SOLEUS, 120)  # pool 800 / 50 / 50
+    assert sum(counts.values()) == 120
+    assert counts[MotorUnitType.S] == 106
+    assert {counts[MotorUnitType.FR], counts[MotorUnitType.FF]} == {7}
+    tiny = proportional_units(Muscle.SOLEUS, 3)
+    assert all(n == 1 for n in tiny.values())  # every type represented
+
+
+def test_proportional_units_rejects_impossible_totals() -> None:
+    from eenm_engine.domain.motor_unit_pool import proportional_units
+
+    with pytest.raises(ValueError):
+        proportional_units(Muscle.SOLEUS, 0)

@@ -68,6 +68,17 @@ class StimulusProtocol:
         """Length of MATLAB's ``0:step:tmax``."""
         return math.floor(self.duration_ms / self.step_ms + 1e-9) + 1
 
+    @property
+    def pulse_width_ms(self) -> float:
+        """Nominal pulse duration: the duty-cycle fraction of one period."""
+        return self.duty_cycle_percent / 100.0 / self.frequency_khz
+
+    def solver_max_step_ms(self) -> float:
+        """Largest ODE step that cannot jump over a pulse: half the nominal pulse, but not below the
+        sampling step (pulses shorter than a sample cannot be represented anyway). Pulse-width
+        modulation produces shorter pulses than nominal; those are only resolved down to the sample step."""
+        return max(self.step_ms, self.pulse_width_ms / 2.0)
+
     def time_grid(self) -> NDArray[np.float64]:
         """MATLAB's ``Parameters.time = 0:step:tmax``."""
         return np.arange(self.sample_count, dtype=np.float64) * self.step_ms

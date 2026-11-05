@@ -44,7 +44,7 @@ Each hypothesis points to a behaviour already listed in `docs/matlab-port-notes.
 | 5 — fast units too slow | `demangeMNs` simulates the **first** units of each interpolated range (Q8), and the MTTP ranges go from slow to fast (FF 82.3 → 56.9 ms), so the 2 simulated FF units are the slowest FF of the pool. Even the fastest values in the table (FR 55.5, FF 56.9 ms) are ~2× the literature. | Q8 + parameter table. |
 | 7, 8, 10 — no saturation, right-shifted curve, high tetanus/twitch | Forces are summed **linearly** (no sigmoidal gain as in Fuglevand 1993), so mean force grows ∝ frequency until spikes fail. The impulse weight is the **peak of the summed MUAP** (Q2), not 1, and the force is a **mean** over units (Q7). | Q2, Q7; missing force saturation. |
 | 8 (decline), 12 — force falls above 50 Hz | Fast motoneurons enter **depolarisation block** with long (5 ms) pulses at high rates (Q11): spikes drop (FF 23/100 at 100 Hz) and the force with them. This is neuronal failure, not muscle fatigue. | Q11; would not happen with clinical 0.1–0.5 ms pulses or nerve stimulation. |
-| 12 — missing spikes at 15–20 Hz | Not explained yet. Candidate: interaction of the slow dendritic Ca/persistent-Na currents (SCI conductance set) with 5 ms pulses. | Needs a dedicated sweep. |
+| 12 — missing spikes at 15–20 Hz | **Solver artefact, not physiology** (found in step 3): the unbounded stiff solver stepped over pulses. With the step bounded by half the pulse width the motoneurons fire 15/15 and 20/20. The earlier candidate explanation (dendritic Ca / persistent Na) was wrong. | Fixed; `docs/matlab-port-notes.md`, numerical difference 3. |
 | 11 — fusion order inverted | Consequence of 5: the simulated "fast" units are slow. | Q8. |
 
 ## Corrections
@@ -113,6 +113,52 @@ human soleus twitch stretches *every* unit's contraction time (the fit went from
 soleus is predominantly slow; reproducing that needs per-type composition and contraction times for human
 soleus, which the verified sources do not give. Until then the fast units of this model are too slow.
 The earlier ripple of fast units at 40 Hz (step 1) came from the summed-MUAP drive (Q2), not from physiology.
+
+### Step 3 — clinical pulse width, and a solver fix
+
+- Pulses of **0.3 ms** (FES of the quadriceps uses 300–600 µs: Doucet, Lam & Griffin 2012, *Yale J Biol
+  Med* 85:201–215, PMID 22737049) at a supramaximal amplitude (1.5 × the amplitude at which every simulated
+  unit fires).
+- **Solver bug found and fixed:** with unbounded steps, the stiff solver stepped over short pulses
+  (1 spike instead of 40 at 0.3 ms / 40 Hz). The step is now bounded by half the pulse width. This also
+  removed the "missing spikes at 15–20 Hz" of the baseline (row 12), which were the same artefact.
+- With 0.3 ms pulses the amplitude grades recruitment (9 units: first fires at 57.7, all at 99.4 µA/cm²).
+- Pulse width barely changes force once supramaximal; motoneurons still fail to follow above 60 Hz with
+  0.3 ms pulses, so that failure comes from injecting current into the soma (Q1), not from pulse width.
+
+### Pool size and composition
+
+The 9 simulated units (5 S / 2 FR / 2 FF, from `demangeMNs`) gave S units only 32 % of the twitch force,
+while the model's own soleus pool (800 / 50 / 50) gives them 75 %. Verified composition data for human
+soleus: **70–80 % slow fibres** (Gollnick et al. 1974, doi:10.1007/BF00587415, as cited by Brain Commun 2020,
+doi:10.1093/braincomms/fcaa018) and **> 85 %** (Johnson et al. 1973, doi:10.1016/0022-510x(73)90023-3, as cited
+by J Sport Health Sci 2013, doi:10.1016/j.jshs.2013.07.001) — the percentages are read in those open reviews,
+the primary papers have no accessible abstract. The pool's 75 % is inside that range; the 5/2/2 sample was not.
+No verifiable count of motor units in human soleus was found; the number simulated follows the modelling
+convention of Potvin & Fuglevand 2017 (**120 units**, verified in the full text).
+
+- `units_per_type = proportional_units(SOLEUS, 120)` → **106 S / 7 FR / 7 FF**.
+- `represent_pool`: each simulated unit is weighted by the pool units it stands for (S 800/106, FR and FF
+  50/7), so the summed force keeps the pool's composition and the scale of the whole muscle.
+- Twitch re-fitted on this configuration (`validation/calibrate.py pool120`): × **1.2775**, **m = 3.9482**.
+- Cost: 1 s of simulated time takes ≈ 24 s with 120 units (3.6 s with 9).
+
+| Metric | Literature | rate-gain (9 units) | **pool120** |
+|---|---|---|---|
+| Fitted time scale | — | × 1.66 | **× 1.28** |
+| S / FR / FF contraction time (ms) | S slow; F ≤ 30 (cat) | 170 / 102 / 111 | **132 / 80 / 86** |
+| Twitch / tetanus, whole | 0.22 ± 0.02 | 0.21 | **0.21** ✓ |
+| Force at 100 Hz / max | plateau | 0.98 | **1.00** ✓ |
+| f50 (Hz) | 9.6 ± 0.6 (human MUs); ≈ 7 | 5.0 | **5.2** ✗ |
+| Ripple at 40 Hz, fast units | F not fused (≈ 85 Hz) | 0 % | 0.1 % ✗ |
+
+**Remaining conflict between two verified datasets.** With the Potvin & Fuglevand curve, half-maximal force
+occurs at `NR ≈ 0.70`, i.e. `f50 ≈ 0.70 / CT`. Reaching Macefield's 9.6 Hz needs unit contraction times of
+≈ 73 ms — which is what Macefield measured in human units (75 ms) — but then the whole-muscle twitch would be
+much faster than the 112–129 ms measured for human triceps surae. The two datasets come from different
+muscles (toe extensors vs triceps surae) and preparations (single axons vs whole nerve). One possible reason
+for a slower whole-muscle twitch, **not verified here**, is tendon/series elasticity. Choosing which target
+to calibrate against is an open decision.
 
 ## What this means for the next steps
 

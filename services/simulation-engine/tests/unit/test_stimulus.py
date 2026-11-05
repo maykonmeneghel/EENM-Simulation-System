@@ -77,3 +77,11 @@ def test_frequency_step_equals_amplitude_step() -> None:
 def test_triangle_requires_a_peak_time_inside_the_duration(peak: float | None) -> None:
     with pytest.raises(ValueError):
         StimulusProtocol(modulation_shape=ModulationShape.TRIANGLE, peak_time_ms=peak)
+
+
+def test_pulse_width_and_solver_step() -> None:
+    protocol = StimulusProtocol(frequency_hz=40, duty_cycle_percent=20)
+    assert protocol.pulse_width_ms == pytest.approx(5.0)
+    assert protocol.solver_max_step_ms() == pytest.approx(2.5)
+    tiny = StimulusProtocol(frequency_hz=40, duty_cycle_percent=0.01, step_ms=0.01)
+    assert tiny.solver_max_step_ms() == pytest.approx(0.01)  # never below the sampling step

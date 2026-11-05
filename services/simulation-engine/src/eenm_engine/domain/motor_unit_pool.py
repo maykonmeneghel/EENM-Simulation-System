@@ -169,6 +169,30 @@ def interpolated_values(value_range: ValueRange, count: int) -> NDArray[np.float
     return np.linspace(a, last, count)
 
 
+def proportional_units(muscle: Muscle, total: int) -> dict[MotorUnitType, int]:
+    """``total`` simulated units split across types in the proportions of the muscle's pool.
+
+    Largest-remainder rounding (ties to the smaller type); every type present in the pool gets at least
+    one unit when ``total`` allows it.
+    """
+    pool = MUSCLE_PRESETS[muscle].pool_size
+    size = sum(pool.values())
+    if not 1 <= total <= size:
+        raise ValueError(f"total must be between 1 and {size}")
+    exact = {t: total * n / size for t, n in pool.items()}
+    counts = {t: max(1, math.floor(v)) if total >= len(pool) else math.floor(v) for t, v in exact.items()}
+    # ties go to the smaller type, for which one more unit improves the representation the most
+    by_remainder = sorted(pool, key=lambda t: (round(exact[t] - math.floor(exact[t]), 9), -exact[t]), reverse=True)
+    i = 0
+    while sum(counts.values()) < total:
+        counts[by_remainder[i % len(by_remainder)]] += 1
+        i += 1
+    while sum(counts.values()) > total:  # only possible after the minimum-one rule
+        largest = max(counts, key=lambda t: counts[t])
+        counts[largest] -= 1
+    return counts
+
+
 def selected_units(pool_size: int, count: int, selection: UnitSelection) -> NDArray[np.int64]:
     """Indices, within the pool, of the units to simulate (increasing)."""
     if selection is UnitSelection.FIRST_OF_POOL:

@@ -73,3 +73,31 @@ def test_force_is_produced_and_summarised() -> None:
 def test_block_size_must_be_positive() -> None:
     with pytest.raises(ValueError):
         RunSimulation(SpikingSolver(), block_ms=0)
+
+
+def test_solver_step_is_bounded_by_half_the_pulse_width() -> None:
+    solver = SpikingSolver()
+    short = SimulationConfig(stimulus=StimulusProtocol(duration_ms=50, frequency_hz=40, duty_cycle_percent=1.2))
+    run(short, solver=solver)
+    assert solver.max_steps == [pytest.approx(0.15)]  # 0.3 ms pulses
+
+
+def test_a_short_pulse_train_is_not_stepped_over_by_the_real_solver() -> None:
+    from eenm_engine.domain.force_pipeline import find_peaks_matlab
+    from eenm_engine.domain.simulation import MotorUnitSetup
+    from eenm_engine.domain.stimulus import stimulus_current
+    from eenm_engine.infrastructure.scipy_solver import ScipyBdfSolver
+
+    protocol = StimulusProtocol(duration_ms=200, frequency_hz=40, duty_cycle_percent=1.2, amplitude=150)
+    pool = MotorUnitSetup.from_config(SimulationConfig(stimulus=protocol)).motoneurons
+    times = protocol.time_grid()
+    integration = ScipyBdfSolver().start(
+        lambda t, s: pool.derivatives(t, s, lambda u: stimulus_current(u, protocol)),
+        pool.initial_state(),
+        0.0,
+        200.0,
+        pool.jacobian_sparsity(),
+        max_step=protocol.solver_max_step_ms(),
+    )
+    voltage = pool.soma_voltage(integration.advance(times), pool.n_units)
+    assert find_peaks_matlab(voltage[:, 0])[0].size == 8  # one spike per pulse (pulses at 0, 25, ..., 175 ms)

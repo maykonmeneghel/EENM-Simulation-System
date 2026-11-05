@@ -29,7 +29,7 @@
     }
   },
   "twitchTetanusRatio": 0.12215153556634052,
-  "f50Hz": 18.45189543961332,
+  "f50Hz": 17.646480928401722,
   "frequencyOfMaxForceHz": 60,
   "forceAt100HzOverMax": 0.5174805325276456,
   "riseTo90PercentAt40HzMs": 497.2,
@@ -53,42 +53,8 @@
     },
     {
       "frequencyHz": 2,
-      "normalisedPeak": 0.12215153556634052,
-      "ripple": 0.9847961752722101,
-      "spikesPerUnit": [
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1
-      ],
-      "pulses": 3
-    },
-    {
-      "frequencyHz": 5,
-      "normalisedPeak": 0.12215153556634052,
-      "ripple": 0.9847961752722101,
-      "spikesPerUnit": [
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1
-      ],
-      "pulses": 6
-    },
-    {
-      "frequencyHz": 10,
-      "normalisedPeak": 0.13987413724924574,
-      "ripple": 0.9812555887757192,
+      "normalisedPeak": 0.12433582472944667,
+      "ripple": 0.9445481001525353,
       "spikesPerUnit": [
         2,
         2,
@@ -100,39 +66,73 @@
         2,
         2
       ],
+      "pulses": 3
+    },
+    {
+      "frequencyHz": 5,
+      "normalisedPeak": 0.1751086697797449,
+      "ripple": 0.49132611569064194,
+      "spikesPerUnit": [
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "pulses": 6
+    },
+    {
+      "frequencyHz": 10,
+      "normalisedPeak": 0.3003405709896902,
+      "ripple": 0.1803677481232075,
+      "spikesPerUnit": [
+        10,
+        10,
+        10,
+        10,
+        10,
+        10,
+        10,
+        10,
+        10
+      ],
       "pulses": 11
     },
     {
       "frequencyHz": 15,
-      "normalisedPeak": 0.3848572778061641,
-      "ripple": 0.8076586487905657,
+      "normalisedPeak": 0.433108429084853,
+      "ripple": 0.09469319327858151,
       "spikesPerUnit": [
-        9,
-        9,
-        9,
-        9,
-        9,
-        9,
-        9,
-        9,
-        9
+        15,
+        15,
+        15,
+        15,
+        15,
+        15,
+        15,
+        15,
+        15
       ],
       "pulses": 15
     },
     {
       "frequencyHz": 20,
-      "normalisedPeak": 0.5516391578024107,
-      "ripple": 0.435607351225362,
+      "normalisedPeak": 0.5594867645515373,
+      "ripple": 0.07096110332485152,
       "spikesPerUnit": [
-        18,
-        18,
-        18,
-        18,
-        18,
-        18,
-        18,
-        18,
-        18
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20
       ],
       "pulses": 21
     },

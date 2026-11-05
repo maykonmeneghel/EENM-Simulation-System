@@ -53,42 +53,8 @@
     },
     {
       "frequencyHz": 2,
-      "normalisedPeak": 0.07894878386944396,
-      "ripple": 0.9999919377662954,
-      "spikesPerUnit": [
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1
-      ],
-      "pulses": 3
-    },
-    {
-      "frequencyHz": 5,
-      "normalisedPeak": 0.07894878386944396,
-      "ripple": 0.9999919377662954,
-      "spikesPerUnit": [
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1
-      ],
-      "pulses": 6
-    },
-    {
-      "frequencyHz": 10,
-      "normalisedPeak": 0.08038300176475577,
-      "ripple": 0.99990928346467,
+      "normalisedPeak": 0.07896821630375771,
+      "ripple": 0.9969317194752495,
       "spikesPerUnit": [
         2,
         2,
@@ -100,39 +66,73 @@
         2,
         2
       ],
+      "pulses": 3
+    },
+    {
+      "frequencyHz": 5,
+      "normalisedPeak": 0.08781360344205516,
+      "ripple": 0.6051130738067754,
+      "spikesPerUnit": [
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "pulses": 6
+    },
+    {
+      "frequencyHz": 10,
+      "normalisedPeak": 0.1322413796351181,
+      "ripple": 0.11078612031195864,
+      "spikesPerUnit": [
+        10,
+        10,
+        10,
+        10,
+        10,
+        10,
+        10,
+        10,
+        10
+      ],
       "pulses": 11
     },
     {
       "frequencyHz": 15,
-      "normalisedPeak": 0.18733990499500722,
-      "ripple": 0.9880024563448564,
+      "normalisedPeak": 0.18975695063603962,
+      "ripple": 0.02137102757172207,
       "spikesPerUnit": [
-        9,
-        9,
-        9,
-        9,
-        9,
-        9,
-        9,
-        9,
-        9
+        15,
+        15,
+        15,
+        15,
+        15,
+        15,
+        15,
+        15,
+        15
       ],
       "pulses": 15
     },
     {
       "frequencyHz": 20,
-      "normalisedPeak": 0.25091404606627804,
-      "ripple": 0.5775351955094584,
+      "normalisedPeak": 0.25095285217723556,
+      "ripple": 0.005842449709418868,
       "spikesPerUnit": [
-        18,
-        18,
-        18,
-        18,
-        18,
-        18,
-        18,
-        18,
-        18
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20
       ],
       "pulses": 21
     },

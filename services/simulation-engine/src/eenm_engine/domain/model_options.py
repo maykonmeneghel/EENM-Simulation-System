@@ -52,10 +52,15 @@ class ModelOptions:
     rate_gain: bool = False
     """Force saturation with firing rate (``twitch.RateGain``); requires ``OWN_SPIKES``."""
     force_aggregation: ForceAggregation = ForceAggregation.MEAN_PER_TYPE
+    represent_pool: bool = False
+    """Weight each simulated unit by the number of pool units it stands for (pool size / simulated units of
+    its type), so the summed force has the composition and scale of the whole muscle. Requires ``SUM``."""
 
     def __post_init__(self) -> None:
         if self.twitch_time_scale <= 0:
             raise ValueError("twitch_time_scale must be positive")
+        if self.represent_pool and self.force_aggregation is not ForceAggregation.SUM:
+            raise ValueError("represent_pool weights a sum of unit forces (force_aggregation = SUM)")
         if self.rate_gain and self.twitch_drive is not TwitchDrive.OWN_SPIKES:
             raise ValueError("rate_gain needs each unit's own spikes (twitch_drive = OWN_SPIKES)")
 

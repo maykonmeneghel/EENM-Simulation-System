@@ -92,7 +92,12 @@ class RunSimulation:
 
         state = motoneurons.initial_state()
         integration = self._solver.start(
-            derivatives, state, float(times[0]), float(times[-1]), motoneurons.jacobian_sparsity()
+            derivatives,
+            state,
+            float(times[0]),
+            float(times[-1]),
+            motoneurons.jacobian_sparsity(),
+            max_step=protocol.solver_max_step_ms(),
         )
         released = force.add(MotoneuronPool.soma_voltage(state[:, None], motoneurons.n_units))
         if released is not None:

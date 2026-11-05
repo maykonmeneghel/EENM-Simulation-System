@@ -19,7 +19,7 @@ from eenm_engine.application.events import SimulationChunk
 from eenm_engine.application.run_simulation import RunSimulation
 from eenm_engine.domain.force_pipeline import find_peaks_matlab
 from eenm_engine.domain.model_options import ForceAggregation, ModelOptions, TwitchDrive, UnitSelection
-from eenm_engine.domain.motor_unit_pool import MotorUnitType
+from eenm_engine.domain.motor_unit_pool import MotorUnitType, Muscle, proportional_units
 from eenm_engine.domain.simulation import MotorUnitSetup, SimulationConfig
 from eenm_engine.domain.stimulus import StimulusProtocol, stimulus_current
 from eenm_engine.domain.twitch import TwitchShape
@@ -31,31 +31,65 @@ PULSE_MS = 5.0  # the model's default pulse width (20 % duty cycle at 40 Hz)
 TYPES = (MotorUnitType.S, MotorUnitType.FR, MotorUnitType.FF)
 FREQUENCIES = (1, 2, 5, 10, 15, 20, 30, 40, 50, 60, 80, 100)
 
-VARIANTS: dict[str, ModelOptions] = {
-    "original": ModelOptions.original(),
-    "spread-units": ModelOptions(unit_selection=UnitSelection.SPREAD_ACROSS_POOL),
+
+@dataclass(frozen=True)
+class Variant:
+    model: ModelOptions
+    pulse_ms: float = PULSE_MS
+    amplitude: float = 100.0
+    units: dict[MotorUnitType, int] | None = None
+
+
+_STEP2 = ModelOptions(
+    unit_selection=UnitSelection.SPREAD_ACROSS_POOL,
+    twitch_shape=TwitchShape(exponent=4.7887),
+    twitch_time_scale=1.6553,
+    twitch_drive=TwitchDrive.OWN_SPIKES,
+    force_aggregation=ForceAggregation.SUM,
+    rate_gain=True,
+)
+
+VARIANTS: dict[str, Variant] = {
+    "original": Variant(ModelOptions.original()),
+    "spread-units": Variant(ModelOptions(unit_selection=UnitSelection.SPREAD_ACROSS_POOL)),
     # Step 1: values fitted by validation/calibrate.py to human whole-soleus twitch timing.
-    "human-twitch": ModelOptions(
-        unit_selection=UnitSelection.SPREAD_ACROSS_POOL,
-        twitch_shape=TwitchShape(exponent=5.1232),
-        twitch_time_scale=1.5718,
+    "human-twitch": Variant(
+        ModelOptions(
+            unit_selection=UnitSelection.SPREAD_ACROSS_POOL,
+            twitch_shape=TwitchShape(exponent=5.1232),
+            twitch_time_scale=1.5718,
+        )
     ),
-    # Step 2: each unit's own spikes (Q2), linear sum of unit forces (Q7), then rate saturation.
-    "own-spikes": ModelOptions(
-        unit_selection=UnitSelection.SPREAD_ACROSS_POOL,
-        twitch_shape=TwitchShape(exponent=5.1232),
-        twitch_time_scale=1.5718,
-        twitch_drive=TwitchDrive.OWN_SPIKES,
-        force_aggregation=ForceAggregation.SUM,
+    # Step 2: each unit's own spikes (Q2), linear sum of unit forces (Q7), without and with rate saturation.
+    "own-spikes": Variant(
+        ModelOptions(
+            unit_selection=UnitSelection.SPREAD_ACROSS_POOL,
+            twitch_shape=TwitchShape(exponent=5.1232),
+            twitch_time_scale=1.5718,
+            twitch_drive=TwitchDrive.OWN_SPIKES,
+            force_aggregation=ForceAggregation.SUM,
+        )
     ),
-    # Step 2 with the twitch recalibrated on this pipeline (validation/calibrate.py step2).
-    "rate-gain": ModelOptions(
-        unit_selection=UnitSelection.SPREAD_ACROSS_POOL,
-        twitch_shape=TwitchShape(exponent=4.7887),
-        twitch_time_scale=1.6553,
-        twitch_drive=TwitchDrive.OWN_SPIKES,
-        force_aggregation=ForceAggregation.SUM,
-        rate_gain=True,
+    "rate-gain": Variant(_STEP2),  # twitch recalibrated on this pipeline (validation/calibrate.py step2)
+    # Step 3: clinical pulse width (300-600 us, Doucet et al. 2012), supramaximal amplitude
+    # (1.5x the 99.4 uA/cm2 at which every simulated unit fires with a 0.3 ms pulse).
+    "clinical-pulse": Variant(_STEP2, pulse_ms=0.3, amplitude=150.0),
+    # Pool size and composition: 120 units (as simulated by Potvin & Fuglevand 2017) in the proportions of the
+    # model's soleus pool (800/50/50 -> 106/7/7), each weighted by the pool units it represents; twitch
+    # re-fitted on this configuration (validation/calibrate.py pool120); 1.5x the all-units threshold.
+    "pool120": Variant(
+        ModelOptions(
+            unit_selection=UnitSelection.SPREAD_ACROSS_POOL,
+            twitch_shape=TwitchShape(exponent=3.9482),
+            twitch_time_scale=1.2775,
+            twitch_drive=TwitchDrive.OWN_SPIKES,
+            force_aggregation=ForceAggregation.SUM,
+            rate_gain=True,
+            represent_pool=True,
+        ),
+        pulse_ms=0.3,
+        amplitude=153.0,
+        units=proportional_units(Muscle.SOLEUS, 120),
     ),
 }
 
@@ -69,10 +103,13 @@ class Run:
     pulses: int
 
 
-def simulate(frequency_hz: float, model: ModelOptions, pulse_ms: float = PULSE_MS) -> Run:
-    duty = min(99.0, pulse_ms * frequency_hz / 1000.0 * 100.0)
-    protocol = StimulusProtocol(duration_ms=DURATION_MS, frequency_hz=frequency_hz, duty_cycle_percent=duty)
-    config = SimulationConfig(stimulus=protocol, output_step_ms=0.1, model=model)
+def simulate(frequency_hz: float, variant: Variant) -> Run:
+    duty = min(99.0, variant.pulse_ms * frequency_hz / 1000.0 * 100.0)
+    protocol = StimulusProtocol(
+        duration_ms=DURATION_MS, frequency_hz=frequency_hz, duty_cycle_percent=duty, amplitude=variant.amplitude
+    )
+    extra = {"units_per_type": variant.units} if variant.units else {}
+    config = SimulationConfig(stimulus=protocol, output_step_ms=0.1, model=variant.model, **extra)
     chunks = [e for e in RunSimulation(ScipyBdfSolver()).execute(config) if isinstance(e, SimulationChunk)]
     stimulus = np.array([stimulus_current(t, protocol) for t in protocol.time_grid()])
     return Run(
@@ -95,6 +132,7 @@ def _spike_counts(config: SimulationConfig) -> list[int]:
         float(times[0]),
         float(times[-1]),
         pool.jacobian_sparsity(),
+        max_step=p.solver_max_step_ms(),
     )
     vs = pool.soma_voltage(integration.advance(times), pool.n_units)
     return [int(find_peaks_matlab(vs[:, k], 0.0)[0].size) for k in range(pool.n_units)]
@@ -118,9 +156,9 @@ def ripple(run: Run, force: NDArray[np.float64]) -> float:
     return float((steady.max() - steady.min()) / steady.max()) if steady.max() > 0 else float("nan")
 
 
-def evaluate(model: ModelOptions) -> dict[str, object]:
-    twitch = simulate(1.0, model)
-    runs = {f: simulate(float(f), model) for f in FREQUENCIES}
+def evaluate(variant: Variant) -> dict[str, object]:
+    twitch = simulate(1.0, variant)
+    runs = {f: simulate(float(f), variant) for f in FREQUENCIES}
     peaks = np.array([runs[f].total.max() for f in FREQUENCIES])
     normalised = peaks / peaks.max()
     rising = int(np.argmax(normalised >= 0.5))

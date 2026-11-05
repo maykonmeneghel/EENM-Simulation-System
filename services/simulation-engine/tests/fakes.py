@@ -14,6 +14,7 @@ class SpikingSolver:
 
     def __init__(self) -> None:
         self.advances: list[tuple[float, float]] = []
+        self.max_steps: list[float] = []
 
     def start(
         self,
@@ -22,7 +23,9 @@ class SpikingSolver:
         start_time: float,
         end_time: float,
         jacobian_sparsity: NDArray[np.bool_] | None = None,
+        max_step: float = np.inf,
     ) -> SpikingIntegration:
+        self.max_steps.append(max_step)
         return SpikingIntegration(initial_state, self.advances)
 
 

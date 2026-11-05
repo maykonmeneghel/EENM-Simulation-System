@@ -28,7 +28,12 @@ follows `Mathematical Model/`.
    for bit.
 2. **Randomness.** `randi([0,1])` (MUAP shape per unit) → NumPy generator with an explicit `seed`, so a
    run is reproducible.
-3. **Empty unit type.** `mean` over zero units is `NaN` in MATLAB and would make the total force `NaN`;
+3. **Bounded solver step.** The solver's internal step is limited to half the pulse width (never below
+   the sampling step). Without it a stiff solver steps over short pulses: with 0.3 ms pulses at 40 Hz an
+   unbounded BDF produced 1 spike instead of 40 (found during the validation, now tested). MATLAB's
+   `ode23s` with its default `MaxStep = 0.1·(tf − t0)` (100 ms for 1 s) is exposed to the same problem;
+   the original's 5 ms pulses happened to be long enough.
+4. **Empty unit type.** `mean` over zero units is `NaN` in MATLAB and would make the total force `NaN`;
    the port treats a type with no simulated units as contributing zero.
 
 ## Behaviours kept as in the original (to be reviewed)
@@ -45,7 +50,7 @@ follows `Mathematical Model/`.
 | Q8 | `demangeMNs` simulates only the **first** 5 S, 2 FR, 2 FF units of the interpolated pool — the smallest of each type. | `demangeMNs.m` | The simulated muscle is not a representative sample of the pool. |
 | Q9 | In `FES.m`, pulse-width modulation with a ramp uses the raw square wave (±1) even for a monophasic stimulus. | `FES.m`, `'Pulse Width'` / `'Ramp'` | A "monophasic" stimulus goes negative. |
 | Q10 | Sinusoidal modulations use `sin(t)` with `t` in ms (period ≈ 6.28 ms). | `FES.m` | Modulation frequency ≈ 159 Hz, probably meant to be slower. |
-| Q11 | Default pulses are 5 ms wide (20 % duty cycle at 40 Hz) — clinical FES pulses are typically 0.1–0.5 ms. | `Main.m` (`currentEENM(..., 20, ...)`) | Each pulse is long enough to keep the soma depolarised. |
+| Q11 | Default pulses are 5 ms wide (20 % duty cycle at 40 Hz); FES of the quadriceps (e.g. FES cycling) uses 300–600 µs pulses (Doucet, Lam & Griffin 2012, *Yale J Biol Med* 85:201–215, PMID 22737049). | `Main.m` (`currentEENM(..., 20, ...)`) | Each pulse is long enough to keep the soma depolarised. |
 
 How the force compares with published physiology is reported separately in
 `docs/validation/literature-comparison.md`.

@@ -33,4 +33,7 @@ class OdeSolver(Protocol):
         start_time: float,
         end_time: float,
         jacobian_sparsity: NDArray[np.bool_] | None = None,
-    ) -> OdeIntegration: ...
+        max_step: float = np.inf,
+    ) -> OdeIntegration:
+        """``max_step`` bounds the internal step, so that no stimulus pulse can be stepped over."""
+        ...
