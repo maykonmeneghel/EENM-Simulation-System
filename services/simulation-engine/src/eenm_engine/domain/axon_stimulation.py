@@ -69,14 +69,20 @@ class Pulse:
 
 
 def pulses(stimulus: NDArray[np.float64]) -> list[Pulse]:
-    """Contiguous runs of non-zero current in a sampled stimulus."""
-    active = stimulus != 0
-    edges = np.diff(np.concatenate(([False], active, [False])).astype(np.int8))
-    onsets, ends = np.flatnonzero(edges == 1), np.flatnonzero(edges == -1)
-    return [
-        Pulse(onset=int(a), samples=int(b - a), amplitude=float(np.abs(stimulus[a:b]).max()))
-        for a, b in zip(onsets, ends, strict=True)
-    ]
+    """The leading phase of every pulse: each run of same-sign current that starts after zero current.
+
+    A monophasic pulse is one phase. For a biphasic pulse only its first phase is returned: the strength-duration
+    threshold is that of the phase width, and the opposite phase that follows within a fraction of a millisecond
+    falls in the axon's refractory period (simplification: refractoriness is not otherwise modelled).
+    """
+    sign = np.sign(stimulus).astype(np.int8)
+    starts = np.flatnonzero(np.diff(np.concatenate(([0], sign))) != 0)  # first sample of every constant-sign run
+    ends = np.concatenate((starts[1:], [stimulus.size]))
+    out = []
+    for a, b in zip(starts, ends, strict=True):
+        if sign[a] != 0 and (a == 0 or sign[a - 1] == 0):
+            out.append(Pulse(onset=int(a), samples=int(b - a), amplitude=float(np.abs(stimulus[a:b]).max())))
+    return out
 
 
 def axon_spikes(

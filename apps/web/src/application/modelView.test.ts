@@ -46,8 +46,11 @@ describe('buildModelSnapshot', () => {
   });
 
   it('invalid inputs become NaN instead of throwing', () => {
-    const s = buildModelSnapshot({ values: { ...defaultFormValues(), 'stimulus.frequencyHz': 'abc' }, muscles: [] });
+    const s = buildModelSnapshot({ values: { ...defaultFormValues(), 'stimulus.pulseWidthUs': 'abc' }, muscles: [] });
     expect(s.stimulus.pwMs).toBeNaN();
+    // stimulator mode: the pulse width no longer depends on the frequency
+    const f = buildModelSnapshot({ values: { ...defaultFormValues(), 'stimulus.frequencyHz': '20' }, muscles: [] });
+    expect(f.stimulus.pwMs).toBe(0.3);
     expect(s.recruitment).toBeNull();
   });
 });

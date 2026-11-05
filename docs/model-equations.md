@@ -24,6 +24,17 @@ modulations follow `FES.m` literally (see the code). Optional trains: `I(t) = 0`
 
 Fields: `amplitude` (A), `frequencyHz`, `dutyCyclePercent`, `waveform`, `modulation.*`, `trainOnMs`, `trainPeriodMs`.
 
+**Stimulator mode** (not in the original; used by the app, `pulseWidthUs` set): pulses defined in time, with the pulse
+width independent of the frequency, and an amplitude envelope with ramps. With `T_p = 1000/f` ms and `τ = t mod T_p`:
+
+$$ I(t) = A \cdot E(t) \cdot p(t), \qquad p(t) = \begin{cases} +1 & \tau < PW \\ -1 & PW \le \tau < 2\,PW \ \text{(BIPHASIC\_SYMMETRIC only)} \\ 0 & \text{otherwise} \end{cases} $$
+
+$$ E(t) = \min\left(1,\ \frac{u}{t_\uparrow},\ \frac{T_{on} - u}{t_\downarrow}\right),\quad u = t \bmod T_{trem}\ \ (u = t\ \text{without trains});\qquad E = 0\ \text{if}\ u \ge T_{on} $$
+
+`PW = pulseWidthUs/1000`, `t_↑ = rampUpMs`, `t_↓ = rampDownMs` (a zero ramp is skipped), `T_on = trainOnMs` (or
+`durationMs`), `T_trem = trainPeriodMs`. Modulation must stay AMPLITUDE / STEP. The web preview
+(`apps/web/src/domain/stimulator.ts`) is tested against the engine on `stimulator.fixture.json`.
+
 ## 2a. Motoneuron (ORIGINAL) — `domain/motoneuron.py` (port of `rates.m`)
 
 Two compartments per unit, soma `V_s` and dendrite `V_d`, coupled through `g_c` and the soma-area fraction
@@ -50,7 +61,9 @@ $$ A \;\ge\; I_{rh,k}\left(1 + \frac{\tau_{SD}}{PW}\right), \qquad \tau_{SD} = 0
 `I_rh,min = 56.9 / (1 + 0.459/0.3) ≈ 22.49` and `R = 102.1 / 56.9 ≈ 1.794` (so that a 0.3 ms pulse recruits the
 first unit at 56.9 and all units at 102.1; use these expressions, not rounded values), assigned in a seeded random order
 (non-selective recruitment, Gregory & Bickel 2005); range inherited from the original model. The spike occurs at
-the end of the pulse. Fields: `amplitude`, `dutyCyclePercent` and `frequencyHz` (→ PW), `seed`.
+the end of the pulse. A pulse is its **leading phase**: a run of same-sign current that starts after zero current; the
+opposite phase of a biphasic pulse follows within the refractory period and is ignored. Fields: `amplitude`,
+`pulseWidthUs` (or `dutyCyclePercent` and `frequencyHz` → PW), `seed`.
 
 ## 3. Conduction to the muscle — `domain/force_pipeline.py`, `domain/motor_unit_pool.py`
 

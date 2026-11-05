@@ -2,8 +2,6 @@ import { useMemo, useState } from 'react';
 import type { Dispatch, FormEvent, ReactNode, SetStateAction } from 'react';
 import type { FieldPath, FormFlags, FormNotice, FormValues } from '../application/formModel';
 import {
-  applyClinicalStimulus,
-  changeVariant,
   defaultFormValues,
   inactiveFields,
   outputStepAdvice,
@@ -11,10 +9,12 @@ import {
   partitionFieldErrors,
   stepNumber,
 } from '../application/formModel';
+import { STIMULATOR_PATHS } from '../application/stimulatorForm';
 import { LITERATURE_AUTO_UNITS } from '../domain/defaults';
-import type { FieldError, ModelVariant, MusclePreset, SimulationRequest, UnitsPerType } from '../domain/simulation';
+import { axonRecruitment } from '../domain/modelEquations';
+import type { FieldError, MusclePreset, SimulationRequest, UnitsPerType } from '../domain/simulation';
 import type { FieldSpec, GroupId, NumberField } from './formFields';
-import { CALIBRATION_TARGET_HELP, FIELD_GROUPS, MODEL_VARIANT_HELP } from './formFields';
+import { CALIBRATION_TARGET_HELP, FIELD_GROUPS, STIMULATOR_WAVEFORMS } from './formFields';
 import { HelpPopover } from './HelpPopover';
 import { SegmentedControl } from './SegmentedControl';
 import { Switch } from './Switch';
@@ -33,13 +33,15 @@ export interface SimulationFormProps {
   onSubmit(request: SimulationRequest): void;
   /** Counts the server chose in the last matching LITERATURE run (shown while automatic). */
   autoUnitCounts?: UnitsPerType | null;
+  /** Opens the Estimulador view, where the stimulus is set. */
+  onOpenStimulator?(): void;
+  /** Client-side validation errors of the last submit (the Estimulador view shows those of its fields). */
+  onClientErrors?(errors: readonly FieldError[]): void;
 }
+
 
 /** Inputs hidden (not just disabled) while inactive: trains off, or LITERATURE automatic unit counts. */
 const HIDDEN_WHEN_INACTIVE: ReadonlySet<FieldPath> = new Set([
-  'calibrationTarget',
-  'stimulus.trainOnMs',
-  'stimulus.trainPeriodMs',
   'unitsPerType.S',
   'unitsPerType.FR',
   'unitsPerType.FF',
@@ -54,10 +56,11 @@ export function SimulationForm({
   running,
   onSubmit,
   autoUnitCounts = null,
+  onOpenStimulator,
+  onClientErrors,
 }: SimulationFormProps) {
   const [clientErrors, setClientErrors] = useState<FieldError[]>([]);
   const [notices, setNotices] = useState<FormNotice[]>([]);
-  const [clinicalNote, setClinicalNote] = useState<string | null>(null);
   const [openGroups, setOpenGroups] = useState<Record<GroupId, boolean>>(
     () => Object.fromEntries(FIELD_GROUPS.map((g) => [g.id, !g.collapsed])) as Record<GroupId, boolean>,
   );
@@ -80,6 +83,7 @@ export function SimulationForm({
   const inactive = useMemo(() => inactiveFields(values), [values]);
   const advice = useMemo(() => outputStepAdvice(values), [values]);
   const isLiterature = values.modelVariant === 'LITERATURE';
+  const stimulatorErrors = STIMULATOR_PATHS.flatMap((p) => (byField[p] ?? []).map((m) => ({ path: p, message: m })));
   const muscleOptions = muscles.map((m) => ({ value: m.id, label: m.label }));
 
   const touch = (paths: readonly string[]) => {
@@ -92,9 +96,8 @@ export function SimulationForm({
   };
 
   const update = (path: FieldPath, value: string) => {
-    setValues((v) => (path === 'modelVariant' ? changeVariant(v, value as ModelVariant) : { ...v, [path]: value }));
+    setValues((v) => ({ ...v, [path]: value }));
     touch([path]);
-    if (path === 'modelVariant') setClinicalNote(null);
   };
 
   const setFlag = (flag: keyof FormFlags, on: boolean) => {
@@ -106,27 +109,13 @@ export function SimulationForm({
     );
   };
 
-  const applyClinical = () => {
-    const result = applyClinicalStimulus(values);
-    if (!result) {
-      setClinicalNote('Informe uma frequência válida para calcular o pulso clínico.');
-      return;
-    }
-    setValues(result.values);
-    touch(['stimulus.dutyCyclePercent', 'stimulus.amplitude']);
-    setClinicalNote(
-      result.clamped
-        ? `Ciclo limitado a ${result.values['stimulus.dutyCyclePercent']} % (mínimo do contrato): pulso de ${fmt(result.pulseMs)} ms.`
-        : `Pulso de ${fmt(result.pulseMs)} ms (ciclo ${result.values['stimulus.dutyCyclePercent'].replace('.', ',')} %), amplitude ${result.values['stimulus.amplitude']}.`,
-    );
-  };
-
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (running) return;
     const result = parseForm(values, muscles);
     if (result.ok) {
       setClientErrors([]);
+      onClientErrors?.([]);
       setNotices(result.notices);
       // Reflect automatic adjustments (e.g. raised output step) in the form.
       setValues((v) => ({ ...v, outputStepMs: String(result.request.outputStepMs) }));
@@ -134,6 +123,7 @@ export function SimulationForm({
     } else {
       setNotices([]);
       setClientErrors(result.errors);
+      onClientErrors?.(result.errors);
       // Reveal collapsed sections that hold an error.
       const failing = new Set(result.errors.map((er) => er.field));
       setOpenGroups((o) => {
@@ -145,10 +135,10 @@ export function SimulationForm({
   };
 
   const reset = () => {
-    setValues(defaultFormValues(values.modelVariant as ModelVariant));
+    setValues(defaultFormValues());
     setClientErrors([]);
+    onClientErrors?.([]);
     setNotices([]);
-    setClinicalNote(null);
   };
 
   const numberControl = (spec: NumberField, id: string, disabled: boolean, describedBy: string | undefined, invalid: boolean) => (
@@ -207,7 +197,7 @@ export function SimulationForm({
     const describedBy = [hasHint ? `${id}-hint` : '', errs ? `${id}-err` : ''].filter(Boolean).join(' ') || undefined;
     const options = spec.kind === 'select' ? (spec.options ?? muscleOptions) : [];
     const segmented = spec.kind === 'select' && spec.segmented;
-    const wide = spec.path === 'modelVariant' || spec.path === 'calibrationTarget';
+    const wide = spec.path === 'calibrationTarget';
     return (
       <div
         key={spec.path}
@@ -218,13 +208,6 @@ export function SimulationForm({
             <label htmlFor={segmented ? undefined : id} id={`${id}-label`} title={hasHint ? `Intervalo: ${spec.hint}` : undefined}>
               {spec.label}
             </label>
-            {spec.path === 'modelVariant' ? (
-              <HelpPopover label="Modelo">
-                <strong>Original:</strong> {MODEL_VARIANT_HELP.ORIGINAL}
-                <br />
-                <strong>Corrigido:</strong> {MODEL_VARIANT_HELP.LITERATURE}
-              </HelpPopover>
-            ) : null}
             {spec.path === 'calibrationTarget' ? (
               <HelpPopover label="Calibração do twitch">
                 Os dados humanos verificados não podem ser atendidos ao mesmo tempo; escolha qual o modelo reproduz.
@@ -294,53 +277,43 @@ export function SimulationForm({
     />
   );
 
+  const pw = Number(values['stimulus.pulseWidthUs'].replace(',', '.'));
+  const recruitment = axonRecruitment(Number(values['stimulus.amplitude'].replace(',', '.')), pw / 1000);
+  const waveformLabel = STIMULATOR_WAVEFORMS.find((w) => w.value === values['stimulus.waveform'])?.label ?? '—';
+  const stimulusSummary = [
+    `${values['stimulus.frequencyHz']} Hz`,
+    `${values['stimulus.pulseWidthUs']} µs`,
+    waveformLabel.toLowerCase(),
+    `amplitude ${values['stimulus.amplitude']}`,
+    values.trainsEnabled ? `trens ${values['stimulus.trainOnMs']} / ${values['stimulus.trainOffMs']} ms` : 'contínuo',
+  ].join(' · ');
+
   const groupExtras: Record<GroupId, { before?: ReactNode; after?: ReactNode }> = {
     model: {},
     stimulus: {
-      after: (
-        <>
-          <div className="row">{toggle('trainsEnabled', 'Trens intermitentes')}</div>
-          {advice ? (
-            <div className="row">
-              <div className="inline-notice" role="status">
-                ≈ {advice.points.toLocaleString('pt-BR')} pontos por série.{' '}
-                <button
-                  type="button"
-                  className="btn btn--small"
-                  disabled={running}
-                  title="Será ajustado automaticamente ao simular se não for alterado"
-                  onClick={() => update('outputStepMs', String(advice.suggestedMs))}
-                >
-                  Usar {fmt(advice.suggestedMs)} ms
-                </button>
-              </div>
-            </div>
+      before: (
+        <div className="row stimulus-summary">
+          <p className="stimulus-summary-text">{stimulusSummary}</p>
+          <p className="stimulus-summary-recruit" aria-live="polite">
+            {recruitment
+              ? `≈ ${Math.round((recruitment.status === 'none' ? 0 : recruitment.fraction) * 100)} % das unidades recrutadas no platô`
+              : '—'}
+          </p>
+          {stimulatorErrors.length > 0 ? (
+            <ul className="form-errors" role="alert">
+              {stimulatorErrors.map((e) => (
+                <li key={`${e.path}-${e.message}`}>
+                  <code>{e.path.replace('stimulus.', '')}</code> {e.message}
+                </li>
+              ))}
+            </ul>
           ) : null}
-          {isLiterature ? (
-            <div className="row">
-              <div className="row-main">
-                <span className="row-label">
-                  <span>Estímulo clínico</span>
-                  <HelpPopover label="Estímulo clínico">
-                    Pulso de 0,3 ms na frequência escolhida (ciclo = 0,03 × f %) e amplitude 153. Abaixo de ~33 Hz o
-                    ciclo fica no mínimo de 1 % e o pulso é mais longo.
-                  </HelpPopover>
-                </span>
-                <button type="button" className="btn btn--small" disabled={running} onClick={applyClinical}>
-                  Aplicar estímulo clínico
-                </button>
-              </div>
-              {clinicalNote ? (
-                <small className="row-note" role="status">
-                  {clinicalNote}
-                </small>
-              ) : null}
-            </div>
-          ) : null}
-        </>
+          <button type="button" className="btn btn--small" onClick={onOpenStimulator} disabled={!onOpenStimulator}>
+            Abrir estimulador
+          </button>
+        </div>
       ),
     },
-    modulation: {},
     muscle: {
       before: isLiterature ? (
         <div className="row">
@@ -360,16 +333,21 @@ export function SimulationForm({
         </div>
       ) : null,
     },
-    motoneuron: {
-      before: isLiterature ? (
+    simulation: {
+      after: advice ? (
         <div className="row">
-          <span className="row-note row-note--inline">
-            Sem efeito no modelo corrigido
-            <HelpPopover label="Motoneurônio no modelo corrigido">
-              No modelo corrigido os compartimentos do motoneurônio não são simulados: local de injeção, geometrias e
-              temperatura não têm efeito.
-            </HelpPopover>
-          </span>
+          <div className="inline-notice" role="status">
+            ≈ {advice.points.toLocaleString('pt-BR')} pontos por série.{' '}
+            <button
+              type="button"
+              className="btn btn--small"
+              disabled={running}
+              title="Será ajustado automaticamente ao simular se não for alterado"
+              onClick={() => update('outputStepMs', String(advice.suggestedMs))}
+            >
+              Usar {fmt(advice.suggestedMs)} ms
+            </button>
+          </div>
         </div>
       ) : null,
     },

@@ -30,7 +30,10 @@ record EngineSimulationRequestBody(
             String waveform,
             Modulation modulation,
             Double trainOnMs,
-            Double trainPeriodMs) {
+            Double trainPeriodMs,
+            @JsonInclude(JsonInclude.Include.NON_NULL) Double pulseWidthUs,
+            double rampUpMs,
+            double rampDownMs) {
     }
 
     record Modulation(String target, String shape, Double peakTimeMs) {

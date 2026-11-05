@@ -11,7 +11,9 @@ import type { StageFocus } from './EquationsView';
 import { EquationsView } from './EquationsView';
 import { LiveCharts } from './LiveCharts';
 import { SegmentedControl } from './SegmentedControl';
+import { STIMULATOR_PATHS } from '../application/stimulatorForm';
 import { SIM_FORM_ID, SimulationForm } from './SimulationForm';
+import { StimulatorView } from './StimulatorView';
 import { isMacPlatform, matchShortcut, shortcutLabel } from './shortcuts';
 import { ErrorBanner, ProgressBar, SummaryCard } from './StatusPanel';
 import { useMuscleCatalog } from './useMuscleCatalog';
@@ -19,14 +21,15 @@ import { useSimulation } from './useSimulation';
 
 const NO_ERRORS: readonly FieldError[] = [];
 
-export type MainView = 'simulation' | 'equations' | 'diagram';
+export type MainView = 'simulation' | 'stimulator' | 'equations' | 'diagram';
 const VIEWS = [
   { value: 'simulation', label: 'Simulação' },
+  { value: 'stimulator', label: 'Estimulador' },
   { value: 'equations', label: 'Equações' },
   { value: 'diagram', label: 'Diagrama' },
 ] as const satisfies readonly { value: MainView; label: string }[];
 
-const VIEW_ORDER: readonly MainView[] = ['simulation', 'equations', 'diagram'];
+const VIEW_ORDER: readonly MainView[] = ['simulation', 'stimulator', 'equations', 'diagram'];
 const panelId = (v: MainView) => `panel-${v}`;
 const tabId = (v: MainView) => `tab-${v}`;
 
@@ -36,7 +39,15 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
   const [values, setValues] = useState<FormValues>(() => defaultFormValues());
   const [view, setView] = useState<MainView>('simulation');
   const [focus, setFocus] = useState<StageFocus | null>(null);
+  const [clientErrors, setClientErrors] = useState<readonly FieldError[]>(NO_ERRORS);
   const running = state.status === 'running';
+  const serverErrors = state.error?.fieldErrors ?? NO_ERRORS;
+  const stimulatorErrors = useMemo(() => [...clientErrors, ...serverErrors], [clientErrors, serverErrors]);
+  const onClientErrors = useCallback((errors: readonly FieldError[]) => {
+    setClientErrors(errors);
+    // A rejected stimulus is fixed where it is set.
+    if (errors.some((e) => (STIMULATOR_PATHS as readonly string[]).includes(e.field))) setView('stimulator');
+  }, []);
 
   const snapshot = useMemo(
     () => buildModelSnapshot({ values, muscles: catalog.muscles, lastRequest: state.request, lastStarted: state.run }),
@@ -74,7 +85,7 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
       <header className="toolbar">
         <div className="toolbar-title">
           <h1>Simulador EENM</h1>
-          <span className="toolbar-subtitle">Corrente no pool de motoneurônios → força muscular</span>
+          <span className="toolbar-subtitle">Estímulo nos axônios motores → força muscular</span>
         </div>
         <div className="toolbar-center">
           <SegmentedControl<MainView>
@@ -121,10 +132,12 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
           values={values}
           onValuesChange={setValues}
           muscles={catalog.muscles}
-          serverErrors={state.error?.fieldErrors ?? NO_ERRORS}
+          serverErrors={serverErrors}
           running={running}
           onSubmit={start}
           autoUnitCounts={snapshot.units.source === 'started' ? snapshot.units.counts : null}
+          onOpenStimulator={() => setView('stimulator')}
+          onClientErrors={onClientErrors}
         />
       </aside>
 
@@ -139,6 +152,8 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
               <SummaryCard state={state} />
               <LiveCharts state={state} buffer={controller.series} />
             </>
+          ) : view === 'stimulator' ? (
+            <StimulatorView values={values} onValuesChange={setValues} errors={stimulatorErrors} running={running} />
           ) : view === 'equations' ? (
             <EquationsView snapshot={snapshot} focus={focus} />
           ) : (

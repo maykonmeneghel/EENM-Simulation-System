@@ -1,5 +1,12 @@
 import type { FieldError, MusclePreset, SimulationRequest } from './simulation';
-import { MAX_DURATION_MS, MAX_OUTPUT_STEP_MS, MAX_UNITS_PER_TYPE, MIN_DURATION_MS } from './defaults';
+import {
+  MAX_DURATION_MS,
+  MAX_OUTPUT_STEP_MS,
+  MAX_RAMP_MS,
+  MAX_UNITS_PER_TYPE,
+  MIN_DURATION_MS,
+  PULSE_WIDTH_US,
+} from './defaults';
 import { MOTOR_UNIT_TYPES } from './simulation';
 
 /**
@@ -28,6 +35,26 @@ export function validateRequest(
   range('stimulus.frequencyHz', s.frequencyHz, 1, 200);
   range('stimulus.dutyCyclePercent', s.dutyCyclePercent, 1, 99);
   range('stimulus.amplitude', s.amplitude, 0, 500);
+  if (s.pulseWidthUs !== undefined && s.pulseWidthUs !== null) {
+    range('stimulus.pulseWidthUs', s.pulseWidthUs, PULSE_WIDTH_US.min, PULSE_WIDTH_US.max);
+    const phases = s.waveform === 'BIPHASIC_SYMMETRIC' ? 2 : 1;
+    if (Number.isFinite(s.frequencyHz) && s.frequencyHz > 0 && phases * s.pulseWidthUs >= 1e6 / s.frequencyHz) {
+      errors.push({
+        field: 'stimulus.pulseWidthUs',
+        message: phases === 2 ? 'as duas fases devem caber no período' : 'deve ser menor que o período',
+      });
+    }
+  } else if (s.waveform === 'BIPHASIC_SYMMETRIC') {
+    errors.push({ field: 'stimulus.pulseWidthUs', message: 'obrigatório para bifásica simétrica' });
+  }
+  const up = s.rampUpMs ?? 0;
+  const down = s.rampDownMs ?? 0;
+  range('stimulus.rampUpMs', up, 0, MAX_RAMP_MS);
+  range('stimulus.rampDownMs', down, 0, MAX_RAMP_MS);
+  const onTime = s.trainOnMs ?? s.durationMs;
+  if (up + down > 0 && Number.isFinite(onTime) && up + down > onTime) {
+    errors.push({ field: 'stimulus.rampUpMs', message: 'subida + descida deve caber no tempo ligado' });
+  }
 
   if (s.modulation.shape === 'TRIANGLE') {
     const p = s.modulation.peakTimeMs;

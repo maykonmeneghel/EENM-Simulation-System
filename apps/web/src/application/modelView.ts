@@ -56,6 +56,10 @@ export interface ModelSnapshot {
     modulationShape: ModulationShape;
     peakTimeMs: number;
     train: { onMs: number; periodMs: number } | null;
+    /** Stimulator mode (LITERATURE): pulse width in µs (pwMs = it / 1000) and ramps; null in duty-cycle mode. */
+    pulseWidthUs: number | null;
+    rampUpMs: number;
+    rampDownMs: number;
   };
   motoneuron: {
     injectionSite: InjectionSite;
@@ -110,7 +114,9 @@ export function buildModelSnapshot({ values, muscles, lastRequest, lastStarted }
   const stepMs = num(values['stimulus.stepMs']);
   const axonLengthPercent = num(values.axonLengthPercent);
   const temperatureCelsius = num(values.temperatureCelsius);
-  const pwMs = pulseWidthMs(frequencyHz, dutyCyclePercent);
+  const stimulatorMode = variant === 'LITERATURE';
+  const pulseWidthUs = stimulatorMode ? num(values['stimulus.pulseWidthUs']) : null;
+  const pwMs = pulseWidthUs !== null ? pulseWidthUs / 1000 : pulseWidthMs(frequencyHz, dutyCyclePercent);
   const isiMs = interPulseIntervalMs(frequencyHz);
   const preset = muscles.find((m) => m.id === values.muscle);
   // Pool sizes: from the API presets, else the table in model-equations.md.
@@ -152,8 +158,14 @@ export function buildModelSnapshot({ values, muscles, lastRequest, lastStarted }
       modulationShape: values['stimulus.modulation.shape'] as ModulationShape,
       peakTimeMs: num(values['stimulus.modulation.peakTimeMs']),
       train: values.trainsEnabled
-        ? { onMs: num(values['stimulus.trainOnMs']), periodMs: num(values['stimulus.trainPeriodMs']) }
+        ? {
+            onMs: num(values['stimulus.trainOnMs']),
+            periodMs: num(values['stimulus.trainOnMs']) + num(values['stimulus.trainOffMs']),
+          }
         : null,
+      pulseWidthUs,
+      rampUpMs: stimulatorMode ? num(values['stimulus.rampUpMs']) : 0,
+      rampDownMs: stimulatorMode ? num(values['stimulus.rampDownMs']) : 0,
     },
     motoneuron: {
       injectionSite: values.injectionSite as InjectionSite,

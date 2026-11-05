@@ -22,6 +22,10 @@ from numpy.typing import NDArray
 class Waveform(Enum):
     MONOPHASIC = "MONOPHASIC"
     BIPHASIC = "BIPHASIC"
+    """``FES.m``: the raw square wave, +1 for the duty cycle and -1 for the rest of the period (never zero)."""
+    BIPHASIC_SYMMETRIC = "BIPHASIC_SYMMETRIC"
+    """Charge-balanced pulse of a stimulator (not in the original): +A for the pulse width, then -A for the same
+    width, then zero. The pulse width is that of each phase."""
 
 
 class ModulationTarget(Enum):
@@ -54,8 +58,36 @@ class StimulusProtocol:
     """Intermittent stimulation (not in the original): pulses only during the first ``train_on_ms`` of every
     ``train_period_ms`` (e.g. 330 / 1000 ms, the fatigue protocol of Burke et al.). ``None`` = continuous."""
     train_period_ms: float | None = None
+    pulse_width_us: float | None = None
+    """Stimulator mode (not in the original): pulse width independent of the frequency, pulses generated in time
+    (``within period < width``) instead of through the phase of ``square``, so every pulse has the same number of
+    samples. Replaces ``duty_cycle_percent`` (stored as width / period); for ``BIPHASIC_SYMMETRIC`` it is the width
+    of each phase. Needs the plain carrier (modulation AMPLITUDE / STEP); the envelope comes from the ramps."""
+    ramp_up_ms: float = 0.0
+    """Amplitude envelope of a stimulator (not in the original): linear rise from 0 to the amplitude over the
+    first ``ramp_up_ms`` of every train (of the whole run without trains)..."""
+    ramp_down_ms: float = 0.0
+    """...and linear fall to 0 over its last ``ramp_down_ms``. Both lie inside the on time."""
 
     def __post_init__(self) -> None:
+        if self.pulse_width_us is not None:
+            if self.pulse_width_us <= 0 or self.frequency_hz <= 0:
+                raise ValueError("pulse_width_us and frequency_hz must be positive")
+            # frozen dataclass: the derived duty cycle is stored once, so every branch below keeps using it
+            object.__setattr__(self, "duty_cycle_percent", self.pulse_width_us / 1000.0 * self.frequency_khz * 100.0)
+            if (self.modulation_target, self.modulation_shape) != (ModulationTarget.AMPLITUDE, ModulationShape.STEP):
+                raise ValueError("pulse_width_us (stimulator mode) needs modulation AMPLITUDE / STEP; use the ramps")
+            if self.waveform is Waveform.BIPHASIC:
+                raise ValueError("the stimulator's biphasic pulse is BIPHASIC_SYMMETRIC")
+        elif self.waveform is Waveform.BIPHASIC_SYMMETRIC:
+            raise ValueError("BIPHASIC_SYMMETRIC needs pulse_width_us")
+        phases = 2 if self.waveform is Waveform.BIPHASIC_SYMMETRIC else 1
+        if not 0 < phases * self.duty_cycle_percent < 100:
+            raise ValueError("the pulse (both phases if biphasic) must be shorter than the period")
+        if self.ramp_up_ms < 0 or self.ramp_down_ms < 0:
+            raise ValueError("ramps cannot be negative")
+        if self.ramp_up_ms + self.ramp_down_ms > self.on_time_ms:
+            raise ValueError("ramp up + ramp down must fit in the on time (train_on_ms, or duration_ms)")
         if (self.train_on_ms is None) != (self.train_period_ms is None):
             raise ValueError("train_on_ms and train_period_ms go together")
         if (
@@ -70,6 +102,11 @@ class StimulusProtocol:
             self.peak_time_ms is None or not 0 < self.peak_time_ms < self.duration_ms
         ):
             raise ValueError("TRIANGLE modulation needs 0 < peak_time_ms < duration_ms")
+
+    @property
+    def on_time_ms(self) -> float:
+        """Length of one train, or of the whole run without trains."""
+        return self.train_on_ms if self.train_on_ms is not None else self.duration_ms
 
     @property
     def frequency_khz(self) -> float:
@@ -101,19 +138,36 @@ def square(x: float, duty_percent: float) -> float:
     return 1.0 if x % (2.0 * math.pi) < duty_percent / 100.0 * 2.0 * math.pi else -1.0
 
 
-def stimulus_current(t: float, protocol: StimulusProtocol) -> float:
-    """Port of ``FES(t, cfg)``: injected current density at time ``t`` (ms)."""
-    trains = protocol.train_period_ms is not None and protocol.train_on_ms is not None
-    if trains and t % protocol.train_period_ms >= protocol.train_on_ms:  # type: ignore[operator]
+def envelope(t: float, protocol: StimulusProtocol) -> float:
+    """Stimulator envelope at ``t`` (ms): 0 between trains, ramps at the start and end of each train, else 1."""
+    p = protocol
+    within = t % p.train_period_ms if p.train_period_ms is not None else t
+    on = p.on_time_ms
+    if within >= on and p.train_period_ms is not None:
         return 0.0
-    pulse = _monophasic_pulse if protocol.waveform is Waveform.MONOPHASIC else square
+    level = 1.0
+    if p.ramp_up_ms > 0 and within < p.ramp_up_ms:
+        level = within / p.ramp_up_ms
+    if p.ramp_down_ms > 0 and within > on - p.ramp_down_ms:
+        level = min(level, max(0.0, (on - within) / p.ramp_down_ms))
+    return level
+
+
+def stimulus_current(t: float, protocol: StimulusProtocol) -> float:
+    """Port of ``FES(t, cfg)``: injected current density at time ``t`` (ms), times the stimulator envelope."""
+    level = envelope(t, protocol)
+    if level == 0.0:
+        return 0.0
+    if protocol.pulse_width_us is not None:
+        return level * protocol.amplitude * _stimulator_pulse(t, protocol)
+    pulse = _PULSES[protocol.waveform]
 
     target = protocol.modulation_target
     if target is ModulationTarget.FREQUENCY:
-        return _frequency_modulated(t, protocol, pulse)
+        return level * _frequency_modulated(t, protocol, pulse)
     if target is ModulationTarget.PULSE_WIDTH:
-        return _pulse_width_modulated(t, protocol, pulse)
-    return _amplitude_modulated(t, protocol, pulse)
+        return level * _pulse_width_modulated(t, protocol, pulse)
+    return level * _amplitude_modulated(t, protocol, pulse)
 
 
 def stimulus_series(protocol: StimulusProtocol) -> NDArray[np.float64]:
@@ -126,6 +180,24 @@ PulseFn = Callable[[float, float], float]
 
 def _monophasic_pulse(x: float, duty_percent: float) -> float:
     return (square(x, duty_percent) + 1.0) / 2.0
+
+
+_EPS_MS = 1e-9
+
+
+def _stimulator_pulse(t: float, p: StimulusProtocol) -> float:
+    """+1 for the pulse width at the start of each period; for BIPHASIC_SYMMETRIC -1 for the next width; else 0."""
+    period = 1000.0 / p.frequency_hz
+    within = t - period * math.floor(t / period + _EPS_MS)
+    width = p.pulse_width_ms
+    if within < width - _EPS_MS:
+        return 1.0
+    if p.waveform is Waveform.BIPHASIC_SYMMETRIC and within < 2.0 * width - _EPS_MS:
+        return -1.0
+    return 0.0
+
+
+_PULSES: dict[Waveform, PulseFn] = {Waveform.MONOPHASIC: _monophasic_pulse, Waveform.BIPHASIC: square}
 
 
 def _amplitude_modulated(t: float, p: StimulusProtocol, pulse: PulseFn) -> float:

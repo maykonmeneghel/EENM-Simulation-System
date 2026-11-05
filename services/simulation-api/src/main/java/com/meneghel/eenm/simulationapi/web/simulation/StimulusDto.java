@@ -13,5 +13,8 @@ public record StimulusDto(
         Waveform waveform,
         @Valid ModulationDto modulation,
         Double trainOnMs,
-        Double trainPeriodMs) {
+        Double trainPeriodMs,
+        @Between(min = "20", max = "1000") Double pulseWidthUs,
+        @Between(min = "0", max = "60000") Double rampUpMs,
+        @Between(min = "0", max = "60000") Double rampDownMs) {
 }

@@ -27,7 +27,7 @@ class SimulationDefaultsTest {
     void missingRequestTakesTheContractDefaults() {
         SimulationRequest expected = new SimulationRequest(
                 new Stimulus(1000, 0.01, 40, 20, 100, Waveform.MONOPHASIC,
-                        new Modulation(ModulationTarget.AMPLITUDE, ModulationShape.STEP, null), null, null),
+                        new Modulation(ModulationTarget.AMPLITUDE, ModulationShape.STEP, null), null, null, null, 0, 0),
                 ModelVariant.ORIGINAL,
                 CalibrationTarget.WHOLE_MUSCLE,
                 Muscle.SOLEUS,
@@ -67,7 +67,7 @@ class SimulationDefaultsTest {
     void givenFieldsAreKeptAndOnlyMissingNestedFieldsAreFilled() {
         SimulationDraft draft = new SimulationDraft(
                 new StimulusDraft(500.0, null, 60.0, null, null, Waveform.BIPHASIC,
-                        new ModulationDraft(null, ModulationShape.TRIANGLE, 250.0), 330.0, 1000.0),
+                        new ModulationDraft(null, ModulationShape.TRIANGLE, 250.0), 330.0, 1000.0, null, 50.0, null),
                 null,
                 CalibrationTarget.SINGLE_UNIT,
                 Muscle.TIBIALIS_ANTERIOR,
@@ -77,7 +77,7 @@ class SimulationDefaultsTest {
         SimulationRequest request = defaults.resolve(draft);
 
         assertThat(request.stimulus()).isEqualTo(new Stimulus(500, 0.01, 60, 20, 100, Waveform.BIPHASIC,
-                new Modulation(ModulationTarget.AMPLITUDE, ModulationShape.TRIANGLE, 250.0), 330.0, 1000.0));
+                new Modulation(ModulationTarget.AMPLITUDE, ModulationShape.TRIANGLE, 250.0), 330.0, 1000.0, null, 50, 0));
         assertThat(request.modelVariant()).isEqualTo(ModelVariant.ORIGINAL);
         assertThat(request.calibrationTarget()).isEqualTo(CalibrationTarget.SINGLE_UNIT);
         assertThat(request.muscle()).isEqualTo(Muscle.TIBIALIS_ANTERIOR);

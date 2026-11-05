@@ -5,6 +5,7 @@ import com.meneghel.eenm.simulationapi.application.simulation.MotorUnitCountsDra
 import com.meneghel.eenm.simulationapi.application.simulation.SimulationDraft;
 import com.meneghel.eenm.simulationapi.application.simulation.StimulusDraft;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModelVariant;
+import com.meneghel.eenm.simulationapi.domain.simulation.Waveform;
 
 /** Short constructors for the drafts used in tests; unnamed fields stay {@code null}. */
 public final class Drafts {
@@ -26,10 +27,18 @@ public final class Drafts {
     }
 
     public static StimulusDraft stimulus(Double durationMs, Double stepMs, ModulationDraft modulation) {
-        return new StimulusDraft(durationMs, stepMs, null, null, null, null, modulation, null, null);
+        return new StimulusDraft(durationMs, stepMs, null, null, null, null, modulation, null, null, null, null, null);
+    }
+
+    /** Stimulator mode: frequency, pulse width (µs), waveform, trains and ramps; other fields default. */
+    public static StimulusDraft stimulator(Double frequencyHz, Double pulseWidthUs, Waveform waveform, Double trainOnMs,
+            Double trainPeriodMs, Double rampUpMs, Double rampDownMs) {
+        return new StimulusDraft(10000.0, null, frequencyHz, null, null, waveform, null, trainOnMs, trainPeriodMs,
+                pulseWidthUs, rampUpMs, rampDownMs);
     }
 
     public static StimulusDraft trains(Double durationMs, Double trainOnMs, Double trainPeriodMs) {
-        return new StimulusDraft(durationMs, null, null, null, null, null, null, trainOnMs, trainPeriodMs);
+        return new StimulusDraft(durationMs, null, null, null, null, null, null, trainOnMs, trainPeriodMs, null, null,
+                null);
     }
 }

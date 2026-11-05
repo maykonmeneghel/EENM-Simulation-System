@@ -217,7 +217,7 @@ class SimulationControllerTest {
                 .expectHeader().contentType(MediaType.APPLICATION_PROBLEM_JSON)
                 .expectBody()
                 .jsonPath("$.errors[0].field").isEqualTo("stimulus.waveform")
-                .jsonPath("$.errors[0].message").isEqualTo("must be one of [MONOPHASIC, BIPHASIC]");
+                .jsonPath("$.errors[0].message").isEqualTo("must be one of [MONOPHASIC, BIPHASIC, BIPHASIC_SYMMETRIC]");
     }
 
     @Test

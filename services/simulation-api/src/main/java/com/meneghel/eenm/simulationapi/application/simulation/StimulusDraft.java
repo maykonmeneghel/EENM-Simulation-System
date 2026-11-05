@@ -12,9 +12,12 @@ public record StimulusDraft(
         Waveform waveform,
         ModulationDraft modulation,
         Double trainOnMs,
-        Double trainPeriodMs) {
+        Double trainPeriodMs,
+        Double pulseWidthUs,
+        Double rampUpMs,
+        Double rampDownMs) {
 
     public static StimulusDraft empty() {
-        return new StimulusDraft(null, null, null, null, null, null, null, null, null);
+        return new StimulusDraft(null, null, null, null, null, null, null, null, null, null, null, null);
     }
 }

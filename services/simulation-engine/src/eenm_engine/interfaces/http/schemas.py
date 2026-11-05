@@ -41,6 +41,10 @@ class StimulusDto(_CamelModel):
     modulation: ModulationDto = Field(default_factory=ModulationDto)
     train_on_ms: float | None = Field(None, gt=0)
     train_period_ms: float | None = Field(None, gt=0)
+    pulse_width_us: float | None = Field(None, gt=0)
+    """Stimulator mode: replaces ``duty_cycle_percent``."""
+    ramp_up_ms: float = Field(0.0, ge=0)
+    ramp_down_ms: float = Field(0.0, ge=0)
 
 
 class UnitsPerTypeDto(BaseModel):
@@ -94,6 +98,9 @@ class SimulationRequest(_CamelModel):
                 peak_time_ms=s.modulation.peak_time_ms,
                 train_on_ms=s.train_on_ms,
                 train_period_ms=s.train_period_ms,
+                pulse_width_us=s.pulse_width_us,
+                ramp_up_ms=s.ramp_up_ms,
+                ramp_down_ms=s.ramp_down_ms,
             ),
             muscle=self.muscle,
             units_per_type=self._units(),

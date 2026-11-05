@@ -103,6 +103,29 @@ def test_calibration_target_selects_the_literature_twitch() -> None:
     assert client.post("/v1/simulations/stream", json={"calibrationTarget": "FASTEST"}).status_code == 422
 
 
+def test_stimulator_fields_are_passed_to_the_stimulus() -> None:
+    from eenm_engine.domain.stimulus import Waveform
+    from eenm_engine.interfaces.http.schemas import SimulationRequest
+
+    body = {
+        "modelVariant": "LITERATURE",
+        "stimulus": {
+            "durationMs": 2000,
+            "pulseWidthUs": 300,
+            "waveform": "BIPHASIC_SYMMETRIC",
+            "trainOnMs": 1000,
+            "trainPeriodMs": 2000,
+            "rampUpMs": 200,
+            "rampDownMs": 300,
+        },
+    }
+    stimulus = SimulationRequest.model_validate(body).to_config().stimulus
+    assert (stimulus.pulse_width_us, stimulus.ramp_up_ms, stimulus.ramp_down_ms) == (300, 200, 300)
+    assert stimulus.waveform is Waveform.BIPHASIC_SYMMETRIC and stimulus.pulse_width_ms == 0.3
+    too_long = {"stimulus": {"rampUpMs": 900, "rampDownMs": 900}}  # 1800 ms of ramps in a 1000 ms run
+    assert client.post("/v1/simulations/stream", json=too_long).status_code == 422
+
+
 def test_trains_are_passed_to_the_stimulus() -> None:
     from eenm_engine.interfaces.http.schemas import SimulationRequest
 

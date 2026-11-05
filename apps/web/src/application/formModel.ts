@@ -1,10 +1,4 @@
-import {
-  CLINICAL_AMPLITUDE,
-  CLINICAL_PULSE_MS,
-  defaultRequest,
-  MAX_OUTPUT_STEP_MS,
-  MAX_POINTS_PER_SERIES,
-} from '../domain/defaults';
+import { defaultRequest, MAX_OUTPUT_STEP_MS, MAX_POINTS_PER_SERIES, STIMULATOR_DEFAULTS } from '../domain/defaults';
 import type {
   CalibrationTarget,
   FieldError,
@@ -34,8 +28,12 @@ export const FIELD_PATHS = [
   'stimulus.dutyCyclePercent',
   'stimulus.amplitude',
   'stimulus.waveform',
+  'stimulus.pulseWidthUs',
   'stimulus.trainOnMs',
-  'stimulus.trainPeriodMs',
+  /** UI field: the request's trainPeriodMs = on + off (a stimulator sets on and off times). */
+  'stimulus.trainOffMs',
+  'stimulus.rampUpMs',
+  'stimulus.rampDownMs',
   'stimulus.modulation.target',
   'stimulus.modulation.shape',
   'stimulus.modulation.peakTimeMs',
@@ -61,16 +59,11 @@ export interface FormFlags {
 }
 export type FormValues = Record<FieldPath, string> & FormFlags;
 
-/** Example train shown when the user enables intermittent trains. */
-export const DEFAULT_TRAIN = { onMs: 330, periodMs: 1000 };
+/** Example train shown when the user enables intermittent trains (Burke's 330 ms every 1 s). */
+export const DEFAULT_TRAIN = { onMs: 330, offMs: 670 };
 
-/** Fields the LITERATURE variant ignores (motoneuron compartments are not simulated). */
-export const LITERATURE_INACTIVE_FIELDS: readonly FieldPath[] = [
-  'injectionSite',
-  'somaGeometry',
-  'dendriteGeometry',
-  'temperatureCelsius',
-];
+/** Server error paths shown on another input. */
+const FIELD_ALIASES: Readonly<Record<string, FieldPath>> = { 'stimulus.trainPeriodMs': 'stimulus.trainOffMs' };
 
 const str = (x: number | null | undefined) => (x === null || x === undefined ? '' : String(x));
 
@@ -87,8 +80,14 @@ export function toFormValues(r: SimulationRequest = defaultRequest()): FormValue
     'stimulus.dutyCyclePercent': String(s.dutyCyclePercent),
     'stimulus.amplitude': String(s.amplitude),
     'stimulus.waveform': s.waveform,
+    'stimulus.pulseWidthUs': str(s.pulseWidthUs ?? STIMULATOR_DEFAULTS.pulseWidthUs),
     'stimulus.trainOnMs': trainsEnabled ? str(s.trainOnMs) : String(DEFAULT_TRAIN.onMs),
-    'stimulus.trainPeriodMs': trainsEnabled ? str(s.trainPeriodMs) : String(DEFAULT_TRAIN.periodMs),
+    'stimulus.trainOffMs':
+      trainsEnabled && s.trainOnMs !== null && s.trainPeriodMs !== null
+        ? String(s.trainPeriodMs - s.trainOnMs)
+        : String(DEFAULT_TRAIN.offMs),
+    'stimulus.rampUpMs': str(s.rampUpMs ?? 0),
+    'stimulus.rampDownMs': str(s.rampDownMs ?? 0),
     'stimulus.modulation.target': s.modulation.target,
     'stimulus.modulation.shape': s.modulation.shape,
     'stimulus.modulation.peakTimeMs': str(s.modulation.peakTimeMs),
@@ -108,14 +107,9 @@ export function toFormValues(r: SimulationRequest = defaultRequest()): FormValue
   };
 }
 
-/** Defaults of a variant (ORIGINAL: 5/2/2 sent explicitly; LITERATURE: automatic units). */
-export function defaultFormValues(variant: ModelVariant = 'ORIGINAL'): FormValues {
+/** Defaults of the app (the corrected model, automatic units, stimulator pulses). */
+export function defaultFormValues(variant: ModelVariant = 'LITERATURE'): FormValues {
   return toFormValues(defaultRequest(variant));
-}
-
-/** Switch variant keeping the user's values; resets the unit-count mode to the variant default. */
-export function changeVariant(values: FormValues, variant: ModelVariant): FormValues {
-  return { ...values, modelVariant: variant, manualUnits: variant === 'ORIGINAL' };
 }
 
 /** Inputs that are disabled for the current values (and why it matters to the request). */
@@ -124,11 +118,9 @@ export function inactiveFields(values: FormValues): ReadonlySet<FieldPath> {
   if (values['stimulus.modulation.shape'] !== 'TRIANGLE') out.add('stimulus.modulation.peakTimeMs');
   if (!values.trainsEnabled) {
     out.add('stimulus.trainOnMs');
-    out.add('stimulus.trainPeriodMs');
+    out.add('stimulus.trainOffMs');
   }
-  if (values.modelVariant === 'ORIGINAL') out.add('calibrationTarget');
   if (values.modelVariant === 'LITERATURE') {
-    for (const f of LITERATURE_INACTIVE_FIELDS) out.add(f);
     if (!values.manualUnits) {
       out.add('unitsPerType.S');
       out.add('unitsPerType.FR');
@@ -143,34 +135,6 @@ const parseNumber = (raw: string): number => {
   return t === '' ? NaN : Number(t);
 };
 const round6 = (x: number) => Math.round(x * 1e6) / 1e6;
-
-export interface ClinicalStimulus {
-  values: FormValues;
-  /** Pulse width actually obtained (ms); differs from 0.3 when the duty cycle had to be clamped. */
-  pulseMs: number;
-  clamped: boolean;
-}
-
-/**
- * Clinical pulses for LITERATURE: duty cycle giving a 0.3 ms pulse at the chosen frequency
- * (1.2 % at 40 Hz) and amplitude 153. Returns null if the frequency is not a valid number.
- * The contract's duty-cycle minimum (1 %) means frequencies below ~33 Hz get a longer pulse.
- */
-export function applyClinicalStimulus(values: FormValues): ClinicalStimulus | null {
-  const f = parseNumber(values['stimulus.frequencyHz']);
-  if (!Number.isFinite(f) || f <= 0) return null;
-  const ideal = round6((CLINICAL_PULSE_MS * f) / 10); // % = pulse / period × 100 = 0.3·f/1000·100
-  const duty = Math.min(99, Math.max(1, ideal));
-  return {
-    values: {
-      ...values,
-      'stimulus.dutyCyclePercent': String(duty),
-      'stimulus.amplitude': String(CLINICAL_AMPLITUDE),
-    },
-    pulseMs: round6(((duty / 100) * 1000) / f),
-    clamped: duty !== ideal,
-  };
-}
 
 /** Smallest multiple of `stepMs` that keeps `durationMs / out` ≤ the point budget (≤ 10 ms). */
 export function minOutputStep(durationMs: number, stepMs: number): number {
@@ -231,6 +195,8 @@ export function parseForm(values: FormValues, muscles: readonly MusclePreset[] =
   const peakTimeMs =
     shape === 'TRIANGLE' && peakRaw !== '' ? num('stimulus.modulation.peakTimeMs') : null;
   const sendUnits = variant === 'ORIGINAL' || values.manualUnits;
+  const trainOn = values.trainsEnabled ? num('stimulus.trainOnMs') : null;
+  const trainOff = values.trainsEnabled ? num('stimulus.trainOffMs') : null;
 
   const request: SimulationRequest = {
     stimulus: {
@@ -245,8 +211,15 @@ export function parseForm(values: FormValues, muscles: readonly MusclePreset[] =
         shape,
         peakTimeMs,
       },
-      trainOnMs: values.trainsEnabled ? num('stimulus.trainOnMs') : null,
-      trainPeriodMs: values.trainsEnabled ? num('stimulus.trainPeriodMs') : null,
+      trainOnMs: trainOn,
+      trainPeriodMs: trainOn !== null && trainOff !== null ? trainOn + trainOff : null,
+      ...(variant === 'LITERATURE'
+        ? {
+            pulseWidthUs: num('stimulus.pulseWidthUs'),
+            rampUpMs: num('stimulus.rampUpMs'),
+            rampDownMs: num('stimulus.rampDownMs'),
+          }
+        : {}),
     },
     modelVariant: variant,
     calibrationTarget: values.calibrationTarget as CalibrationTarget,
@@ -300,7 +273,8 @@ export function partitionFieldErrors(errors: readonly FieldError[]): {
   const byField: Partial<Record<FieldPath, string[]>> = {};
   const general: FieldError[] = [];
   for (const e of errors) {
-    if (known.has(e.field)) (byField[e.field as FieldPath] ??= []).push(e.message);
+    const field = FIELD_ALIASES[e.field] ?? e.field;
+    if (known.has(field)) (byField[field as FieldPath] ??= []).push(e.message);
     else general.push(e);
   }
   return { byField, general };

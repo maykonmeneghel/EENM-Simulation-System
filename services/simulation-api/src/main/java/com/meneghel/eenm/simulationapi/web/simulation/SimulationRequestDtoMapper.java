@@ -31,7 +31,8 @@ final class SimulationRequestDtoMapper {
             return null;
         }
         return new StimulusDraft(dto.durationMs(), dto.stepMs(), dto.frequencyHz(), dto.dutyCyclePercent(),
-                dto.amplitude(), dto.waveform(), toDraft(dto.modulation()), dto.trainOnMs(), dto.trainPeriodMs());
+                dto.amplitude(), dto.waveform(), toDraft(dto.modulation()), dto.trainOnMs(), dto.trainPeriodMs(),
+                dto.pulseWidthUs(), dto.rampUpMs(), dto.rampDownMs());
     }
 
     private ModulationDraft toDraft(ModulationDto dto) {
