@@ -7,15 +7,8 @@ from dataclasses import dataclass, field, replace
 import numpy as np
 from numpy.typing import NDArray
 
-from eenm_engine.domain.force_pipeline import (
-    MUAP_TIME,
-    junction_potential,
-    mean_over_units,
-    median_filter_3x3,
-    muap_train,
-    spike_train,
-)
-from eenm_engine.domain.model_options import ModelOptions
+from eenm_engine.domain.force_pipeline import TypeForce
+from eenm_engine.domain.model_options import ForceAggregation, ModelOptions
 from eenm_engine.domain.motoneuron import REFERENCE_TEMPERATURE_C, InjectionSite, MotoneuronPool
 from eenm_engine.domain.motor_unit_pool import (
     MUSCLE_PRESETS,
@@ -26,7 +19,6 @@ from eenm_engine.domain.motor_unit_pool import (
     build_group,
 )
 from eenm_engine.domain.stimulus import StimulusProtocol
-from eenm_engine.domain.twitch import TwitchFilter
 
 UNIT_TYPES = (MotorUnitType.S, MotorUnitType.FR, MotorUnitType.FF)
 """Processing order of ``Main.m`` (also the order of the MUAP-shape random draws)."""
@@ -131,29 +123,29 @@ class IncrementalForce:
     The ``Main.m`` pipeline is global (median filter, peak detection), but each output sample only
     depends on voltages up to a couple of samples later: ``medfilt2`` looks one sample ahead, a peak
     needs its right neighbour, and the twitch is driven by ``s(n-1)``. Samples further than
-    ``LOOKAHEAD`` from the end of the data are therefore final.
-
-    Each update only reprocesses a trailing window: a MUAP reaches at most ``delay + 251`` samples
-    after its peak, so voltages older than that cannot change the new samples, and the twitch filters
-    carry their state across updates. The streamed series is identical to the one computed on the
-    complete signal (``tests/unit/test_incremental_force.py``).
+    ``LOOKAHEAD`` from the end of the data are therefore final, and the streamed series is identical to
+    the one computed on the complete signal (``tests/unit/test_incremental_force.py``).
     """
 
     LOOKAHEAD = 3
-    _WINDOW_SLACK = 8
 
     def __init__(self, setup: MotorUnitSetup, config: SimulationConfig, total_samples: int) -> None:
         self._setup = setup
-        self._config = config
         self._total = total_samples
         self._voltage = np.empty((total_samples, setup.motoneurons.n_units))
         self._known = 0
         self._released = 0
-        self._twitch = {
-            t: TwitchFilter(setup.groups[t], config.stimulus.step_ms, config.model.twitch_shape) for t in UNIT_TYPES
+        self._aggregation = config.model.force_aggregation
+        self._types = {
+            t: TypeForce(
+                setup.groups[t],
+                setup.muap_shapes[t],
+                config.axon_length_percent,
+                config.stimulus.step_ms,
+                config.model,
+            )
+            for t in UNIT_TYPES
         }
-        longest_delay = max((int(g.muap_delay_samples.max()) for g in setup.groups.values() if g.size), default=0)
-        self._history = longest_delay + MUAP_TIME.size + self._WINDOW_SLACK
 
     def add(self, soma_voltage: NDArray[np.float64]) -> ForceSeries | None:
         """Append ``(rows, units)`` soma voltages; return the newly final samples, if any."""
@@ -162,28 +154,23 @@ class IncrementalForce:
             raise ValueError("more samples than the simulation duration")
         self._voltage[self._known : self._known + rows] = soma_voltage
         self._known += rows
-        final = self._total if self._known == self._total else max(0, self._known - self.LOOKAHEAD)
+        final = self._total if self._known == self._total else self._final_sample()
         if final <= self._released:
             return None
         series = self._compute(self._released, final)
         self._released = final
         return series
 
+    def _final_sample(self) -> int:
+        final = self._known - self.LOOKAHEAD
+        for t, columns in self._setup.column_slices().items():
+            final = min(final, self._types[t].unresolved_from(self._voltage[: self._known, columns]))
+        return max(0, final)
+
     def _compute(self, start: int, stop: int) -> ForceSeries:
-        window_start = max(0, start - self._history)
-        window = self._voltage[window_start : self._known]
-        local = slice(start - window_start, stop - window_start)
         force, emg = {}, np.zeros(stop - start)
         for t, columns in self._setup.column_slices().items():
-            group = self._setup.groups[t]
-            filtered = median_filter_3x3(window[:, columns])
-            if window_start > 0:
-                # the zero padding of medfilt2 belongs to the signal start, not to the window start
-                filtered[0] = median_filter_3x3(self._voltage[window_start - 1 : window_start + 2, columns])[1]
-            junction = junction_potential(filtered, self._config.axon_length_percent)
-            muap = muap_train(junction, group, self._setup.muap_shapes[t])
-            spikes = spike_train(muap.sum(axis=1))[local]
-            unit_force = self._twitch[t].segment(spikes)
-            force[t] = mean_over_units(unit_force)
-            emg += mean_over_units(muap[local])
+            signals = self._types[t].compute(self._voltage[: self._known, columns], start, stop)
+            force[t] = signals.summed_force() if self._aggregation is ForceAggregation.SUM else signals.mean_force()
+            emg += signals.mean_muap()
         return ForceSeries(start=start, stop=stop, force_by_type=force, emg=emg)

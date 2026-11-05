@@ -22,8 +22,9 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.ndimage import median_filter
 
+from eenm_engine.domain.model_options import ModelOptions, TwitchDrive
 from eenm_engine.domain.motor_unit_pool import MotorUnitGroup
-from eenm_engine.domain.twitch import TwitchShape, twitch_force
+from eenm_engine.domain.twitch import RateGain, TwitchFilter
 
 MEMBRANE_CONDUCTANCE = 0.070
 """Leak conductance used for the axonal length constant (doi:10.1016/j.bpj.2012.01.055 in Main.m)."""
@@ -51,6 +52,10 @@ class TypeSignals:
 
     def mean_force(self) -> NDArray[np.float64]:
         return mean_over_units(self.force)
+
+    def summed_force(self) -> NDArray[np.float64]:
+        summed: NDArray[np.float64] = self.force.sum(axis=1)
+        return summed
 
     def mean_muap(self) -> NDArray[np.float64]:
         return mean_over_units(self.muap)
@@ -134,17 +139,105 @@ def spike_train(summed_muap: NDArray[np.float64]) -> NDArray[np.float64]:
     return spikes
 
 
+class TypeForce:
+    """Force of one unit type, computed incrementally on a growing voltage record.
+
+    One object per type and per simulation: it keeps the twitch filters and rate-gain state between
+    calls. ``compute`` only reprocesses a trailing window — a MUAP reaches at most ``delay + 251`` samples
+    after its peak — so each call costs the same however long the simulation already is.
+    """
+
+    _WINDOW_SLACK = 8
+
+    def __init__(
+        self,
+        group: MotorUnitGroup,
+        shapes: NDArray[np.int64],
+        axon_length_percent: float,
+        step_ms: float,
+        options: ModelOptions,
+    ) -> None:
+        self._group = group
+        self._shapes = shapes
+        self._axon = axon_length_percent
+        self._options = options
+        self._twitch = TwitchFilter(group, step_ms, options.twitch_shape)
+        self._gain = RateGain(group.twitch_time_to_peak_ms, step_ms) if options.rate_gain else None
+        longest_delay = int(group.muap_delay_samples.max()) if group.size else 0
+        self.history = longest_delay + MUAP_TIME.size + self._WINDOW_SLACK
+
+    def compute(self, voltage: NDArray[np.float64], start: int, stop: int) -> TypeSignals:
+        """Force and MUAP of samples ``[start, stop)``; ``voltage`` holds every known sample (rows)."""
+        window_start = max(0, start - self.history)
+        filtered = median_filter_3x3(voltage[window_start:])
+        if window_start > 0:
+            # medfilt2's zero padding belongs to the start of the record, not to the window start
+            filtered[0] = median_filter_3x3(voltage[window_start - 1 : window_start + 2])[1]
+        junction = junction_potential(filtered, self._axon)
+        muap = muap_train(junction, self._group, self._shapes)
+        local = slice(start - window_start, stop - window_start)
+
+        drive: NDArray[np.float64]
+        if self._options.twitch_drive is TwitchDrive.OWN_SPIKES:
+            drive = self._arrivals(junction, window_start, start, stop)
+            if self._gain is not None:
+                drive = self._gain.apply(drive)
+        else:
+            drive = spike_train(muap.sum(axis=1))[local]
+        return TypeSignals(muap=muap[local], force=self._twitch.segment(drive))
+
+    def unresolved_from(self, voltage: NDArray[np.float64]) -> int:
+        """First sample whose force may still change because a peak is not decided yet.
+
+        ``findpeaks`` places a flat-topped peak at the *first* sample of the plateau, but whether it is a
+        peak is only known when the plateau ends; the median filter does produce such plateaus. A plateau
+        still running at the end of the data can therefore become a peak at its start, and its effects begin
+        ``delay`` samples later. The last row is excluded: its median-filter padding is provisional.
+        """
+        known = voltage.shape[0]
+        tail_start = max(0, known - self.history)
+        junction = junction_potential(median_filter_3x3(voltage[tail_start:]), self._axon)[:-1]
+        unresolved = known
+        for k in range(self._group.size):
+            run = _trailing_run_start(junction[:, k])
+            if run is not None:
+                unresolved = min(unresolved, tail_start + run + int(self._group.muap_delay_samples[k]))
+        if self._options.twitch_drive is TwitchDrive.SUMMED_MUAP_PEAKS:
+            run = _trailing_run_start(muap_train(junction, self._group, self._shapes).sum(axis=1))
+            if run is not None:
+                unresolved = min(unresolved, tail_start + run)
+        return int(unresolved)
+
+    def _arrivals(self, junction: NDArray[np.float64], window_start: int, start: int, stop: int) -> NDArray[np.float64]:
+        """1 where a unit's action potential reaches the muscle (junction peak + conduction delay)."""
+        out = np.zeros((stop - start, self._group.size))
+        for k in range(self._group.size):
+            peaks, _ = find_peaks_matlab(junction[:, k])
+            arrival = window_start + peaks + int(self._group.muap_delay_samples[k])
+            arrival = arrival[(arrival >= start) & (arrival < stop)]
+            out[arrival - start, k] = 1.0
+        return out
+
+
+def _trailing_run_start(signal: NDArray[np.float64], min_height: float = 0.0) -> int | None:
+    """Start of the run of equal values that ends the signal, if it could still become a peak.
+
+    Only runs longer than one sample and above ``findpeaks``' height threshold matter.
+    """
+    if signal.size < 2 or signal[-1] != signal[-2] or signal[-1] <= min_height:
+        return None
+    changes = np.flatnonzero(signal[1:] != signal[:-1])
+    return int(changes[-1]) + 1 if changes.size else 0
+
+
 def type_signals(
     soma_voltage: NDArray[np.float64],
     group: MotorUnitGroup,
     shapes: NDArray[np.int64],
     axon_length_percent: float,
     step_ms: float,
-    twitch_shape: TwitchShape | None = None,
+    options: ModelOptions | None = None,
 ) -> TypeSignals:
-    """Run stages 1–5 for one unit type. ``soma_voltage`` is ``(samples, units)``."""
-    filtered = median_filter_3x3(soma_voltage)
-    junction = junction_potential(filtered, axon_length_percent)
-    muap = muap_train(junction, group, shapes)
-    spikes = spike_train(muap.sum(axis=1))
-    return TypeSignals(muap=muap, force=twitch_force(spikes, group, step_ms, twitch_shape))
+    """Stages 1–5 for one unit type on a complete record. ``soma_voltage`` is ``(samples, units)``."""
+    pipeline = TypeForce(group, shapes, axon_length_percent, step_ms, options or ModelOptions())
+    return pipeline.compute(soma_voltage, 0, soma_voltage.shape[0])

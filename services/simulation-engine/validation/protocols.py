@@ -18,7 +18,7 @@ from numpy.typing import NDArray
 from eenm_engine.application.events import SimulationChunk
 from eenm_engine.application.run_simulation import RunSimulation
 from eenm_engine.domain.force_pipeline import find_peaks_matlab
-from eenm_engine.domain.model_options import ModelOptions, UnitSelection
+from eenm_engine.domain.model_options import ForceAggregation, ModelOptions, TwitchDrive, UnitSelection
 from eenm_engine.domain.motor_unit_pool import MotorUnitType
 from eenm_engine.domain.simulation import MotorUnitSetup, SimulationConfig
 from eenm_engine.domain.stimulus import StimulusProtocol, stimulus_current
@@ -39,6 +39,23 @@ VARIANTS: dict[str, ModelOptions] = {
         unit_selection=UnitSelection.SPREAD_ACROSS_POOL,
         twitch_shape=TwitchShape(exponent=5.1232),
         twitch_time_scale=1.5718,
+    ),
+    # Step 2: each unit's own spikes (Q2), linear sum of unit forces (Q7), then rate saturation.
+    "own-spikes": ModelOptions(
+        unit_selection=UnitSelection.SPREAD_ACROSS_POOL,
+        twitch_shape=TwitchShape(exponent=5.1232),
+        twitch_time_scale=1.5718,
+        twitch_drive=TwitchDrive.OWN_SPIKES,
+        force_aggregation=ForceAggregation.SUM,
+    ),
+    # Step 2 with the twitch recalibrated on this pipeline (validation/calibrate.py step2).
+    "rate-gain": ModelOptions(
+        unit_selection=UnitSelection.SPREAD_ACROSS_POOL,
+        twitch_shape=TwitchShape(exponent=4.7887),
+        twitch_time_scale=1.6553,
+        twitch_drive=TwitchDrive.OWN_SPIKES,
+        force_aggregation=ForceAggregation.SUM,
+        rate_gain=True,
     ),
 }
 
@@ -154,7 +171,12 @@ def main(names: list[str]) -> None:
         (out / "metrics.json").write_text(json.dumps(metrics, indent=2))
         _plot(runs, metrics, out / "protocols.png", name)  # type: ignore[arg-type]
         results[name] = metrics
-    _summary(results)
+    stored = {}
+    for name in VARIANTS:  # summary of every variant computed so far, in VARIANTS order
+        path = RESULTS / name / "metrics.json"
+        if path.exists():
+            stored[name] = json.loads(path.read_text())
+    _summary(stored)
 
 
 def _summary(results: dict[str, dict[str, object]]) -> None:

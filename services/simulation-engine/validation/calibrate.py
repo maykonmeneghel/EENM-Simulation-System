@@ -13,13 +13,14 @@ Run: uv run --group validation python -m validation.calibrate
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import replace
 
 import numpy as np
 from scipy.optimize import minimize
 
 from eenm_engine.domain.force_pipeline import type_signals
-from eenm_engine.domain.model_options import ModelOptions, UnitSelection
+from eenm_engine.domain.model_options import ForceAggregation, ModelOptions, TwitchDrive, UnitSelection
 from eenm_engine.domain.simulation import MotorUnitSetup, SimulationConfig
 from eenm_engine.domain.stimulus import StimulusProtocol, stimulus_current
 from eenm_engine.domain.twitch import TwitchShape
@@ -47,18 +48,33 @@ def single_twitch_voltage(config: SimulationConfig) -> tuple[MotorUnitSetup, np.
 def whole_twitch(
     setup: MotorUnitSetup, voltage: np.ndarray, config: SimulationConfig, scale: float, shape: TwitchShape
 ) -> np.ndarray:
+    options = replace(config.model, twitch_shape=shape, twitch_time_scale=1.0)
     total = np.zeros(voltage.shape[0])
     for t, cols in setup.column_slices().items():
         group = replace(setup.groups[t], twitch_time_to_peak_ms=setup.groups[t].twitch_time_to_peak_ms * scale)
-        total += type_signals(
-            voltage[:, cols], group, setup.muap_shapes[t], config.axon_length_percent, config.stimulus.step_ms, shape
-        ).mean_force()
+        signals = type_signals(
+            voltage[:, cols], group, setup.muap_shapes[t], config.axon_length_percent, config.stimulus.step_ms, options
+        )
+        summed = options.force_aggregation is ForceAggregation.SUM
+        total += signals.summed_force() if summed else signals.mean_force()
     return total
 
 
-def main() -> None:
+PIPELINES = {
+    # step 1: the original twitch drive and aggregation
+    "step1": ModelOptions(unit_selection=UnitSelection.SPREAD_ACROSS_POOL),
+    # step 2: each unit's own spikes, summed forces (the rate gain does not change a single twitch)
+    "step2": ModelOptions(
+        unit_selection=UnitSelection.SPREAD_ACROSS_POOL,
+        twitch_drive=TwitchDrive.OWN_SPIKES,
+        force_aggregation=ForceAggregation.SUM,
+    ),
+}
+
+
+def main(pipeline: str) -> None:
     protocol = StimulusProtocol(duration_ms=1000.0, frequency_hz=1.0, duty_cycle_percent=0.5)  # one 5 ms pulse
-    config = SimulationConfig(stimulus=protocol, model=ModelOptions(unit_selection=UnitSelection.SPREAD_ACROSS_POOL))
+    config = SimulationConfig(stimulus=protocol, model=PIPELINES[pipeline])
     setup, voltage = single_twitch_voltage(config)
     time = protocol.time_grid()
 
@@ -79,11 +95,11 @@ def main() -> None:
         "targets": {"contractionTimeMs": TARGET_CT_MS, "halfRelaxationMs": TARGET_HRT_MS},
         "fitted": {"twitchTimeScale": round(scale, 4), "twitchExponent": round(exponent, 4)},
         "achieved": {"contractionTimeMs": ct, "halfRelaxationMs": hrt},
-        "unitSelection": "SPREAD_ACROSS_POOL",
+        "pipeline": pipeline,
     }
-    (RESULTS / "calibration.json").write_text(json.dumps(result, indent=2))
+    (RESULTS / f"calibration-{pipeline}.json").write_text(json.dumps(result, indent=2))
     print(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1] if len(sys.argv) > 1 else "step2")

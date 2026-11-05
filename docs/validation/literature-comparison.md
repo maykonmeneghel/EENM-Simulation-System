@@ -83,6 +83,37 @@ Caveats: per-unit twitches are now slower than human single units measured in to
 but it is untested; per-unit HRT/CT is 0.64 against ≈ 1.05 for those units (the whole-muscle value is
 the one fitted). The force–frequency curve (f50, decline above 60 Hz) is still wrong: that is steps 2–3.
 
+### Step 2 — own spikes, summed force, rate saturation
+
+- `twitch_drive = OWN_SPIKES`: each unit's twitches are triggered by its own action potentials on
+  arrival at the muscle (junction peak + conduction delay), weight 1 (Q2).
+- `force_aggregation = SUM`: muscle force is the linear sum of all unit forces, as in Potvin &
+  Fuglevand 2017, instead of the sum of per-type means (Q7).
+- `rate_gain`: each twitch is scaled by `g(NR) = NF(NR) / (0.3·NR)`, with `NR = CT / ISI` of that unit and
+  `NF` the composite force–rate curve of **Potvin & Fuglevand 2017, Eqs 4–6** (doi:10.1371/journal.pcbi.1005581,
+  read in the full text: `NF = 0.3·NR` for `NR ≤ 0.4`, `NF = 1 − exp(−2·NR³)` above). The paper computes force
+  directly from the rate; the per-twitch gain that makes a twitch sum follow that curve is **our derivation**.
+- Twitch time scale and shape re-fitted on this pipeline (`validation/calibrate.py step2`):
+  × **1.6553**, **m = 4.7887** (step 1's fit no longer held once the drive and aggregation changed).
+
+| Metric | Literature | human-twitch (step 1) | own-spikes (no gain) | **rate-gain (step 2)** |
+|---|---|---|---|---|
+| Twitch CT / HRT (ms) | 112–129 / 95–100 | 121 / 97 | 114 / 90 | **121 / 97** (fitted) |
+| Twitch / tetanus, whole | 0.22 ± 0.02 (0.15–0.41) | 0.15 | 0.08 | **0.21** ✓ |
+| f50 (Hz) | 9.6 ± 0.6 (human MUs); ≈ 7 (Kernell rule) | 20 | 40 | **11.8** ≈ (slightly high) |
+| Force–frequency shape | plateau, max 15–100 Hz | max 60 Hz, then falls to 0.57 | max 80 Hz | **plateau, 0.98 at 100 Hz** ✓ |
+| Tetanus / twitch S · F | 5.4 · 2.6 | 9.2 · 3.2–3.5 | 20.6 · 10–11 | **4.6** ✓ · 4.3–4.7 ✗ |
+| Ripple at 40 Hz S · F | S fused; F not (fusion ≈ 85 Hz) | 0.3 · 25–28 % | 0.3 · 0 % | 0.2 · **0 %** ✗ |
+
+**Tension found (not resolved, on purpose).** The fast units now fuse completely at 40 Hz, against
+Burke 1967 (F units fuse at ≈ 85 Hz). Their contraction time is ≈ 100–110 ms, against ≤ 30 ms (cat) or
+16–17 ms (rat). The cause is the **composition** of the simulated pool, not the fit: with forces summed,
+the 2 FF units (twitch amplitude 0.29–0.49) outweigh the 5 S units (0.10–0.12), so matching the slow
+human soleus twitch stretches *every* unit's contraction time (the fit went from × 1.57 to × 1.66). A human
+soleus is predominantly slow; reproducing that needs per-type composition and contraction times for human
+soleus, which the verified sources do not give. Until then the fast units of this model are too slow.
+The earlier ripple of fast units at 40 Hz (step 1) came from the summed-MUAP drive (Q2), not from physiology.
+
 ## What this means for the next steps
 
 The end-to-end system can be used now, but its force output should be read as **qualitative**.

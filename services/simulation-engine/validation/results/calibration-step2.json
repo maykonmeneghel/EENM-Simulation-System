@@ -1,0 +1,15 @@
+{
+  "targets": {
+    "contractionTimeMs": 120.7,
+    "halfRelaxationMs": 97.3
+  },
+  "fitted": {
+    "twitchTimeScale": 1.6553,
+    "twitchExponent": 4.7887
+  },
+  "achieved": {
+    "contractionTimeMs": 120.7,
+    "halfRelaxationMs": 97.30000000000001
+  },
+  "pipeline": "step2"
+}

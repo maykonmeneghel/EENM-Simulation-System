@@ -60,3 +60,57 @@ def test_original_shape_ratio_is_about_1_68() -> None:
 def test_exponent_must_be_positive() -> None:
     with pytest.raises(ValueError):
         TwitchShape(exponent=0)
+
+
+class TestRateGain:
+    def test_gain_is_one_up_to_the_breakpoint(self) -> None:
+        from eenm_engine.domain.twitch import RateGain
+
+        np.testing.assert_array_equal(RateGain.gain(np.array([0.0, 0.1, 0.4])), [1.0, 1.0, 1.0])
+
+    def test_gain_is_nearly_continuous_at_the_breakpoint(self) -> None:
+        from eenm_engine.domain.twitch import RateGain
+
+        # 1 - e^{-2·0.4³} = 0.12015 vs 0.3·0.4 = 0.12: the published composite curve steps by 0.13 %
+        assert RateGain.gain(np.array([0.4 + 1e-9]))[0] == pytest.approx(1.00125, abs=1e-4)
+
+    def test_gain_follows_potvin_fuglevand_2017(self) -> None:
+        from eenm_engine.domain.twitch import RateGain
+
+        nr = np.array([0.7, 1.0, 2.0])
+        np.testing.assert_allclose(RateGain.gain(nr), (1 - np.exp(-2 * nr**3)) / (0.3 * nr))
+
+    def test_mean_force_of_a_regular_train_follows_the_normalised_force_curve(self) -> None:
+        from eenm_engine.domain.twitch import RateGain
+
+        g = group(mttp=(100.0,), mt=(1.0,))
+        step, samples = 0.1, 40_000  # 4 s
+        mean_force = []
+        rates_per_ms = np.array([0.002, 0.004, 0.007, 0.01, 0.02])  # NR = 0.2, 0.4, 0.7, 1, 2
+        for rate in rates_per_ms:
+            drive = np.zeros((samples, 1))
+            drive[:: round(1 / rate / step), 0] = 1.0
+            drive[0, 0] = 0.0
+            drive[1, 0] = 1.0
+            gained = RateGain(g.twitch_time_to_peak_ms, step).apply(drive)
+            force = TwitchFilter(g, step, TwitchShape(5.0)).segment(gained)[:, 0]
+            mean_force.append(force[samples // 2 :].mean())
+        nr = rates_per_ms * 100.0
+        nf = np.where(nr <= 0.4, 0.3 * nr, 1 - np.exp(-2 * nr**3))
+        np.testing.assert_allclose(np.array(mean_force) / mean_force[-1], nf / nf[-1], rtol=0.02)
+
+    def test_first_spike_of_each_unit_is_not_scaled(self) -> None:
+        from eenm_engine.domain.twitch import RateGain
+
+        drive = np.zeros((100, 2))
+        drive[10, 0] = drive[12, 0] = drive[50, 1] = 1.0
+        out = RateGain(np.array([100.0, 100.0]), 0.1).apply(drive)
+        assert out[10, 0] == 1.0 and out[50, 1] == 1.0
+        assert out[12, 0] < 1.0  # 0.2 ms interval -> NR = 500
+
+
+def test_rate_gain_requires_own_spikes() -> None:
+    from eenm_engine.domain.model_options import ModelOptions
+
+    with pytest.raises(ValueError):
+        ModelOptions(rate_gain=True)
