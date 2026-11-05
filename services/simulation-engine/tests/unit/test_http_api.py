@@ -103,6 +103,42 @@ def test_calibration_target_selects_the_literature_twitch() -> None:
     assert client.post("/v1/simulations/stream", json={"calibrationTarget": "FASTEST"}).status_code == 422
 
 
+def test_stimulation_site_selects_skin_or_motoneuron_pool() -> None:
+    from eenm_engine.domain.model_options import CalibrationTarget, ModelOptions, StimulationSite
+    from eenm_engine.interfaces.http.schemas import SimulationRequest
+
+    def model(body: dict[str, object]) -> ModelOptions:
+        return SimulationRequest.model_validate(body).to_config().model
+
+    skin = model({"modelVariant": "LITERATURE"})
+    pool = model({"modelVariant": "LITERATURE", "stimulationSite": "MOTONEURON_POOL"})
+    assert skin.stimulation_site is StimulationSite.MOTOR_AXONS
+    assert pool.stimulation_site is StimulationSite.MOTONEURON_SOMA
+    assert (pool.twitch_time_scale, pool.twitch_shape.exponent) == (1.2775, 3.9482)  # pool120 fit
+    single = model(
+        {"modelVariant": "LITERATURE", "stimulationSite": "MOTONEURON_POOL", "calibrationTarget": "SINGLE_UNIT"}
+    )
+    assert single == ModelOptions.literature(CalibrationTarget.SINGLE_UNIT, StimulationSite.MOTONEURON_SOMA)
+    assert model({"stimulationSite": "MOTONEURON_POOL"}) == ModelOptions()  # ORIGINAL ignores it
+    assert client.post("/v1/simulations/stream", json={"stimulationSite": "SKIN"}).status_code == 422
+
+
+def test_motoneuron_pool_site_streams_force() -> None:
+    body = events(
+        client.post(
+            "/v1/simulations/stream",
+            json={
+                "modelVariant": "LITERATURE",
+                "stimulationSite": "MOTONEURON_POOL",
+                "unitsPerType": {"S": 3, "FR": 1, "FF": 1},
+                "stimulus": {"durationMs": 60, "pulseWidthUs": 300, "waveform": "BIPHASIC_SYMMETRIC", "amplitude": 153},
+            },
+        )
+    )
+    assert body[-1]["type"] == "completed"
+    assert body[-1]["summary"]["peakForce"] > 0
+
+
 def test_stimulator_fields_are_passed_to_the_stimulus() -> None:
     from eenm_engine.domain.stimulus import Waveform
     from eenm_engine.interfaces.http.schemas import SimulationRequest

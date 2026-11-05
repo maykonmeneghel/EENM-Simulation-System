@@ -18,6 +18,9 @@ export type ModelVariant = (typeof MODEL_VARIANTS)[number];
 /** Twitch calibration of LITERATURE (no effect on ORIGINAL): whole human muscle or mean single human unit. */
 export const CALIBRATION_TARGETS = ['WHOLE_MUSCLE', 'SINGLE_UNIT'] as const;
 export type CalibrationTarget = (typeof CALIBRATION_TARGETS)[number];
+/** Where the LITERATURE stimulus acts: motor axons through the skin, or injected into the motoneurons. */
+export const STIMULATION_SITES = ['SKIN_SURFACE', 'MOTONEURON_POOL'] as const;
+export type StimulationSite = (typeof STIMULATION_SITES)[number];
 
 export const MUSCLES = [
   'SOLEUS',
@@ -66,6 +69,7 @@ export interface SimulationRequest {
   stimulus: Stimulus;
   modelVariant: ModelVariant;
   calibrationTarget: CalibrationTarget;
+  stimulationSite: StimulationSite;
   muscle: MuscleId;
   /**
    * Omitted = variant default (ORIGINAL 5/2/2; LITERATURE 120 units in the pool's proportions,

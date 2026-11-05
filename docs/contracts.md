@@ -33,6 +33,7 @@ Same body on the public API and on the engine. Defaults reproduce `Mathematical 
   },
   "modelVariant": "ORIGINAL",
   "calibrationTarget": "WHOLE_MUSCLE",
+  "stimulationSite": "SKIN_SURFACE",
   "muscle": "SOLEUS",
   "unitsPerType": { "S": 5, "FR": 2, "FF": 2 },
   "axonLengthPercent": 80,
@@ -61,6 +62,7 @@ Same body on the public API and on the engine. Defaults reproduce `Mathematical 
 | `stimulus.rampUpMs`, `stimulus.rampDownMs` | number | 0 | 0 – 60000 each; up + down ≤ on time (`trainOnMs`, or `durationMs`) | — (new: amplitude ramps of every train) |
 | `modelVariant` | enum | `ORIGINAL` | `ORIGINAL`, `LITERATURE` | — (new, see below) |
 | `calibrationTarget` | enum | `WHOLE_MUSCLE` | `WHOLE_MUSCLE`, `SINGLE_UNIT` | — (new, see below; LITERATURE only) |
+| `stimulationSite` | enum | `SKIN_SURFACE` | `SKIN_SURFACE`, `MOTONEURON_POOL` | — (new, see below; LITERATURE only) |
 | `muscle` | enum | `SOLEUS` | `SOLEUS`, `GASTROCNEMIUS_MEDIAL`, `GASTROCNEMIUS_LATERAL`, `TIBIALIS_ANTERIOR` | `createUMs` `muscleWork` |
 | `unitsPerType.S/FR/FF` | int | 5 / 2 / 2 (`ORIGINAL`); 120 units in the pool's proportions (`LITERATURE`, soleus 106 / 7 / 7) | 0 – 200 each, sum ≥ 1, each ≤ the muscle's pool size | `demangeMNs` |
 | `axonLengthPercent` | number | 80 | 1 – 100 | `compAxonal` / `compAxonioMotor` |
@@ -82,6 +84,19 @@ Every field is optional; missing fields take the default. A partial `unitsPerTyp
   recovery). With this variant `injectionSite`, `somaGeometry`, `dendriteGeometry` and `temperatureCelsius`
   have no effect (the motoneuron compartments are not simulated), and `amplitude` is a current in the same
   units, whose recruitment range (≈ 57–102 with 0.3 ms pulses) is inherited from the original model.
+
+### `stimulationSite`
+
+Where the LITERATURE stimulus acts; ignored by `ORIGINAL` (always the motoneurons).
+
+- `SKIN_SURFACE` — surface FES: the motor axons are excited through the analytic recruitment layer (Weiss
+  strength–duration); the motoneurons are not simulated, so `injectionSite`, geometries and `temperatureCelsius` have
+  no effect.
+- `MOTONEURON_POOL` — the master's-thesis path: the current enters the two-compartment motoneurons, which produce
+  the spikes (validated as `pool120` in `docs/validation/literature-comparison.md`); the motoneuron fields apply. About
+  3× slower (≈ 9 s per simulated second with 120 units).
+
+Both at once (FES-evoked and motoneuron spikes colliding in the same axon) is part of the central-layer design.
 
 ### `calibrationTarget`
 

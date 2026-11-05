@@ -4,7 +4,7 @@ import type { FieldPath, FormValues } from '../application/formModel';
 import { partitionFieldErrors, stepNumber } from '../application/formModel';
 import { settingsFromForm } from '../application/stimulatorForm';
 import { axonRecruitment } from '../domain/modelEquations';
-import type { FieldError } from '../domain/simulation';
+import type { FieldError, StimulationSite } from '../domain/simulation';
 import type { Point, StimulatorSettings, StimulatorWaveform } from '../domain/stimulator';
 import {
   envelopeOutline,
@@ -16,7 +16,12 @@ import {
   stimulatorProblems,
 } from '../domain/stimulator';
 import type { StimulatorControl } from './formFields';
-import { STIMULATOR_CONTROLS, STIMULATOR_WAVEFORMS } from './formFields';
+import {
+  STIMULATION_SITE_HELP,
+  STIMULATION_SITE_OPTIONS,
+  STIMULATOR_CONTROLS,
+  STIMULATOR_WAVEFORMS,
+} from './formFields';
 import { HelpPopover } from './HelpPopover';
 import { SegmentedControl } from './SegmentedControl';
 import { Switch } from './Switch';
@@ -233,6 +238,26 @@ export function StimulatorView({ values, onValuesChange: setValues, errors, runn
           </HelpPopover>
         </header>
 
+        <div className="dial dial--wide">
+          <span className="dial-label">
+            Local do estímulo{' '}
+            <HelpPopover label="Local do estímulo">
+              <strong>Superfície da pele:</strong> {STIMULATION_SITE_HELP.SKIN_SURFACE}
+              <br />
+              <strong>Pool de motoneurônios:</strong> {STIMULATION_SITE_HELP.MOTONEURON_POOL}
+            </HelpPopover>
+          </span>
+          <SegmentedControl<StimulationSite>
+            id="stim-site"
+            label="Local do estímulo"
+            options={STIMULATION_SITE_OPTIONS}
+            value={values.stimulationSite === 'MOTONEURON_POOL' ? 'MOTONEURON_POOL' : 'SKIN_SURFACE'}
+            disabled={running}
+            size="small"
+            onChange={(site) => update('stimulationSite', site)}
+          />
+        </div>
+
         <div className="dial-grid">
           {dial(C.frequency)}
           {dial(C.pulseWidth)}
@@ -258,6 +283,12 @@ export function StimulatorView({ values, onValuesChange: setValues, errors, runn
           </div>
         </div>
 
+        {values.stimulationSite === 'MOTONEURON_POOL' ? (
+          <p className="dial-hint" aria-live="polite">
+            No pool de motoneurônios o recrutamento não segue a lei de Weiss: depende da dinâmica de cada motoneurônio
+            (tamanho, temperatura, local de injeção, na barra lateral). Veja as unidades que disparam após simular.
+          </p>
+        ) : (
         <div className="recruit-meter" aria-live="polite">
           <div className="recruit-meter-label">
             <span>Unidades recrutadas no platô</span>
@@ -273,6 +304,7 @@ export function StimulatorView({ values, onValuesChange: setValues, errors, runn
             </small>
           ) : null}
         </div>
+        )}
 
         <div className="stimulator-section">
           <Switch

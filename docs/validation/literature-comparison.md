@@ -231,6 +231,10 @@ Only the twitch time scale and exponent change; everything else in `ModelOptions
 
 - `WHOLE_MUSCLE` (default, the values above): fitted to the twitch of the whole human triceps surae,
   CT 120.7 ms / HRT 97.3 ms (Sale 1982; Zoughaib 2026).
+The fit depends on where the stimulus acts (`stimulationSite`): through the skin (axons, below) ×1.2772 / m 3.9461;
+injected into the motoneurons (`pool120`) ×1.2775 / m 3.9482 for `WHOLE_MUSCLE`. The `SINGLE_UNIT` fit is the same for
+both (×0.7426 / m 2.0862, `calibration-pool120-single-unit.json`): it depends only on each unit's twitch kernel.
+
 - `SINGLE_UNIT`: fitted to the **mean twitch of single human motor units**, CT **74.8 ± 3.9** ms /
   HRT **78.6 ± 6.0** ms, 19 units of the toe extensors (Macefield, Fuglevand & Bigland-Ritchie 1996,
   PMID 8793760 — values read in the abstract). The mean is over the simulated units, each weighted by the pool

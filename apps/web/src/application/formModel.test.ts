@@ -58,6 +58,15 @@ describe('form model — defaults', () => {
     expect(off.has('calibrationTarget')).toBe(false);
   });
 
+  it('stimulation site: skin by default; motoneuron inputs active only in the motoneuron pool', () => {
+    expect(requestOf(defaultFormValues()).stimulationSite).toBe('SKIN_SURFACE');
+    expect(inactiveFields(defaultFormValues()).has('temperatureCelsius')).toBe(true);
+    const pool = { ...defaultFormValues(), stimulationSite: 'MOTONEURON_POOL' };
+    expect(inactiveFields(pool).has('temperatureCelsius')).toBe(false);
+    expect(inactiveFields(pool).has('injectionSite')).toBe(false);
+    expect(requestOf(pool).stimulationSite).toBe('MOTONEURON_POOL');
+  });
+
   it('calibration target is sent with the request', () => {
     const parsed = parseForm({ ...defaultFormValues(), calibrationTarget: 'SINGLE_UNIT' }, [soleus]);
     expect(parsed.ok && parsed.request.calibrationTarget).toBe('SINGLE_UNIT');

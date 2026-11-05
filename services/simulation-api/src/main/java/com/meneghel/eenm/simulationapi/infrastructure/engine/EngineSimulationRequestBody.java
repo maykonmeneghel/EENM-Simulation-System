@@ -11,6 +11,7 @@ record EngineSimulationRequestBody(
         Stimulus stimulus,
         String modelVariant,
         String calibrationTarget,
+        String stimulationSite,
         String muscle,
         @JsonInclude(JsonInclude.Include.NON_NULL) UnitCounts unitsPerType,
         double axonLengthPercent,

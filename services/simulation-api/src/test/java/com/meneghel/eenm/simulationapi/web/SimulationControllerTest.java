@@ -11,6 +11,7 @@ import com.meneghel.eenm.simulationapi.application.port.SimulationEngine;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationEvent;
 import com.meneghel.eenm.simulationapi.domain.muscle.MusclePreset;
 import com.meneghel.eenm.simulationapi.domain.simulation.CalibrationTarget;
+import com.meneghel.eenm.simulationapi.domain.simulation.StimulationSite;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModelVariant;
 import com.meneghel.eenm.simulationapi.domain.simulation.MotorUnitCounts;
 import com.meneghel.eenm.simulationapi.domain.simulation.Muscle;
@@ -133,6 +134,18 @@ class SimulationControllerTest {
         ArgumentCaptor<SimulationRequest> request = ArgumentCaptor.forClass(SimulationRequest.class);
         verify(engine).stream(request.capture());
         assertThat(request.getValue().calibrationTarget()).isEqualTo(CalibrationTarget.SINGLE_UNIT);
+    }
+
+    @Test
+    void stimulationSiteIsPassedToTheEngine() {
+        when(engine.stream(any())).thenReturn(Flux.just(SampleEvents.started(), SampleEvents.completed()));
+
+        post("{\"modelVariant\":\"LITERATURE\",\"stimulationSite\":\"MOTONEURON_POOL\"}")
+                .expectStatus().isOk().returnResult(SSE).getResponseBody().blockLast();
+
+        ArgumentCaptor<SimulationRequest> request = ArgumentCaptor.forClass(SimulationRequest.class);
+        verify(engine).stream(request.capture());
+        assertThat(request.getValue().stimulationSite()).isEqualTo(StimulationSite.MOTONEURON_POOL);
     }
 
     @Test

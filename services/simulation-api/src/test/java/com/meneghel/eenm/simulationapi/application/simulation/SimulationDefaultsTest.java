@@ -4,6 +4,7 @@ import static com.meneghel.eenm.simulationapi.support.Drafts.variant;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.meneghel.eenm.simulationapi.domain.simulation.CalibrationTarget;
+import com.meneghel.eenm.simulationapi.domain.simulation.StimulationSite;
 import com.meneghel.eenm.simulationapi.domain.simulation.CompartmentGeometry;
 import com.meneghel.eenm.simulationapi.domain.simulation.InjectionSite;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModelVariant;
@@ -30,6 +31,7 @@ class SimulationDefaultsTest {
                         new Modulation(ModulationTarget.AMPLITUDE, ModulationShape.STEP, null), null, null, null, 0, 0),
                 ModelVariant.ORIGINAL,
                 CalibrationTarget.WHOLE_MUSCLE,
+                StimulationSite.SKIN_SURFACE,
                 Muscle.SOLEUS,
                 new MotorUnitCounts(5, 2, 2),
                 80, 6.3,
@@ -70,6 +72,7 @@ class SimulationDefaultsTest {
                         new ModulationDraft(null, ModulationShape.TRIANGLE, 250.0), 330.0, 1000.0, null, 50.0, null),
                 null,
                 CalibrationTarget.SINGLE_UNIT,
+                StimulationSite.MOTONEURON_POOL,
                 Muscle.TIBIALIS_ANTERIOR,
                 new MotorUnitCountsDraft(null, 7, null),
                 null, 37.0, InjectionSite.DENDRITE, null, CompartmentGeometry.SPHERICAL, 42L, null);
@@ -80,6 +83,7 @@ class SimulationDefaultsTest {
                 new Modulation(ModulationTarget.AMPLITUDE, ModulationShape.TRIANGLE, 250.0), 330.0, 1000.0, null, 50, 0));
         assertThat(request.modelVariant()).isEqualTo(ModelVariant.ORIGINAL);
         assertThat(request.calibrationTarget()).isEqualTo(CalibrationTarget.SINGLE_UNIT);
+        assertThat(request.stimulationSite()).isEqualTo(StimulationSite.MOTONEURON_POOL);
         assertThat(request.muscle()).isEqualTo(Muscle.TIBIALIS_ANTERIOR);
         assertThat(request.unitsPerType()).isEqualTo(new MotorUnitCounts(5, 7, 2));
         assertThat(request.axonLengthPercent()).isEqualTo(80);
