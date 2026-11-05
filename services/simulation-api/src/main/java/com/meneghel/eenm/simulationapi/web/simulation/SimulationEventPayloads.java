@@ -13,7 +13,10 @@ final class SimulationEventPayloads {
     }
 
     record Chunk(String type, double progress, List<Double> timeMs, List<Double> stimulus, Force force,
-            List<Double> emg) {
+            List<Double> emg, Fatigue fatigue) {
+    }
+
+    record Fatigue(double timeMs, double muscle, Double S, Double FR, Double FF) {
     }
 
     record Force(List<Double> total, List<Double> S, List<Double> FR, List<Double> FF) {

@@ -562,3 +562,20 @@ body { overflow: hidden; }
 .stimulus-summary { display: flex; flex-direction: column; align-items: flex-start; gap: 0.35rem; }
 .stimulus-summary-text { margin: 0; font-size: 12px; }
 .stimulus-summary-recruit { margin: 0; font-size: 11px; color: var(--text-2); }
+
+/* ---------- Fadiga ---------- */
+.fatigue { display: flex; flex-direction: column; gap: 0.9rem; }
+.fatigue-head { display: flex; align-items: center; gap: 0.4rem; }
+.fatigue-head h2 { margin: 0; font: 600 15px var(--font-display); }
+.fatigue-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; }
+@media (max-width: 1100px) { .fatigue-stats { grid-template-columns: 1fr; } }
+.fatigue-ref-text { font-size: 12px; line-height: 1.35; }
+.fatigue-bars { width: 100%; height: auto; display: block; }
+.fatigue-bar { fill: var(--accent); }
+.fatigue-ref { fill: var(--good-bg); stroke: var(--success); stroke-dasharray: 3 3; stroke-width: 1; }
+.fatigue-grid line { stroke: var(--separator); }
+.fatigue-grid text, .fatigue-axis { fill: var(--text-2); font: 10px var(--mono); }
+
+/* ---------- Zoom ---------- */
+.zoom-bar { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; font-size: 12px; }
+.chart .u-select { background: rgba(0, 113, 227, 0.14); border: 1px solid rgba(0, 113, 227, 0.5); }

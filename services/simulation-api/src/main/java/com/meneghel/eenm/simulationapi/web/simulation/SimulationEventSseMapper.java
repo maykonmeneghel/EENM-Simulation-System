@@ -1,6 +1,7 @@
 package com.meneghel.eenm.simulationapi.web.simulation;
 
 import com.meneghel.eenm.simulationapi.domain.event.ForceSeries;
+import com.meneghel.eenm.simulationapi.domain.event.FatigueSnapshot;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationChunk;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationCompleted;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationEvent;
@@ -21,7 +22,7 @@ final class SimulationEventSseMapper {
                     started.simulationId(), started.durationMs(), started.outputStepMs(),
                     MotorUnitCountsPayload.from(started.motorUnits()), started.muscle());
             case SimulationChunk chunk -> new SimulationEventPayloads.Chunk(chunk.type(), chunk.progress(),
-                    chunk.timeMs(), chunk.stimulus(), toPayload(chunk.force()), chunk.emg());
+                    chunk.timeMs(), chunk.stimulus(), toPayload(chunk.force()), chunk.emg(), toPayload(chunk.fatigue()));
             case SimulationCompleted completed -> new SimulationEventPayloads.Completed(completed.type(),
                     completed.elapsedSeconds(), new SimulationEventPayloads.Summary(completed.summary().peakForce(),
                             completed.summary().meanForce(), completed.summary().timeToPeakMs()));
@@ -33,5 +34,10 @@ final class SimulationEventSseMapper {
     private SimulationEventPayloads.Force toPayload(ForceSeries force) {
         return new SimulationEventPayloads.Force(force.total(), force.slow(), force.fastResistant(),
                 force.fastFatigable());
+    }
+
+    private static SimulationEventPayloads.Fatigue toPayload(FatigueSnapshot fatigue) {
+        return fatigue == null ? null : new SimulationEventPayloads.Fatigue(fatigue.timeMs(), fatigue.muscle(),
+                fatigue.slow(), fatigue.fastResistant(), fatigue.fastFatigable());
     }
 }

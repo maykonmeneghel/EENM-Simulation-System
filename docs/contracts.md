@@ -113,11 +113,18 @@ object's `type` as the SSE `event:` name and the whole object as `data:`.
   "timeMs":   [0.0, 0.1, …],
   "stimulus": [100.0, 100.0, …],
   "force":    { "total": […], "S": […], "FR": […], "FF": […] },
-  "emg":      […] }
+  "emg":      […],
+  "fatigue":  { "timeMs": 4.99, "muscle": 0.998, "S": 1.0, "FR": 0.999, "FF": 0.991 } }
 ```
 All arrays in one chunk have the same length. `progress` ∈ (0, 1]. `force.total = S + FR + FF`
 (each the mean over that type's units, as in `Main.m`). `emg` is the mean motor-unit action potential
 (`EENMResults.MFAP`).
+
+`fatigue` is the remaining force capacity (1 = rested, 0 = exhausted; Potvin & Fuglevand 2017, no recovery) at the
+end of the chunk, `timeMs` being that instant: `S` / `FR` / `FF` the mean over the simulated units of the type (`null`
+when the type has none), `muscle` the units weighted by their rested twitch force and the pool units they represent.
+`null` when the model has no fatigue (`ORIGINAL`). The fatigue index per train (peak ÷ first peak) is computed by the
+client from `force.total`.
 
 ### `completed` (exactly once, last, on success)
 ```json

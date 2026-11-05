@@ -9,6 +9,7 @@ import type { ApiClient } from '../infrastructure/apiClient';
 import { DiagramView } from './DiagramView';
 import type { StageFocus } from './EquationsView';
 import { EquationsView } from './EquationsView';
+import { FatiguePanel } from './FatiguePanel';
 import { LiveCharts } from './LiveCharts';
 import { SegmentedControl } from './SegmentedControl';
 import { STIMULATOR_PATHS } from '../application/stimulatorForm';
@@ -17,6 +18,8 @@ import { StimulatorView } from './StimulatorView';
 import { isMacPlatform, matchShortcut, shortcutLabel } from './shortcuts';
 import { ErrorBanner, ProgressBar, SummaryCard } from './StatusPanel';
 import { useMuscleCatalog } from './useMuscleCatalog';
+import { ZoomBar } from './ZoomBar';
+import { ZoomSync } from './zoomSync';
 import { useSimulation } from './useSimulation';
 
 const NO_ERRORS: readonly FieldError[] = [];
@@ -41,6 +44,9 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
   const [focus, setFocus] = useState<StageFocus | null>(null);
   const [clientErrors, setClientErrors] = useState<readonly FieldError[]>(NO_ERRORS);
   const running = state.status === 'running';
+  // One time zoom for every chart; a new run shows the whole run again.
+  const zoom = useMemo(() => new ZoomSync(), []);
+  useEffect(() => zoom.reset(), [zoom, state.runId]);
   const serverErrors = state.error?.fieldErrors ?? NO_ERRORS;
   const stimulatorErrors = useMemo(() => [...clientErrors, ...serverErrors], [clientErrors, serverErrors]);
   const onClientErrors = useCallback((errors: readonly FieldError[]) => {
@@ -150,7 +156,9 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
               </div>
               <ErrorBanner error={state.error} />
               <SummaryCard state={state} />
-              <LiveCharts state={state} buffer={controller.series} />
+              <ZoomBar zoom={zoom} />
+              <LiveCharts state={state} buffer={controller.series} zoom={zoom} />
+              <FatiguePanel state={state} fatigue={controller.fatigue} series={controller.series} zoom={zoom} />
             </>
           ) : view === 'stimulator' ? (
             <StimulatorView values={values} onValuesChange={setValues} errors={stimulatorErrors} running={running} />

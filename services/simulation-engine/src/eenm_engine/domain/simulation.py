@@ -186,6 +186,26 @@ class IncrementalForce:
             out[t] = fatigue.capacity.copy() if fatigue is not None else np.empty(0)
         return out
 
+    def capacity_summary(self) -> tuple[float, dict[MotorUnitType, float | None]] | None:
+        """Whole-muscle and per-type remaining capacity, or ``None`` without fatigue.
+
+        The muscle value weights every unit by its rested twitch force times the pool units it represents, so it
+        is the fraction of the rested twitch force the muscle still has.
+        """
+        capacity = self.capacity()
+        if capacity is None:
+            return None
+        by_type: dict[MotorUnitType, float | None] = {}
+        num = den = 0.0
+        for t in UNIT_TYPES:
+            c = capacity[t]
+            by_type[t] = float(c.mean()) if c.size else None
+            if c.size:
+                force = self._setup.groups[t].twitch_peak * self._weights[t]
+                num += float((c * force).sum())
+                den += float(force.sum())
+        return (num / den if den else 1.0), by_type
+
     def _final_sample(self) -> int:
         final = self._known - self.LOOKAHEAD
         for t, columns in self._setup.column_slices().items():

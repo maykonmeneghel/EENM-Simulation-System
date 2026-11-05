@@ -172,6 +172,15 @@ def event_to_json(event: SimulationEvent) -> dict[str, object]:
                 **_by_type({t: v.tolist() for t, v in event.force_by_type.items()}),
             },
             "emg": event.emg.tolist(),
+            "fatigue": (
+                {
+                    "timeMs": event.fatigue.time_ms,
+                    "muscle": event.fatigue.muscle,
+                    **_by_type(dict(event.fatigue.by_type)),
+                }
+                if event.fatigue is not None
+                else None
+            ),
         }
     if isinstance(event, SimulationCompleted):
         return {
