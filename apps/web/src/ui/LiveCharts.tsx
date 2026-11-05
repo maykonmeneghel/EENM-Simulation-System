@@ -3,6 +3,7 @@ import type { SessionState } from '../application/session';
 import type { LiveSeriesSpec } from './LiveChart';
 import { LiveChart } from './LiveChart';
 import { CHART_THEMES, useColorScheme } from './theme';
+import type { ZoomSync } from './zoomSync';
 
 
 const FORCE: LiveSeriesSpec[] = [
@@ -14,7 +15,7 @@ const FORCE: LiveSeriesSpec[] = [
 const STIMULUS: LiveSeriesSpec[] = [{ key: 'stimulus', label: 'Corrente', color: 'blue' }];
 const EMG: LiveSeriesSpec[] = [{ key: 'emg', label: 'MUAP médio', color: 'blue' }];
 
-export function LiveCharts({ state, buffer }: { state: SessionState; buffer: SeriesBuffer }) {
+export function LiveCharts({ state, buffer, zoom }: { state: SessionState; buffer: SeriesBuffer; zoom: ZoomSync }) {
   const theme = CHART_THEMES[useColorScheme()];
   const common = {
     theme,
@@ -22,6 +23,7 @@ export function LiveCharts({ state, buffer }: { state: SessionState; buffer: Ser
     samples: state.samples,
     runId: state.runId,
     xMaxMs: state.run?.durationMs ?? null,
+    zoom,
   };
   return (
     <div className="charts">

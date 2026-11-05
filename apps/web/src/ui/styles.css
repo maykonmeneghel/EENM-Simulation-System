@@ -575,3 +575,7 @@ body { overflow: hidden; }
 .fatigue-ref { fill: var(--good-bg); stroke: var(--success); stroke-dasharray: 3 3; stroke-width: 1; }
 .fatigue-grid line { stroke: var(--separator); }
 .fatigue-grid text, .fatigue-axis { fill: var(--text-2); font: 10px var(--mono); }
+
+/* ---------- Zoom ---------- */
+.zoom-bar { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; font-size: 12px; }
+.chart .u-select { background: rgba(0, 113, 227, 0.14); border: 1px solid rgba(0, 113, 227, 0.5); }

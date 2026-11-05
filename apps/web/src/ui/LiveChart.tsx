@@ -6,6 +6,7 @@ export interface ChartSource {
   view(): { timeMs: Float64Array } & Record<string, Float64Array>;
 }
 import type { ChartTheme } from './theme';
+import type { ZoomSync } from './zoomSync';
 
 const LONG_RUN_MS = 2_000;
 const formatTick = (v: number) => v.toLocaleString('pt-BR', { maximumFractionDigits: 3 });
@@ -34,7 +35,12 @@ export interface LiveChartProps {
   stepped?: boolean;
   /** Fixed y range (e.g. 0–1 for a fraction); default: fitted to the data. */
   yRange?: [number, number];
+  /** Shared time zoom: a box dragged here zooms every chart in time (and this one in amplitude). */
+  zoom?: ZoomSync;
 }
+
+/** Smaller drags are clicks, not zooms (px). */
+const MIN_DRAG_PX = 6;
 
 /**
  * uPlot wrapper. The chart is created once per mount; each new chunk only calls `setData`
@@ -52,6 +58,7 @@ export function LiveChart({
   stepped = false,
   theme,
   yRange,
+  zoom,
 }: LiveChartProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const plotRef = useRef<uPlot | null>(null);
@@ -59,6 +66,8 @@ export function LiveChart({
   const frameRef = useRef<number | null>(null);
   const specRef = useRef(series);
   const yRangeRef = useRef(yRange);
+  /** Amplitude zoom of this chart only; cleared when the shared zoom is reset. */
+  const yZoomRef = useRef<[number, number] | null>(null);
 
   // Create / destroy.
   useEffect(() => {
@@ -70,13 +79,34 @@ export function LiveChart({
       width: Math.max(300, host.clientWidth),
       height,
       legend: { show: true, live: true },
-      cursor: { drag: { x: true, y: false, setScale: true } },
+      // Drag a box to zoom (handled in setSelect); double-click restores the whole run.
+      cursor: { drag: { x: true, y: true, uni: MIN_DRAG_PX, setScale: false }, bind: { dblclick: () => () => null } },
       scales: {
         x: {
           time: false,
-          range: (_u, _min, max) => [0, xMaxRef.current ?? (Number.isFinite(max) ? max : 1)],
+          range: (_u, _min, max) => {
+            const w = zoom?.x;
+            return w ? [w[0], w[1]] : [0, xMaxRef.current ?? (Number.isFinite(max) ? max : 1)];
+          },
         },
-        ...(yRangeRef.current ? { y: { range: () => yRangeRef.current! } } : {}),
+        y: {
+          range: (_u, min, max) =>
+            yZoomRef.current ??
+            yRangeRef.current ??
+            (Number.isFinite(min) && Number.isFinite(max) ? uPlot.rangeNum(min, max, 0.1, true) : [0, 1]),
+        },
+      },
+      hooks: {
+        setSelect: [
+          (u) => {
+            const { left, top, width, height: h } = u.select;
+            u.setSelect({ left: 0, top: 0, width: 0, height: 0 }, false);
+            if (!zoom || width < MIN_DRAG_PX) return;
+            yZoomRef.current =
+              h >= MIN_DRAG_PX ? [u.posToVal(top + h, 'y'), u.posToVal(top, 'y')] : null;
+            zoom.set(u.posToVal(left, 'x'), u.posToVal(left + width, 'x'));
+          },
+        ],
       },
       axes: [
         {
@@ -117,7 +147,24 @@ export function LiveChart({
         ? new ResizeObserver(() => plot.setSize({ width: Math.max(300, host.clientWidth), height }))
         : null;
     ro?.observe(host);
+    const onDblClick = () => {
+      yZoomRef.current = null;
+      if (zoom?.x) zoom.reset();
+      else redraw(); // amplitude-only zoom of this chart
+    };
+    const redraw = () => {
+      const d = buffer.view();
+      plot.setData([d.timeMs, ...specs.map((s) => d[s.key]!)]);
+    };
+    plot.over.addEventListener('dblclick', onDblClick);
+    // Another chart zoomed or the zoom was reset: rescale (a reset also drops this chart's amplitude zoom).
+    const unsubscribe = zoom?.subscribe(() => {
+      if (!zoom.x) yZoomRef.current = null;
+      redraw();
+    });
     return () => {
+      unsubscribe?.();
+      plot.over.removeEventListener('dblclick', onDblClick);
       ro?.disconnect();
       if (frameRef.current !== null) {
         cancelAnimationFrame(frameRef.current);
@@ -126,7 +173,7 @@ export function LiveChart({
       plot.destroy();
       plotRef.current = null;
     };
-  }, [buffer, height, yLabel, stepped, theme]);
+  }, [buffer, height, yLabel, stepped, theme, zoom]);
 
   // Push new data (also on new run, which resets to an empty buffer).
   useEffect(() => {

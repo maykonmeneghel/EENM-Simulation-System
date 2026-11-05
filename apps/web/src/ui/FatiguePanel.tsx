@@ -7,6 +7,7 @@ import { HelpPopover } from './HelpPopover';
 import type { LiveSeriesSpec } from './LiveChart';
 import { LiveChart } from './LiveChart';
 import { CHART_THEMES, useColorScheme } from './theme';
+import type { ZoomSync } from './zoomSync';
 
 const CAPACITY: LiveSeriesSpec[] = [
   { key: 'muscle', label: 'Músculo', color: 'blue', width: 2.5 },
@@ -66,10 +67,12 @@ export function FatiguePanel({
   state,
   fatigue,
   series,
+  zoom,
 }: {
   state: SessionState;
   fatigue: FatigueBuffer;
   series: SeriesBuffer;
+  zoom: ZoomSync;
 }) {
   const theme = CHART_THEMES[useColorScheme()];
   const request = state.request;
@@ -142,6 +145,7 @@ export function FatiguePanel({
         runId={state.runId}
         xMaxMs={state.run?.durationMs ?? null}
         yRange={[0, 1.05]}
+        zoom={zoom}
       />
 
       {trains ? (
