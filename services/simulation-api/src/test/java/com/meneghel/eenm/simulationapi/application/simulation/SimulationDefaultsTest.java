@@ -1,0 +1,59 @@
+package com.meneghel.eenm.simulationapi.application.simulation;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.meneghel.eenm.simulationapi.domain.simulation.CompartmentGeometry;
+import com.meneghel.eenm.simulationapi.domain.simulation.InjectionSite;
+import com.meneghel.eenm.simulationapi.domain.simulation.Modulation;
+import com.meneghel.eenm.simulationapi.domain.simulation.ModulationShape;
+import com.meneghel.eenm.simulationapi.domain.simulation.ModulationTarget;
+import com.meneghel.eenm.simulationapi.domain.simulation.MotorUnitCounts;
+import com.meneghel.eenm.simulationapi.domain.simulation.Muscle;
+import com.meneghel.eenm.simulationapi.domain.simulation.SimulationRequest;
+import com.meneghel.eenm.simulationapi.domain.simulation.Stimulus;
+import com.meneghel.eenm.simulationapi.domain.simulation.Waveform;
+import org.junit.jupiter.api.Test;
+
+class SimulationDefaultsTest {
+
+    private final SimulationDefaults defaults = new SimulationDefaults();
+
+    @Test
+    void missingRequestTakesTheContractDefaults() {
+        SimulationRequest expected = new SimulationRequest(
+                new Stimulus(1000, 0.01, 40, 20, 100, Waveform.MONOPHASIC,
+                        new Modulation(ModulationTarget.AMPLITUDE, ModulationShape.STEP, null)),
+                Muscle.SOLEUS,
+                new MotorUnitCounts(5, 2, 2),
+                80, 6.3,
+                InjectionSite.SOMA, CompartmentGeometry.CYLINDRICAL, CompartmentGeometry.CYLINDRICAL,
+                0, 0.1);
+
+        assertThat(defaults.resolve(null)).isEqualTo(expected);
+        assertThat(defaults.resolve(SimulationDraft.empty())).isEqualTo(expected);
+    }
+
+    @Test
+    void givenFieldsAreKeptAndOnlyMissingNestedFieldsAreFilled() {
+        SimulationDraft draft = new SimulationDraft(
+                new StimulusDraft(500.0, null, 60.0, null, null, Waveform.BIPHASIC,
+                        new ModulationDraft(null, ModulationShape.TRIANGLE, 250.0)),
+                Muscle.TIBIALIS_ANTERIOR,
+                new MotorUnitCountsDraft(null, 7, null),
+                null, 37.0, InjectionSite.DENDRITE, null, CompartmentGeometry.SPHERICAL, 42L, null);
+
+        SimulationRequest request = defaults.resolve(draft);
+
+        assertThat(request.stimulus()).isEqualTo(new Stimulus(500, 0.01, 60, 20, 100, Waveform.BIPHASIC,
+                new Modulation(ModulationTarget.AMPLITUDE, ModulationShape.TRIANGLE, 250.0)));
+        assertThat(request.muscle()).isEqualTo(Muscle.TIBIALIS_ANTERIOR);
+        assertThat(request.unitsPerType()).isEqualTo(new MotorUnitCounts(5, 7, 2));
+        assertThat(request.axonLengthPercent()).isEqualTo(80);
+        assertThat(request.temperatureCelsius()).isEqualTo(37);
+        assertThat(request.injectionSite()).isEqualTo(InjectionSite.DENDRITE);
+        assertThat(request.somaGeometry()).isEqualTo(CompartmentGeometry.CYLINDRICAL);
+        assertThat(request.dendriteGeometry()).isEqualTo(CompartmentGeometry.SPHERICAL);
+        assertThat(request.seed()).isEqualTo(42);
+        assertThat(request.outputStepMs()).isEqualTo(0.1);
+    }
+}
