@@ -8,6 +8,7 @@ import {
   defaultFormValues,
   inactiveFields,
   minOutputStep,
+  stepNumber,
   outputStepAdvice,
   parseForm,
   partitionFieldErrors,
@@ -242,5 +243,16 @@ describe('form model — output step for long runs', () => {
     const r = parseForm({ ...toFormValues(), 'stimulus.durationMs': '300000', outputStepMs: '5' });
     expect(r.ok && r.request.outputStepMs).toBe(5);
     expect(r.ok && r.notices).toEqual([]);
+  });
+});
+
+describe('stepNumber', () => {
+  it('adds without float noise and clamps at the minimum', () => {
+    expect(stepNumber('0.2', 0.1)).toBe('0.3');
+    expect(stepNumber('1,2', 0.1)).toBe('1.3');
+    expect(stepNumber('0.01', 0.005)).toBe('0.015');
+    expect(stepNumber('0', -1)).toBe('0');
+    expect(stepNumber('', 1)).toBe('1');
+    expect(stepNumber('1000', -100)).toBe('900');
   });
 });

@@ -24,11 +24,12 @@ const TARGET_CHUNKS = 40;
 const MAX_CHUNK_SAMPLES = 5000;
 const LITERATURE_AUTO_UNITS = 120;
 
+// Pool sizes as in docs/model-equations.md.
 const MUSCLES = [
   { id: 'SOLEUS', label: 'Sóleo (mock)', poolSize: { S: 800, FR: 50, FF: 50 } },
-  { id: 'GASTROCNEMIUS_MEDIAL', label: 'Gastrocnêmio medial (mock)', poolSize: { S: 300, FR: 150, FF: 150 } },
-  { id: 'GASTROCNEMIUS_LATERAL', label: 'Gastrocnêmio lateral (mock)', poolSize: { S: 250, FR: 150, FF: 200 } },
-  { id: 'TIBIALIS_ANTERIOR', label: 'Tibial anterior (mock)', poolSize: { S: 300, FR: 50, FF: 50 } },
+  { id: 'GASTROCNEMIUS_MEDIAL', label: 'Gastrocnêmio medial (mock)', poolSize: { S: 250, FR: 125, FF: 125 } },
+  { id: 'GASTROCNEMIUS_LATERAL', label: 'Gastrocnêmio lateral (mock)', poolSize: { S: 200, FR: 100, FF: 100 } },
+  { id: 'TIBIALIS_ANTERIOR', label: 'Tibial anterior (mock)', poolSize: { S: 250, FR: 50, FF: 50 } },
 ];
 
 const DEFAULTS = {

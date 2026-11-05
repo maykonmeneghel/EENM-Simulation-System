@@ -16,6 +16,8 @@ export interface NumberField {
   unit?: string;
   step?: string;
   hint?: string;
+  /** Stepper increment. */
+  stepBy: number;
 }
 export interface SelectField {
   path: FieldPath;
@@ -23,6 +25,8 @@ export interface SelectField {
   label: string;
   /** `null` = options come from the muscle catalog. */
   options: readonly { value: string; label: string }[] | null;
+  /** Render as a segmented control (small enums). */
+  segmented?: boolean;
 }
 export type FieldSpec = NumberField | SelectField;
 
@@ -31,6 +35,8 @@ export type GroupId = 'model' | 'stimulus' | 'modulation' | 'muscle' | 'motoneur
 export interface FieldGroup {
   id: GroupId;
   title: string;
+  /** Less-used sections start collapsed (macOS inspector disclosure). */
+  collapsed?: boolean;
   fields: FieldSpec[];
 }
 
@@ -52,6 +58,7 @@ export const FIELD_GROUPS: FieldGroup[] = [
       {
         path: 'modelVariant',
         kind: 'select',
+        segmented: true,
         label: 'Modelo',
         options: opts(MODEL_VARIANTS, {
           ORIGINAL: 'Original (MATLAB fiel)',
@@ -64,25 +71,27 @@ export const FIELD_GROUPS: FieldGroup[] = [
     id: 'stimulus',
     title: 'Estímulo',
     fields: [
-      { path: 'stimulus.amplitude', kind: 'number', label: 'Amplitude', unit: 'µA/cm²', step: 'any', hint: '0 – 500' },
-      { path: 'stimulus.frequencyHz', kind: 'number', label: 'Frequência', unit: 'Hz', step: 'any', hint: '1 – 200' },
-      { path: 'stimulus.dutyCyclePercent', kind: 'number', label: 'Ciclo de trabalho', unit: '%', step: 'any', hint: '1 – 99' },
+      { path: 'stimulus.amplitude', kind: 'number', stepBy: 1, label: 'Amplitude', unit: 'µA/cm²', step: 'any', hint: '0 – 500' },
+      { path: 'stimulus.frequencyHz', kind: 'number', stepBy: 1, label: 'Frequência', unit: 'Hz', step: 'any', hint: '1 – 200' },
+      { path: 'stimulus.dutyCyclePercent', kind: 'number', stepBy: 0.1, label: 'Ciclo de trabalho', unit: '%', step: 'any', hint: '1 – 99' },
       {
         path: 'stimulus.waveform',
         kind: 'select',
+        segmented: true,
         label: 'Forma de onda',
         options: opts(WAVEFORMS, { MONOPHASIC: 'Monofásica', BIPHASIC: 'Bifásica' }),
       },
-      { path: 'stimulus.durationMs', kind: 'number', label: 'Duração', unit: 'ms', step: 'any', hint: '10 – 300000' },
-      { path: 'stimulus.stepMs', kind: 'number', label: 'Passo de integração', unit: 'ms', step: 'any', hint: '0,005 – 0,1' },
-      { path: 'outputStepMs', kind: 'number', label: 'Passo de saída', unit: 'ms', step: 'any', hint: 'múltiplo do passo, ≤ 10' },
-      { path: 'stimulus.trainOnMs', kind: 'number', label: 'Trem ligado', unit: 'ms', step: 'any', hint: '0 < ligado ≤ período' },
-      { path: 'stimulus.trainPeriodMs', kind: 'number', label: 'Período do trem', unit: 'ms', step: 'any', hint: '≤ duração' },
+      { path: 'stimulus.durationMs', kind: 'number', stepBy: 100, label: 'Duração', unit: 'ms', step: 'any', hint: '10 – 300000' },
+      { path: 'stimulus.stepMs', kind: 'number', stepBy: 0.005, label: 'Passo de integração', unit: 'ms', step: 'any', hint: '0,005 – 0,1' },
+      { path: 'outputStepMs', kind: 'number', stepBy: 0.1, label: 'Passo de saída', unit: 'ms', step: 'any', hint: 'múltiplo do passo, ≤ 10' },
+      { path: 'stimulus.trainOnMs', kind: 'number', stepBy: 10, label: 'Trem ligado', unit: 'ms', step: 'any', hint: '0 < ligado ≤ período' },
+      { path: 'stimulus.trainPeriodMs', kind: 'number', stepBy: 100, label: 'Período do trem', unit: 'ms', step: 'any', hint: '≤ duração' },
     ],
   },
   {
     id: 'modulation',
     title: 'Modulação',
+    collapsed: true,
     fields: [
       {
         path: 'stimulus.modulation.target',
@@ -107,7 +116,7 @@ export const FIELD_GROUPS: FieldGroup[] = [
       },
       {
         path: 'stimulus.modulation.peakTimeMs',
-        kind: 'number',
+        kind: 'number', stepBy: 10,
         label: 'Instante do pico',
         unit: 'ms',
         step: 'any',
@@ -120,36 +129,40 @@ export const FIELD_GROUPS: FieldGroup[] = [
     title: 'Músculo / unidades motoras',
     fields: [
       { path: 'muscle', kind: 'select', label: 'Músculo', options: null },
-      { path: 'unitsPerType.S', kind: 'number', label: 'Unidades S', step: '1', hint: '0 – 200' },
-      { path: 'unitsPerType.FR', kind: 'number', label: 'Unidades FR', step: '1', hint: '0 – 200' },
-      { path: 'unitsPerType.FF', kind: 'number', label: 'Unidades FF', step: '1', hint: '0 – 200' },
-      { path: 'axonLengthPercent', kind: 'number', label: 'Comprimento do axônio', unit: '%', step: 'any', hint: '1 – 100' },
-      { path: 'seed', kind: 'number', label: 'Semente (MUAP)', step: '1', hint: '≥ 0' },
+      { path: 'unitsPerType.S', kind: 'number', stepBy: 1, label: 'Unidades S', step: '1', hint: '0 – 200' },
+      { path: 'unitsPerType.FR', kind: 'number', stepBy: 1, label: 'Unidades FR', step: '1', hint: '0 – 200' },
+      { path: 'unitsPerType.FF', kind: 'number', stepBy: 1, label: 'Unidades FF', step: '1', hint: '0 – 200' },
+      { path: 'axonLengthPercent', kind: 'number', stepBy: 1, label: 'Comprimento do axônio', unit: '%', step: 'any', hint: '1 – 100' },
+      { path: 'seed', kind: 'number', stepBy: 1, label: 'Semente (MUAP)', step: '1', hint: '≥ 0' },
     ],
   },
   {
     id: 'motoneuron',
     title: 'Motoneurônio',
+    collapsed: true,
     fields: [
       {
         path: 'injectionSite',
         kind: 'select',
+        segmented: true,
         label: 'Local de injeção',
         options: opts(INJECTION_SITES, { SOMA: 'Soma', DENDRITE: 'Dendrito' }),
       },
       {
         path: 'somaGeometry',
         kind: 'select',
+        segmented: true,
         label: 'Geometria do soma',
         options: opts(GEOMETRIES, { CYLINDRICAL: 'Cilíndrica', SPHERICAL: 'Esférica' }),
       },
       {
         path: 'dendriteGeometry',
         kind: 'select',
+        segmented: true,
         label: 'Geometria do dendrito',
         options: opts(GEOMETRIES, { CYLINDRICAL: 'Cilíndrica', SPHERICAL: 'Esférica' }),
       },
-      { path: 'temperatureCelsius', kind: 'number', label: 'Temperatura', unit: '°C', step: 'any', hint: '0 – 45' },
+      { path: 'temperatureCelsius', kind: 'number', stepBy: 0.1, label: 'Temperatura', unit: '°C', step: 'any', hint: '0 – 45' },
     ],
   },
 ];

@@ -2,14 +2,15 @@ import { useEffect, useRef } from 'react';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import type { SeriesBuffer, SeriesKey } from '../application/seriesBuffer';
+import type { ChartTheme } from './theme';
 
-const LONG_RUN_MS = 10_000;
+const LONG_RUN_MS = 2_000;
 const formatTick = (v: number) => v.toLocaleString('pt-BR', { maximumFractionDigits: 3 });
 
 export interface LiveSeriesSpec {
   key: Exclude<SeriesKey, 'timeMs'>;
   label: string;
-  color: string;
+  color: keyof ChartTheme['series'];
   width?: number;
 }
 
@@ -25,6 +26,7 @@ export interface LiveChartProps {
   /** Fixed x-axis end (simulation duration) so the trace visibly grows left → right. */
   xMaxMs: number | null;
   height?: number;
+  theme: ChartTheme;
   /** Draw as steps (useful for the rectangular stimulus pulses). */
   stepped?: boolean;
 }
@@ -43,6 +45,7 @@ export function LiveChart({
   xMaxMs,
   height = 220,
   stepped = false,
+  theme,
 }: LiveChartProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const plotRef = useRef<uPlot | null>(null);
@@ -70,22 +73,23 @@ export function LiveChart({
       axes: [
         {
           label: 'tempo',
-          stroke: '#52514e',
-          grid: { stroke: '#ecebe8' },
-          ticks: { stroke: '#ecebe8' },
+          space: 72,
+          stroke: theme.axis,
+          grid: { stroke: theme.grid, width: 1 },
+          ticks: { stroke: theme.grid, width: 1 },
           // Long (fatigue) runs read better in seconds.
           values: (_u, splits) =>
             (xMaxRef.current ?? 0) > LONG_RUN_MS
               ? splits.map((v) => `${formatTick(v / 1000)} s`)
               : splits.map((v) => `${formatTick(v)} ms`),
         },
-        { label: yLabel, stroke: '#52514e', grid: { stroke: '#ecebe8' }, ticks: { stroke: '#ecebe8' }, size: 60 },
+        { label: yLabel, stroke: theme.axis, grid: { stroke: theme.grid, width: 1 }, ticks: { stroke: theme.grid, width: 1 }, size: 60 },
       ],
       series: [
         { label: 't (ms)', value: (_u, v) => (v == null ? '—' : v.toFixed(2)) },
         ...specs.map<uPlot.Series>((s) => ({
           label: s.label,
-          stroke: s.color,
+          stroke: theme.series[s.color],
           width: s.width ?? 1.5,
           points: { show: false },
           ...(paths ? { paths } : {}),
@@ -114,7 +118,7 @@ export function LiveChart({
       plot.destroy();
       plotRef.current = null;
     };
-  }, [buffer, height, yLabel, stepped]);
+  }, [buffer, height, yLabel, stepped, theme]);
 
   // Push new data (also on new run, which resets to an empty buffer).
   useEffect(() => {

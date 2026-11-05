@@ -42,7 +42,7 @@ export class SimulationController {
     const abort = new AbortController();
     this.abortController = abort;
     this.series.reset(estimateSamples(request));
-    this.dispatch({ type: 'start' });
+    this.dispatch({ type: 'start', request });
 
     try {
       for await (const event of this.api.streamSimulation(request, abort.signal)) {

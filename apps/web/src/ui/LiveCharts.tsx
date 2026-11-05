@@ -2,21 +2,22 @@ import type { SeriesBuffer } from '../application/seriesBuffer';
 import type { SessionState } from '../application/session';
 import type { LiveSeriesSpec } from './LiveChart';
 import { LiveChart } from './LiveChart';
+import { CHART_THEMES, useColorScheme } from './theme';
 
-// Categorical slots 1–4 of the reference palette (validated, fixed order).
-const C = { blue: '#2a78d6', orange: '#eb6834', aqua: '#1baf7a', yellow: '#eda100' };
 
 const FORCE: LiveSeriesSpec[] = [
-  { key: 'total', label: 'Total', color: C.blue, width: 2 },
-  { key: 'S', label: 'S', color: C.orange },
-  { key: 'FR', label: 'FR', color: C.aqua },
-  { key: 'FF', label: 'FF', color: C.yellow },
+  { key: 'total', label: 'Total', color: 'blue', width: 2 },
+  { key: 'S', label: 'S', color: 'orange' },
+  { key: 'FR', label: 'FR', color: 'aqua' },
+  { key: 'FF', label: 'FF', color: 'yellow' },
 ];
-const STIMULUS: LiveSeriesSpec[] = [{ key: 'stimulus', label: 'Corrente', color: C.blue }];
-const EMG: LiveSeriesSpec[] = [{ key: 'emg', label: 'MUAP médio', color: C.blue }];
+const STIMULUS: LiveSeriesSpec[] = [{ key: 'stimulus', label: 'Corrente', color: 'blue' }];
+const EMG: LiveSeriesSpec[] = [{ key: 'emg', label: 'MUAP médio', color: 'blue' }];
 
 export function LiveCharts({ state, buffer }: { state: SessionState; buffer: SeriesBuffer }) {
+  const theme = CHART_THEMES[useColorScheme()];
   const common = {
+    theme,
     buffer,
     samples: state.samples,
     runId: state.runId,

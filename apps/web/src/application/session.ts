@@ -1,6 +1,7 @@
 import type {
   CompletedEvent,
   FieldError,
+  SimulationRequest,
   StartedEvent,
 } from '../domain/simulation';
 
@@ -37,6 +38,8 @@ export interface SessionState {
   status: SessionStatus;
   /** Monotonic run counter, lets views reset when a new run starts. */
   runId: number;
+  /** Request of the current/last run (lets views interpret `run` correctly). */
+  request: SimulationRequest | null;
   run: StartedEvent | null;
   progress: number;
   samples: number;
@@ -46,7 +49,7 @@ export interface SessionState {
 }
 
 export type SessionAction =
-  | { type: 'start' }
+  | { type: 'start'; request?: SimulationRequest }
   | { type: 'started'; event: StartedEvent }
   | { type: 'chunk'; progress: number; samples: number }
   | { type: 'completed'; event: CompletedEvent }
@@ -57,6 +60,7 @@ export type SessionAction =
 export const initialSessionState: SessionState = {
   status: 'idle',
   runId: 0,
+  request: null,
   run: null,
   progress: 0,
   samples: 0,
@@ -73,7 +77,12 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
   switch (action.type) {
     case 'start':
       if (state.status === 'running') return state;
-      return { ...initialSessionState, status: 'running', runId: state.runId + 1 };
+      return {
+        ...initialSessionState,
+        status: 'running',
+        runId: state.runId + 1,
+        request: action.request ?? null,
+      };
 
     case 'reset':
       if (state.status === 'running') return state;

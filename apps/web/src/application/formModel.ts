@@ -300,3 +300,21 @@ export function partitionFieldErrors(errors: readonly FieldError[]): {
   }
   return { byField, general };
 }
+
+/**
+ * Stepper arithmetic for numeric inputs: adds `delta` to the (pt-BR or dot) number in `raw`,
+ * clamps at `min` and rounds to the decimals of the operands (no 0.30000000000000004).
+ * An empty/invalid value starts from `min`.
+ */
+export function stepNumber(raw: string, delta: number, min = 0): string {
+  const decimals = (x: number) => {
+    const s = String(x);
+    const i = s.indexOf('.');
+    return i === -1 ? 0 : s.length - i - 1;
+  };
+  const current = parseNumber(raw);
+  const base = Number.isFinite(current) ? current : min;
+  const digits = Math.max(decimals(base), decimals(Math.abs(delta)));
+  const next = Math.max(min, base + delta);
+  return String(Number(next.toFixed(digits)));
+}

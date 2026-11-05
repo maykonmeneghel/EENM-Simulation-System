@@ -45,6 +45,22 @@ LITERATURE runs without `unitsPerType` get 106 / 7 / 7 units in `started` (soleu
   would exceed that it suggests the smallest valid multiple of the integration step, and on
   *Simular* raises it automatically and says so. Charts switch the time axis to seconds above 10 s.
 
+## Interface
+
+Desktop web app laid out like a macOS window (≥ 1024 px): toolbar with the view switch
+(**Simulação | Equações | Diagrama**) and the *Parar* / *Simular* actions, a parameter inspector on the
+left (collapsible sections, steppers, pop-up buttons, switches, "?" help popovers) and the selected
+view on the right. Light and dark mode follow the system. Shortcuts: ⌘↩ simulate, ⌘. stop,
+⌘1/⌘2/⌘3 views (Ctrl on non-Mac).
+
+- **Equações** renders, with KaTeX, the stages of `docs/model-equations.md` used by the selected
+  variant (ORIGINAL 1, 2a, 3, 4, 5a, 8a; LITERATURE 1, 2b, 3, 4, 5b, 6, 7, 8b), each with the symbolic
+  form and the same form with the current values (pure functions in `src/domain/modelEquations.ts`
+  and `src/application/modelView.ts`).
+- **Diagrama** is an SVG schematic of the chain (stimulus → motoneuron or skin/axons → axon →
+  fibres S/FR/FF → twitch → force) with live values; a pulse travels along it while a run streams
+  (disabled with `prefers-reduced-motion`). Clicking a block opens its stage in *Equações*.
+
 ## Structure
 
 ```
