@@ -3,6 +3,7 @@ import type { ModelSnapshot } from '../application/modelView';
 import { twitchCurve } from '../application/modelView';
 import type { StageId } from '../domain/modelEquations';
 import { MOTOR_UNIT_TYPES } from '../domain/simulation';
+import { useSvgScale } from './useSvgScale';
 import { txtNum } from './stageTex';
 
 export interface DiagramViewProps {
@@ -50,6 +51,7 @@ function Block({
 export function DiagramView({ snapshot: s, running, onSelectStage }: DiagramViewProps) {
   const lit = s.variant === 'LITERATURE';
   const st = s.stimulus;
+  const [measureSvg, svgScale] = useSvgScale(1100);
 
   // Pulse-train icon: 4 periods of 28 px, pulse width ∝ duty cycle (min 1.5 px to stay visible).
   const period = 28;
@@ -95,6 +97,8 @@ export function DiagramView({ snapshot: s, running, onSelectStage }: DiagramView
         <span className="muted">Clique num bloco para ver a equação.</span>
       </figcaption>
       <svg
+        ref={measureSvg}
+        style={svgScale}
         viewBox="0 28 1100 222"
         className={`diagram-svg${running ? ' diagram-svg--running' : ''}`}
         role="group"

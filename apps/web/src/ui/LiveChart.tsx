@@ -39,6 +39,14 @@ export interface LiveChartProps {
   zoom?: ZoomSync;
 }
 
+/** Canvas can't use CSS variables: read the app font and type scale once. */
+function chartFonts(): { ticks: string; label: string } {
+  const css = typeof document !== 'undefined' ? getComputedStyle(document.documentElement) : null;
+  const v = (name: string, fallback: string) => css?.getPropertyValue(name).trim() || fallback;
+  const family = v('--font', '-apple-system, BlinkMacSystemFont, system-ui, sans-serif');
+  return { ticks: `${v('--fs-2xs', '10px')} ${family}`, label: `500 ${v('--fs-sm', '12px')} ${family}` };
+}
+
 /** Smaller drags are clicks, not zooms (px). */
 const MIN_DRAG_PX = 6;
 
@@ -74,6 +82,7 @@ export function LiveChart({
     const host = hostRef.current;
     if (!host) return;
     const specs = specRef.current;
+    const fonts = chartFonts();
     const paths = stepped ? uPlot.paths.stepped?.({ align: 1 }) : undefined;
     const opts: uPlot.Options = {
       width: Math.max(300, host.clientWidth),
@@ -111,6 +120,8 @@ export function LiveChart({
       axes: [
         {
           label: 'tempo',
+          font: fonts.ticks,
+          labelFont: fonts.label,
           space: 72,
           stroke: theme.axis,
           grid: { stroke: theme.grid, width: 1 },
@@ -121,7 +132,7 @@ export function LiveChart({
               ? splits.map((v) => `${formatTick(v / 1000)} s`)
               : splits.map((v) => `${formatTick(v)} ms`),
         },
-        { label: yLabel, stroke: theme.axis, grid: { stroke: theme.grid, width: 1 }, ticks: { stroke: theme.grid, width: 1 }, size: 60 },
+        { label: yLabel, font: fonts.ticks, labelFont: fonts.label, stroke: theme.axis, grid: { stroke: theme.grid, width: 1 }, ticks: { stroke: theme.grid, width: 1 }, size: 60 },
       ],
       series: [
         { label: 't (ms)', value: (_u, v) => (v == null ? '—' : v.toFixed(2)) },

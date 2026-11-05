@@ -25,6 +25,7 @@ import {
 import { HelpPopover } from './HelpPopover';
 import { SegmentedControl } from './SegmentedControl';
 import { Switch } from './Switch';
+import { useSvgScale } from './useSvgScale';
 
 export interface StimulatorViewProps {
   values: FormValues;
@@ -84,6 +85,7 @@ function ticksOf(max: number, n = 4): number[] {
 const ampRange = (s: StimulatorSettings) => Math.max(STIMULATOR_CONTROLS.amplitude.max, s.amplitude);
 
 function PulseScope({ s }: { s: StimulatorSettings }) {
+  const [measureSvg, svgScale] = useSvgScale(W);
   const { points, spanUs } = pulseOutline(s);
   const x0 = -PULSE_SCOPE_US.lead;
   const sx = scale([x0, spanUs + x0], [PAD.l, W - PAD.r]);
@@ -96,7 +98,7 @@ function PulseScope({ s }: { s: StimulatorSettings }) {
       <figcaption>
         Pulso <span className="muted">— uma fase de {fmt(s.pulseWidthUs, 0)} µs{biphasic ? ' + fase oposta' : ''} · tempo em µs</span>
       </figcaption>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Pulso ${biphasic ? 'bifásico' : 'monofásico'} de ${s.pulseWidthUs} µs`}>
+      <svg ref={measureSvg} style={svgScale} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Pulso ${biphasic ? 'bifásico' : 'monofásico'} de ${s.pulseWidthUs} µs`}>
         <line className="scope-zero" x1={PAD.l} x2={W - PAD.r} y1={sy(0)} y2={sy(0)} />
         <text className="scope-ylabel" x={PAD.l - 6} y={sy(ampRange(s)) + 4} textAnchor="end">
           +{fmt(ampRange(s), 0)}
@@ -115,6 +117,7 @@ function PulseScope({ s }: { s: StimulatorSettings }) {
 }
 
 function EnvelopeScope({ s }: { s: StimulatorSettings }) {
+  const [measureSvg, svgScale] = useSvgScale(W);
   const windowMs = envelopeWindowMs(s);
   const outline = envelopeOutline(s, windowMs);
   const recruit = pulseRecruitment(s, windowMs, 600);
@@ -128,7 +131,7 @@ function EnvelopeScope({ s }: { s: StimulatorSettings }) {
       <figcaption>
         Envelope <span className="muted">— amplitude de cada pulso e unidades recrutadas · tempo em ms</span>
       </figcaption>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Envelope de amplitude e fração recrutada ao longo do tempo">
+      <svg ref={measureSvg} style={svgScale} viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Envelope de amplitude e fração recrutada ao longo do tempo">
         {showPulses
           ? recruit.map((p) => (
               <line key={p.tMs} className="scope-pulse" x1={sx(p.tMs)} x2={sx(p.tMs)} y1={sy(0)} y2={sy(p.amplitude)} />
