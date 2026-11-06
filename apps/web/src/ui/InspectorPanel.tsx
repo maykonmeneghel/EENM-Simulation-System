@@ -60,8 +60,16 @@ export function InspectorPanel({ topic, values, axonEvents, onShowEquation }: In
     <div className="explain">
       <header className="inspector-head">
         <h2 id="inspector-title">{view.title}</h2>
-        <p className="muted">{invasive ? 'Modo invasivo' : 'Modo não invasivo'}{drive ? ' · drive central' : ''}{tremor ? ' · tremor' : ''}</p>
+        {topic.kind === 'help' ? null : (
+          <p className="muted">{invasive ? 'Modo invasivo' : 'Modo não invasivo'}{drive ? ' · drive central' : ''}{tremor ? ' · tremor' : ''}</p>
+        )}
       </header>
+
+      {topic.kind === 'help' ? (
+        <section className="explain-section explain-section--help" aria-label={`Ajuda: ${topic.label}`}>
+          <p>{topic.content}</p>
+        </section>
+      ) : null}
 
       {view.reading ? (
         <section className="explain-section explain-section--reading" aria-labelledby="explain-reading">

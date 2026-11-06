@@ -77,7 +77,7 @@ describe('electrode position in the equations', () => {
     expect(near.substituted.join(' ')).not.toBe(far.substituted.join(' '));
     // the two parts add up to the whole delay: f = 0.9 puts 0.1 of it after the electrode
     const lit = buildModelSnapshot({ values: drive, muscles: [] }).typeSpans.S.delayMs!;
-    expect(far.substituted.join(' ')).toContain(`\\text{eletrodo}\\to\\text{músculo} = ${texSpan({ from: lit.from * 0.1, to: lit.to * 0.1 }, 2)}`);
+    expect(far.substituted.join(' ')).toContain(`\\Delta_2 = ${texSpan({ from: lit.from * 0.1, to: lit.to * 0.1 }, 2)}`);
   });
   it('without the drive or in the invasive mode stage 3 has no electrode split', async () => {
     const { buildModelSnapshot } = await import('./modelView');

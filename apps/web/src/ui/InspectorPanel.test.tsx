@@ -116,4 +116,9 @@ describe('chart readings', () => {
     render(<InspectorPanel topic={{ kind: 'fatigue' }} values={base} axonEvents={null} />);
     expect(screen.getByText(/Mostra a capacidade de força que resta/)).toBeInTheDocument();
   });
+  it('a "?" help shows its title and text', () => {
+    render(<InspectorPanel topic={{ kind: 'help', label: 'Drive central', content: <>Corrente do sistema nervoso central</> }} values={base} axonEvents={null} />);
+    expect(screen.getByRole('heading', { name: 'Drive central' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Ajuda: Drive central' })).toHaveTextContent('Corrente do sistema nervoso central');
+  });
 });

@@ -4,7 +4,7 @@ import { SHIELDS_PROTOCOL, SHIELDS_REFERENCE, trainPeaks } from '../application/
 import type { SeriesBuffer } from '../application/seriesBuffer';
 import type { InspectorTopic } from '../application/inspectorTopics';
 import type { SessionState } from '../application/session';
-import { HelpPopover } from './HelpPopover';
+import { HelpButton } from './HelpButton';
 import { useSvgScale } from './useSvgScale';
 import type { LiveSeriesSpec } from './LiveChart';
 import { InfoIcon } from './InfoIcon';
@@ -118,11 +118,11 @@ export function FatiguePanel({
         ) : (
           <h2>Fadiga</h2>
         )}
-        <HelpPopover label="Sobre a fadiga">
+        <HelpButton label="Sobre a fadiga">
           Fadiga periférica de Potvin & Fuglevand 2017: cada disparo consome capacidade de força da unidade, mais nas
           unidades rápidas (FF) que nas lentas (S), e o abalo fica mais lento. Não há recuperação no modelo. O índice de
           fadiga é o pico de força do último trem dividido pelo do primeiro, como na clínica (Chang & Shields 2011).
-        </HelpPopover>
+        </HelpButton>
       </header>
 
       <div className="fatigue-stats">

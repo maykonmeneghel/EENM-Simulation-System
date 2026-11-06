@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { StageId } from '../domain/modelEquations';
 
 /** What the right sidebar explains: a visual component of the centre column the user clicked. */
@@ -7,7 +8,9 @@ export type InspectorTopic =
   | { kind: 'fatigue' }
   | { kind: 'scope'; scope: 'pulse' | 'envelope' }
   | { kind: 'recruitment' }
-  | { kind: 'mode' };
+  | { kind: 'mode' }
+  /** The text of a "?" help button of the settings. */
+  | { kind: 'help'; label: string; content: ReactNode };
 
 export interface TopicView {
   title: string;
@@ -68,5 +71,7 @@ export function topicView(topic: InspectorTopic, forceStages: readonly StageId[]
       return { title: 'Recrutamento dos axônios', stages: ['2b'], path: false, drive: false, axon: false };
     case 'mode':
       return { title: 'Modo de aplicação', stages: [], path: true, drive: true, axon: true };
+    case 'help':
+      return { title: topic.label, stages: [], path: false, drive: false, axon: false };
   }
 }

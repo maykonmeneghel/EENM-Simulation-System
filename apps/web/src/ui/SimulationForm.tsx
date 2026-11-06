@@ -8,6 +8,7 @@ import {
   outputStepAdvice,
   parseForm,
   partitionFieldErrors,
+  randomSeed,
   stepNumber,
   tremorActive,
 } from '../application/formModel';
@@ -25,7 +26,7 @@ import type {
 import { ConditionPanel } from './ConditionPanel';
 import type { FieldSpec, GroupId, NumberField } from './formFields';
 import { CALIBRATION_TARGET_HELP, FIELD_GROUPS, STIMULATOR_WAVEFORMS } from './formFields';
-import { HelpPopover } from './HelpPopover';
+import { HelpButton } from './HelpButton';
 import { MuscleSources } from './MuscleSources';
 import { SegmentedControl } from './SegmentedControl';
 import { StimulatorControls } from './StimulatorView';
@@ -35,6 +36,8 @@ import { Switch } from './Switch';
 
 /** The toolbar's "Simular" button submits this form via `form={SIM_FORM_ID}`. */
 export const SIM_FORM_ID = 'sim-form';
+
+const DEFAULT_SEED = defaultFormValues().seed;
 
 export interface SimulationFormProps {
   /** Controlled form values (lifted so the Equações/Diagrama views follow them live). */
@@ -183,6 +186,8 @@ export function SimulationForm({
           aria-invalid={invalid || undefined}
           aria-describedby={describedBy}
           onChange={(e) => update(spec.path, e.target.value)}
+          // the seed always has a number: emptied, it goes back to its default
+          onBlur={spec.path === 'seed' && values.seed.trim() === '' ? () => update('seed', DEFAULT_SEED) : undefined}
           onKeyDown={(e) => {
             if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
               e.preventDefault();
@@ -211,7 +216,27 @@ export function SimulationForm({
           </button>
         </span>
       </span>
-      <span className="unit">{spec.unit ?? ''}</span>
+      {spec.path === 'seed' ? (
+        <button
+          type="button"
+          className="seed-button"
+          disabled={disabled}
+          aria-label="Sortear outra semente"
+          title="Sortear outra semente"
+          onClick={() => update('seed', randomSeed())}
+        >
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+            <rect x="2" y="2" width="12" height="12" rx="2.5" fill="none" stroke="currentColor" strokeWidth="1.3" />
+            <circle cx="5.5" cy="5.5" r="1.1" fill="currentColor" />
+            <circle cx="10.5" cy="5.5" r="1.1" fill="currentColor" />
+            <circle cx="8" cy="8" r="1.1" fill="currentColor" />
+            <circle cx="5.5" cy="10.5" r="1.1" fill="currentColor" />
+            <circle cx="10.5" cy="10.5" r="1.1" fill="currentColor" />
+          </svg>
+        </button>
+      ) : (
+        <span className="unit">{spec.unit ?? ''}</span>
+      )}
     </span>
   );
 
@@ -236,13 +261,13 @@ export function SimulationForm({
               {spec.label}
             </label>
             {spec.path === 'calibrationTarget' ? (
-              <HelpPopover label="Calibração do twitch">
+              <HelpButton label="Calibração do twitch">
                 Os dados humanos verificados não podem ser atendidos ao mesmo tempo; escolha qual o modelo reproduz.
                 <br />
                 <strong>Músculo inteiro:</strong> {CALIBRATION_TARGET_HELP.WHOLE_MUSCLE}
                 <br />
                 <strong>Unidade isolada:</strong> {CALIBRATION_TARGET_HELP.SINGLE_UNIT}
-              </HelpPopover>
+              </HelpButton>
             ) : null}
             {hasHint ? (
               <span id={`${id}-hint`} className="visually-hidden">
@@ -340,7 +365,7 @@ export function SimulationForm({
             }
             onChange={(on) => setFlag('driveEnabled', on)}
           />
-          <HelpPopover label="Drive central">
+          <HelpButton label="Drive central">
             Corrente que chega aos motoneurônios vinda do sistema nervoso central: fundo + comando voluntário +
             oscilação do tremor + ruído independente por unidade (Gallego et al. 2015, mesmo motoneurônio de dois
             compartimentos). A oscilação só entra com a condição Parkinson e o ajuste &quot;Tremor de repouso&quot;
@@ -348,7 +373,7 @@ export function SimulationForm({
             reobase&quot; reescala as correntes pela razão entre a nossa menor reobase e a de Gallego (4 nA). O limiar
             segue Cisi &amp; Kohn 2008 (reobase × resistência de entrada: menor unidade 3,5 nA) ou Watanabe 2013
             (limiar direto em mV: menor unidade 5,6 nA).
-          </HelpPopover>
+          </HelpButton>
           {driveOn ? (
             <p className="inline-notice" role="note">
               O drive vai a motoneurônios de Cisi & Kohn (2008), os do modelo de Gallego: perto do limiar disparam a
@@ -470,7 +495,15 @@ export function SimulationForm({
         (g) =>
           (g.id !== 'motoneuron' || (values.stimulationSite === 'MOTONEURON_POOL' && !driveActive(values))) &&
           (g.id !== 'drive' || isLiterature),
-      ).map((g) => (
+      ).map((g) =>
+        // a group named like its step (Simulação) needs no sub-heading of its own
+        step && g.title === STEPS.find((st) => st.id === step)?.label ? (
+          <fieldset key={g.id} className="section section-body" aria-label={g.title}>
+            {groupExtras[g.id].before}
+            {g.fields.map(renderField)}
+            {groupExtras[g.id].after}
+          </fieldset>
+        ) : (
         <details
           key={g.id}
           className="section"
@@ -487,7 +520,8 @@ export function SimulationForm({
             {groupExtras[g.id].after}
           </fieldset>
         </details>
-      ))}
+        ),
+      )}
 
       {general.length > 0 ? (
         <ul className="form-errors" role="alert">

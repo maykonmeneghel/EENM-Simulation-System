@@ -25,7 +25,7 @@ import {
   STIMULATOR_CONTROLS,
   STIMULATOR_WAVEFORMS,
 } from './formFields';
-import { HelpPopover } from './HelpPopover';
+import { HelpButton } from './HelpButton';
 import { SegmentedControl } from './SegmentedControl';
 import { Switch } from './Switch';
 import { useSvgScale } from './useSvgScale';
@@ -347,11 +347,11 @@ export function StimulatorControls({ values, onValuesChange: setValues, errors, 
       <div className="dial dial--wide">
         <span className="dial-label">
           Modo{' '}
-          <HelpPopover label="Modo de aplicação">
+          <HelpButton label="Modo de aplicação">
             <strong>Não invasivo (pele):</strong> {STIMULATION_SITE_HELP.SKIN_SURFACE}
             <br />
             <strong>Invasivo (pool de motoneurônios):</strong> {STIMULATION_SITE_HELP.MOTONEURON_POOL}
-          </HelpPopover>
+          </HelpButton>
         </span>
         <SegmentedControl<StimulationSite>
           id="stim-site"

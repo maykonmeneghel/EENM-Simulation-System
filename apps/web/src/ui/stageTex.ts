@@ -294,8 +294,8 @@ function stage3(s: ModelSnapshot): StageContent {
   const e = s.drive && !s.drive.invasive ? s.drive.electrodeFraction : null;
   if (e !== null) {
     symbolic.push(
-      '\\Delta_k = \\underbrace{f\\,\\Delta_k}_{\\text{soma}\\to\\text{eletrodo}} + \\underbrace{(1-f)\\,\\Delta_k}_{\\text{eletrodo}\\to\\text{músculo}}',
-      '\\text{colisão: o disparo central sai do soma até } f\\,\\Delta_k \\text{ antes do pulso ou até } f\\,\\Delta_k \\text{ depois} \\;\\Rightarrow\\; \\text{janela} = 2\\,f\\,\\Delta_k',
+      '\\Delta_k = \\underbrace{f\\,\\Delta_k}_{\\Delta_1:\\ \\text{soma}\\to\\text{eletrodo}} + \\underbrace{(1-f)\\,\\Delta_k}_{\\Delta_2:\\ \\text{eletrodo}\\to\\text{músculo}}',
+      '\\text{colisão: o disparo central sai do soma até } \\Delta_1 \\text{ antes do pulso ou até } \\Delta_1 \\text{ depois} \\;\\Rightarrow\\; \\text{janela} = 2\\,\\Delta_1',
     );
     substituted.push(
       `f = ${texNum(e, 2)}`,
@@ -303,7 +303,7 @@ function stage3(s: ModelSnapshot): StageContent {
         const d = s.typeSpans[t].delayMs;
         if (!d) return null;
         const part = (k: number) => texSpan({ from: d.from * k, to: d.to * k }, 2);
-        return `\\text{soma}\\to\\text{eletrodo} = ${part(e)},\\ \\text{eletrodo}\\to\\text{músculo} = ${part(1 - e)},\\ \\text{janela} = ${part(2 * e)}\\ \\text{ms}`;
+        return `\\Delta_1 = ${part(e)},\\quad \\Delta_2 = ${part(1 - e)},\\quad \\text{janela} = ${part(2 * e)}\\ \\text{ms}`;
       }),
     );
   }

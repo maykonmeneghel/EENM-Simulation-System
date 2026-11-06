@@ -177,6 +177,11 @@ export function toFormValues(r: SimulationRequest = defaultRequest()): FormValue
 }
 
 /** Defaults of the app (the corrected model, automatic units, stimulator pulses). */
+/** A new seed for the "sortear" button: a whole number from 0 to 999 999 (short enough to note and type back). */
+export function randomSeed(random: () => number = Math.random): string {
+  return String(Math.floor(random() * 1_000_000));
+}
+
 export function defaultFormValues(variant: ModelVariant = 'LITERATURE'): FormValues {
   return toFormValues(defaultRequest(variant));
 }
