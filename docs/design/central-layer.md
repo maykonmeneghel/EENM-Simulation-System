@@ -119,8 +119,19 @@ Not in the first version (listed so the limitation is explicit):
 ### 3.4 Muscles
 
 The existing per-unit force (twitch, rate saturation, fatigue) for each muscle, as **% of its maximal force**
-(PR #7), turned into newtons with the peak isometric force: FCR 407.9 N, ECRB + ECRL 589.8 N (Corie & Charles 2019,
-FT, from the Holzbaur upper-limb model). Force–length/velocity (Hill, Millard 2013 in the proposal) are left out in v1:
+(PR #7), turned into newtons with the peak isometric force: FCR 407.9 N, ECRL 337.3 N + ECRB 252.5 N = 589.8 N
+(Saul et al. 2015, FT, doi:10.1080/10255842.2014.916698; reused by Corie & Charles 2019). These are **not** the
+Holzbaur 2005 values: Saul 2015 fitted them to the muscle volumes and strength of 5 adult males (Holzbaur 2007) with a
+specific tension of 50.8 N/cm², about three times the 17.1 N/cm² measured directly in living human muscle
+(Binder-Markey et al. 2023, gracilis) — so PCSA × measured tension would not reproduce them.
+
+**Motor-unit pool presets for FCR / ECR** (`docs/research/wrist-muscles-literature.md`): verified human data exist
+only for FCR fibre types (slow 40.9 ± 17.4 %, IIA 29.7 ± 21.8 %, "fast-b" 29.4 ± 16.6 %, Mizuno 1994, FT, n = 7),
+median-innervated wrist-flexor twitch timing (CT 67.3 ± 5.3 ms, HRT 57.6 ± 7.7 ms, Behrens 2019, FT, n = 18), ECR
+single-unit contraction time (51.0 ± 21.7 ms, slow 63.7 ± 11.1, fast 25.6 ± 3.7 ms, Aimonetti 2000, FT, 25 units) and
+the forces above. **No verified data** for motor-unit numbers, single-unit twitch force or HRT, f50, twitch/tetanus
+ratio, healthy fatigue index under stimulation, muscle-specific conduction velocity, or anything in Parkinson's
+disease. Those fields stay inherited (leg presets) or fitted — see Decision 6. Force–length/velocity (Hill, Millard 2013 in the proposal) are left out in v1:
 tremor amplitudes are small around a fixed posture. Corie & Charles's second-order excitation–contraction filter
 (30/40 ms) is **not** added: the twitch model already provides the activation dynamics.
 
@@ -219,3 +230,4 @@ two-channel Estimulador and a joint panel; the `PD_TREMOR` condition adjustment 
 | 3 | Speed: compiled HH (Numba), reduced model only if the 10-s gate fails | **decided by the author, 2026-11-06** |
 | 4 | Electrode at 90 % of the axon length, configurable | default (technical) |
 | 5 | Sensor 8 cm from the wrist (hand dorsum), configurable, labelled an assumption | **decided by the author, 2026-11-06** |
+| 6 | FCR/ECR presets: how to fill the fields without verified human data | **open** |
