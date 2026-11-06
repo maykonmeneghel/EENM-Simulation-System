@@ -25,8 +25,22 @@ public record SimulationRequest(
         CompartmentGeometry dendriteGeometry,
         long seed,
         double outputStepMs,
-        CentralDrive centralDrive) {
-    // centralDrive: null = none (the engine's default)
+        CentralDrive centralDrive,
+        boolean unitEvents) {
+    // centralDrive: null = none (the engine's default). unitEvents: stream the 3D replay's per-unit events.
+
+    /** Maximum simulated time with {@code unitEvents} (the engine's limit; docs/design/3d-view.md §5.2). */
+    public static final double MAX_UNIT_EVENTS_DURATION_MS = 30_000;
+
+    public SimulationRequest(Stimulus stimulus, ModelVariant modelVariant, CalibrationTarget calibrationTarget,
+            StimulationSite stimulationSite, Condition condition, List<String> conditionAdjustments, Muscle muscle,
+            MotorUnitCounts unitsPerType, double axonLengthPercent, double temperatureCelsius,
+            InjectionSite injectionSite, CompartmentGeometry somaGeometry, CompartmentGeometry dendriteGeometry,
+            long seed, double outputStepMs, CentralDrive centralDrive) {
+        this(stimulus, modelVariant, calibrationTarget, stimulationSite, condition, conditionAdjustments, muscle,
+                unitsPerType, axonLengthPercent, temperatureCelsius, injectionSite, somaGeometry, dendriteGeometry,
+                seed, outputStepMs, centralDrive, false);
+    }
 
     public SimulationRequest {
         Objects.requireNonNull(stimulus, "stimulus");

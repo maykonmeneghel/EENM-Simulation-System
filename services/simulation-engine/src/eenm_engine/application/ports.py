@@ -76,6 +76,12 @@ class DrivenPoolIntegration(Protocol):
         """Cumulative counts of the merge: central spikes, transmitted, collisions, blocked FES, resets."""
         ...
 
+    def drain_unit_events(
+        self,
+    ) -> tuple[NDArray[np.int64], NDArray[np.int64], NDArray[np.int64], NDArray[np.int64]] | None:
+        """Per-unit events of the last ``advance_merged`` block (sample, unit, kind, origin); None without the merge."""
+        ...
+
 
 class DrivenPoolIntegrator(Protocol):
     def start(self, pool: CisiKohnPool, step_ms: float) -> DrivenPoolIntegration: ...

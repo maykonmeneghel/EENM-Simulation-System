@@ -33,6 +33,19 @@ class EngineEventParserTest {
     }
 
     @Test
+    void parsesTheUnitEventsOfAChunk() {
+        assertThat(parser.parse(SampleEvents.chunkWithUnitEventsLine())).contains(SampleEvents.chunkWithUnitEvents());
+    }
+
+    @Test
+    void unitEventListsOfDifferentLengthsAreAProtocolError() {
+        String broken = SampleEvents.chunkWithUnitEventsLine().replace("\"kind\":[1,7]", "\"kind\":[1]");
+
+        assertThatThrownBy(() -> parser.parse(broken))
+                .isInstanceOf(EngineProtocolException.class).hasMessageContaining("unitEvents");
+    }
+
+    @Test
     void parsesTheUnitAnatomyOfAStartedEvent() {
         assertThat(parser.parse(SampleEvents.startedWithUnitsLine())).contains(SampleEvents.startedWithUnits());
     }
@@ -67,7 +80,7 @@ class EngineEventParserTest {
 
     @Test
     void aStartedEventFromAnOlderEngineHasNoUnits() {
-        String older = SampleEvents.startedLine().replace(",\"electrodeFraction\":null,\"units\":null", "");
+        String older = SampleEvents.startedLine().replace(",\"electrodeFraction\":null,\"units\":null,\"stepMs\":null", "");
 
         SimulationStarted started = (SimulationStarted) parser.parse(older).orElseThrow();
 

@@ -20,6 +20,7 @@ from eenm_engine.domain.motor_unit_pool import (
 )
 from eenm_engine.domain.stimulus import StimulusProtocol
 from eenm_engine.domain.streaming_force import StreamingTypeForce
+from eenm_engine.domain.unit_events import MAX_UNIT_EVENTS_DURATION_MS
 
 UNIT_TYPES = (MotorUnitType.S, MotorUnitType.FR, MotorUnitType.FF)
 """Processing order of ``Main.m`` (also the order of the MUAP-shape random draws)."""
@@ -44,6 +45,8 @@ class SimulationConfig:
     model: ModelOptions = field(default_factory=ModelOptions)
     reference_model: ModelOptions | None = None
     """Model of the maximal-force reference (the healthy LITERATURE model); None = no percentage (ORIGINAL)."""
+    unit_events: bool = False
+    """Stream the per-unit events for the 3D replay (``domain.unit_events``); up to 30 s of simulated time."""
 
     def __post_init__(self) -> None:
         if sum(self.units_per_type.get(t, 0) for t in UNIT_TYPES) < 1:
@@ -54,6 +57,10 @@ class SimulationConfig:
                 raise ValueError(f"unitsPerType.{t.value} must be between 0 and {pool[t]} for {self.muscle.value}")
         if self.output_step_ms < self.stimulus.step_ms:
             raise ValueError("output_step_ms must be >= stimulus step")
+        if self.unit_events and self.stimulus.duration_ms > MAX_UNIT_EVENTS_DURATION_MS:
+            raise ValueError(
+                f"unit events (3D replay) are limited to {MAX_UNIT_EVENTS_DURATION_MS / 1000:g} s of simulated time"
+            )
 
     @property
     def output_stride(self) -> int:
@@ -172,6 +179,24 @@ class IncrementalForce:
     def buffered_samples(self) -> int:
         """Samples held in memory (bounded by the force stages' lookahead, not by the duration)."""
         return max(f.buffered_samples for f in self._types.values())
+
+    def record_arrivals(self) -> None:
+        """From now on, keep the spikes that reach the muscle for ``drain_arrivals`` (the 3D replay)."""
+        for f in self._types.values():
+            f.record_arrivals = True
+
+    def drain_arrivals(self) -> tuple[NDArray[np.int64], NDArray[np.int64]]:
+        """(sample, unit) of the spikes that reached the muscle since the last call; unit in the all-units columns."""
+        samples, units = [], []
+        for t, columns in self._setup.column_slices().items():
+            f = self._types[t]
+            for unit, sample in f.arrivals:
+                samples.append(sample)
+                units.append(unit + columns.start)
+            f.arrivals.clear()
+        if not samples:
+            return np.empty(0, np.int64), np.empty(0, np.int64)
+        return np.concatenate(samples).astype(np.int64), np.concatenate(units).astype(np.int64)
 
     def add(self, samples: NDArray[np.float64]) -> ForceSeries | None:
         """Append ``(rows, units)`` samples — soma voltages, or axon spike trains with axon stimulation —

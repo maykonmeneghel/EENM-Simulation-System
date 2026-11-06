@@ -24,7 +24,11 @@ record EngineSimulationRequestBody(
         String dendriteGeometry,
         long seed,
         double outputStepMs,
-        @JsonInclude(JsonInclude.Include.NON_NULL) CentralDrive centralDrive) {
+        @JsonInclude(JsonInclude.Include.NON_NULL) CentralDrive centralDrive,
+        @JsonInclude(JsonInclude.Include.NON_NULL) Output output) {
+
+    record Output(boolean unitEvents) {
+    }
 
     record Stimulus(
             double durationMs,

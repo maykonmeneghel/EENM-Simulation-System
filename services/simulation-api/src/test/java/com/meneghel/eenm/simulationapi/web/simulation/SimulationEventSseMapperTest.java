@@ -26,6 +26,7 @@ class SimulationEventSseMapperTest {
                 Arguments.of(SampleEvents.startedWithUnits(), SampleEvents.startedWithUnitsLine()),
                 Arguments.of(SampleEvents.chunk(0.5), SampleEvents.chunkLine(0.5)),
                 Arguments.of(SampleEvents.chunkWithFatigue(), SampleEvents.chunkWithFatigueLine()),
+                Arguments.of(SampleEvents.chunkWithUnitEvents(), SampleEvents.chunkWithUnitEventsLine()),
                 Arguments.of(SampleEvents.completed(), SampleEvents.completedLine()),
                 Arguments.of(new SimulationFailed("solver diverged", "ENGINE_FAILURE"), SampleEvents.errorLine()));
     }

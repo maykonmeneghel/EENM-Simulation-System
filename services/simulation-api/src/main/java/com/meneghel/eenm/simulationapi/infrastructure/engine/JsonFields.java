@@ -74,6 +74,21 @@ final class JsonFields {
         return values;
     }
 
+    static List<Long> longs(JsonNode parent, String field) {
+        JsonNode node = parent.path(field);
+        if (!node.isArray()) {
+            throw missing(field, "an array of integers");
+        }
+        List<Long> values = new ArrayList<>(node.size());
+        for (JsonNode element : node.values()) {
+            if (!element.isIntegralNumber() || !element.canConvertToLong()) {
+                throw missing(field, "an array of integers");
+            }
+            values.add(element.longValue());
+        }
+        return values;
+    }
+
     static List<String> texts(JsonNode parent, String field) {
         JsonNode node = parent.path(field);
         if (!node.isArray()) {

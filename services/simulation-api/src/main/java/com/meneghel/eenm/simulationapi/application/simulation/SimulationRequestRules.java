@@ -29,6 +29,7 @@ public final class SimulationRequestRules {
         checkTrains(request.stimulus(), violations);
         checkStimulator(request.stimulus(), violations);
         checkOutputStep(request, violations);
+        checkUnitEvents(request, violations);
         request.requestedUnits().ifPresent(units -> checkAtLeastOneUnit(units, violations));
         return List.copyOf(violations);
     }
@@ -116,6 +117,14 @@ public final class SimulationRequestRules {
                     "must be greater than or equal to stimulus.stepMs (" + format(stepMs) + ")"));
         } else if (!isMultiple(outputStepMs, stepMs)) {
             violations.add(new FieldViolation(field, "must be a multiple of stimulus.stepMs (" + format(stepMs) + ")"));
+        }
+    }
+
+    private void checkUnitEvents(SimulationRequest request, List<FieldViolation> violations) {
+        double max = SimulationRequest.MAX_UNIT_EVENTS_DURATION_MS;
+        if (request.unitEvents() && request.stimulus().durationMs() > max) {
+            violations.add(new FieldViolation("output.unitEvents",
+                    "needs stimulus.durationMs at most " + format(max) + " (the 3D replay is limited to 30 s)"));
         }
     }
 

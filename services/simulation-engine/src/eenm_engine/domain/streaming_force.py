@@ -292,6 +292,10 @@ class StreamingTypeForce:
         self._scale = 1.0 if self._axons else float(junction_potential(np.ones(1), axon_length_percent)[0])
         delay = np.asarray(group.muap_delay_samples, dtype=np.int64)
         self._peaks = _PeakScanner(self._units, delay)
+        self.record_arrivals = False
+        """Keep ``arrivals`` (off by default: the list grows until the caller empties it)."""
+        self.arrivals: list[tuple[NDArray[np.int64], NDArray[np.int64]]] = []
+        """Spikes that reached the muscle since the caller last emptied this list (unit within the type, sample)."""
         self._summed_peaks = None if self._own_spikes else _PeakScanner(1, np.zeros(1, dtype=np.int64))
         self._above = np.zeros((1, self._units))  # medfilt2's zero row above the record
         self._pending = np.empty((0, self._units))  # rows waiting for their next row
@@ -346,6 +350,8 @@ class StreamingTypeForce:
         # the MUAP (and the arrivals) of a sample are final once every unit's peaks before it are decided
         muap_until = known if final else min(known, int((self._peaks.decided() + self._peaks.delay).min()))
         events = self._advance_muap(muap_until)
+        if self.record_arrivals:
+            self.arrivals.append((events[0].copy(), events[1].copy()))  # (unit, sample) reaching the muscle
         if self._own_spikes:
             self.ready = muap_until
             unit, index, height = events

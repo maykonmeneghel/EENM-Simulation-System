@@ -107,6 +107,8 @@ def _integrate_merged(
     unit_state: NDArray[np.int64],
     counters: NDArray[np.int64],
     spikes: NDArray[np.float64],
+    log: NDArray[np.int64],
+    n_log: NDArray[np.int64],
 ) -> None:
     for k in prange(params.shape[0]):
         p = params[k]
@@ -117,7 +119,7 @@ def _integrate_merged(
             s = base + j
             last_pass = electrode_events(
                 k, s, j, recruit[j, k], last_pass, to_electrode, axon_refractory, inflight, n_inflight, antidromic,
-                n_antidromic, counters, spikes,
+                n_antidromic, counters, spikes, log, n_log,
             )  # fmt: skip
             pulse = s < pulse_end[k]
             vs, vd, m, h, n, q = _step(
@@ -128,7 +130,20 @@ def _integrate_merged(
                 last_spike[k] = s
                 pulse_end[k] = s + 1 + pulse_samples
             reset_left, ignore_until = soma_events(
-                k, s, spiked, reset_left, ignore_until, 1, 0, inflight, n_inflight, antidromic, n_antidromic, counters
+                k,
+                s,
+                spiked,
+                reset_left,
+                ignore_until,
+                1,
+                0,
+                inflight,
+                n_inflight,
+                antidromic,
+                n_antidromic,
+                counters,
+                log,
+                n_log,
             )
             if reset_left > 0:  # an antidromic spike reached the soma: a soma spike, not sent down the axon
                 reset_left = 0
@@ -180,6 +195,12 @@ class CisiKohnIntegration:
     def axon_events(self) -> dict[str, int]:
         return self._merge.totals() if self._merge is not None else {}
 
+    def drain_unit_events(
+        self,
+    ) -> tuple[NDArray[np.int64], NDArray[np.int64], NDArray[np.int64], NDArray[np.int64]] | None:
+        """Per-unit events of the last ``advance_merged`` block (sample, unit, kind, origin); None without the merge."""
+        return self._merge.drain_log() if self._merge is not None else None
+
     def advance_merged(self, drive_na: NDArray[np.float64], recruit: NDArray[np.bool_]) -> NDArray[np.float64]:
         """Drive (nA) into the somas, FES firing the axons where ``recruit``; the spikes sent to the muscle."""
         merge = self._merge
@@ -187,13 +208,14 @@ class CisiKohnIntegration:
             raise ValueError("call enable_merge first")
         rows = drive_na.shape[0]
         spikes = np.zeros((rows, self._params.shape[0]))
+        merge.reserve_log(rows)
         with NUMBA_PARALLEL_LOCK:
             _integrate_merged(
                 self._state, self._pulse_end, self._last_spike, self._params,
                 np.ascontiguousarray(drive_na, dtype=np.float64), np.ascontiguousarray(recruit, dtype=np.bool_),
                 self._next, self._step, self._pulse, self._refractory, merge.to_electrode, merge.refractory,
                 merge.inflight, merge.n_inflight, merge.antidromic, merge.n_antidromic, merge.unit_state,
-                merge.counters, spikes,
+                merge.counters, spikes, merge.log, merge.n_log,
             )  # fmt: skip
         self._next += rows
         merge.next_sample = self._next

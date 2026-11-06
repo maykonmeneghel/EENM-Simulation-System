@@ -30,7 +30,18 @@ public record SimulationDraft(
         CompartmentGeometry dendriteGeometry,
         Long seed,
         Double outputStepMs,
-        CentralDrive centralDrive) {
+        CentralDrive centralDrive,
+        Boolean unitEvents) {
+
+    public SimulationDraft(StimulusDraft stimulus, ModelVariant modelVariant, CalibrationTarget calibrationTarget,
+            StimulationSite stimulationSite, Condition condition, List<String> conditionAdjustments, Muscle muscle,
+            MotorUnitCountsDraft unitsPerType, Double axonLengthPercent, Double temperatureCelsius,
+            InjectionSite injectionSite, CompartmentGeometry somaGeometry, CompartmentGeometry dendriteGeometry,
+            Long seed, Double outputStepMs, CentralDrive centralDrive) {
+        this(stimulus, modelVariant, calibrationTarget, stimulationSite, condition, conditionAdjustments, muscle,
+                unitsPerType, axonLengthPercent, temperatureCelsius, injectionSite, somaGeometry, dendriteGeometry,
+                seed, outputStepMs, centralDrive, null);
+    }
 
     public static SimulationDraft empty() {
         return new SimulationDraft(null, null, null, null, null, null, null, null, null, null, null, null, null, null,
