@@ -5,6 +5,7 @@ import com.meneghel.eenm.simulationapi.application.port.EngineRejectedRequestExc
 import com.meneghel.eenm.simulationapi.application.port.EngineUnavailableException;
 import com.meneghel.eenm.simulationapi.application.port.SimulationEngine;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationEvent;
+import com.meneghel.eenm.simulationapi.domain.language.Language;
 import com.meneghel.eenm.simulationapi.domain.muscle.MusclePreset;
 import com.meneghel.eenm.simulationapi.domain.simulation.SimulationRequest;
 import java.util.List;
@@ -29,6 +30,7 @@ public class WebClientSimulationEngine implements SimulationEngine {
     private static final String STREAM_PATH = "/v1/simulations/stream";
     private static final String MUSCLES_PATH = "/v1/muscles";
     private static final String CONDITIONS_PATH = "/v1/conditions";
+    private static final String LANG_PARAMETER = "lang";
     private static final ParameterizedTypeReference<List<EngineMusclePresetBody>> PRESET_LIST =
             new ParameterizedTypeReference<>() {
             };
@@ -57,18 +59,18 @@ public class WebClientSimulationEngine implements SimulationEngine {
     }
 
     @Override
-    public Mono<List<MusclePreset>> listMuscles() {
+    public Mono<List<MusclePreset>> listMuscles(Language language) {
         return webClient.get()
-                .uri(MUSCLES_PATH)
+                .uri(builder -> builder.path(MUSCLES_PATH).queryParam(LANG_PARAMETER, language.tag()).build())
                 .accept(MediaType.APPLICATION_JSON)
                 .exchangeToMono(this::readPresets)
                 .onErrorMap(WebClientSimulationEngine::isTransportFailure, WebClientSimulationEngine::toEngineFailure);
     }
 
     @Override
-    public Mono<String> conditionCatalogJson() {
+    public Mono<String> conditionCatalogJson(Language language) {
         return webClient.get()
-                .uri(CONDITIONS_PATH)
+                .uri(builder -> builder.path(CONDITIONS_PATH).queryParam(LANG_PARAMETER, language.tag()).build())
                 .accept(MediaType.APPLICATION_JSON)
                 .exchangeToMono(response -> response.statusCode().is2xxSuccessful()
                         ? response.bodyToMono(String.class)

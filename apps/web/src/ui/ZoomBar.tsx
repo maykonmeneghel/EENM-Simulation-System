@@ -1,16 +1,18 @@
 import { useSyncExternalStore } from 'react';
 import { SegmentedControl } from './SegmentedControl';
 import type { DragMode, ZoomSync } from './zoomSync';
+import { fmtNumber, tr } from '../i18n/locale';
 
 const fmt = (ms: number) =>
   ms >= 2000
-    ? `${(ms / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} s`
-    : `${ms.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} ms`;
+    ? `${fmtNumber(ms / 1000, { maximumFractionDigits: 2 })} s`
+    : `${fmtNumber(ms, { maximumFractionDigits: 1 })} ms`;
 
-const MODES = [
-  { value: 'zoom', label: 'Zoom' },
-  { value: 'pan', label: 'Mover' },
-] as const;
+const modes = () =>
+  [
+    { value: 'zoom', label: 'Zoom' },
+    { value: 'pan', label: tr({ 'pt-BR': 'Mover', en: 'Pan' }) },
+  ] as const;
 
 /** Drag mode (zoom box or hand), the current window and "Restaurar zoom" for the charts that share `zoom`. */
 export function ZoomBar({ zoom, durationMs }: { zoom: ZoomSync; durationMs: number | null }) {
@@ -29,17 +31,23 @@ export function ZoomBar({ zoom, durationMs }: { zoom: ZoomSync; durationMs: numb
   };
   const hint =
     mode === 'pan'
-      ? 'Arraste para mover todos os gráficos no tempo · duplo clique restaura'
-      : 'Arraste uma área para dar zoom (tempo em todos, amplitude naquele) · Shift+arrastar move · duplo clique restaura';
+      ? tr({
+          'pt-BR': 'Arraste para mover todos os gráficos no tempo · duplo clique restaura',
+          en: 'Drag to move every chart in time · double-click restores',
+        })
+      : tr({
+          'pt-BR': 'Arraste uma área para dar zoom (tempo em todos, amplitude naquele) · Shift+arrastar move · duplo clique restaura',
+          en: 'Drag an area to zoom (time in all, amplitude in that one) · Shift+drag pans · double-click restores',
+        });
   return (
-    <div className="zoom-bar" role="toolbar" aria-label="Zoom dos gráficos">
-      <SegmentedControl<DragMode> label="Ao arrastar" options={MODES} value={mode} size="small" onChange={choose} />
+    <div className="zoom-bar" role="toolbar" aria-label={tr({ 'pt-BR': 'Zoom dos gráficos', en: 'Chart zoom' })}>
+      <SegmentedControl<DragMode> label={tr({ 'pt-BR': 'Ao arrastar', en: 'When dragging' })} options={modes()} value={mode} size="small" onChange={choose} />
       <span className="muted zoom-bar-text">
         {window ? `${fmt(window[0])} – ${fmt(window[1])} · ` : ''}
         {hint}
       </span>
       <button type="button" className="btn btn--small" onClick={() => zoom.reset()} disabled={!window}>
-        Restaurar zoom
+        {tr({ 'pt-BR': 'Restaurar zoom', en: 'Reset zoom' })}
       </button>
     </div>
   );

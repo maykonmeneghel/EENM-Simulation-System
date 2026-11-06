@@ -10,6 +10,7 @@ import com.meneghel.eenm.simulationapi.application.simulation.SimulationDefaults
 import com.meneghel.eenm.simulationapi.domain.simulation.CentralDrive;
 import com.meneghel.eenm.simulationapi.application.simulation.SimulationDraft;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationStarted;
+import com.meneghel.eenm.simulationapi.domain.language.Language;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModelVariant;
 import com.meneghel.eenm.simulationapi.domain.simulation.SimulationRequest;
 import com.meneghel.eenm.simulationapi.domain.simulation.Waveform;
@@ -264,7 +265,7 @@ class WebClientSimulationEngineTest {
         WebClientSimulationEngine offline = engineAt("http://127.0.0.1:" + closedPort());
 
         StepVerifier.create(offline.stream(request)).expectError(EngineUnavailableException.class).verify(TIMEOUT);
-        StepVerifier.create(offline.listMuscles()).expectError(EngineUnavailableException.class).verify(TIMEOUT);
+        StepVerifier.create(offline.listMuscles(Language.PT_BR)).expectError(EngineUnavailableException.class).verify(TIMEOUT);
     }
 
     @Test
@@ -274,11 +275,22 @@ class WebClientSimulationEngineTest {
                 .body("[{\"id\":\"SOLEUS\",\"label\":\"Soleus\",\"poolSize\":{\"S\":800,\"FR\":50,\"FF\":50}}]")
                 .build());
 
-        StepVerifier.create(engine.listMuscles())
+        StepVerifier.create(engine.listMuscles(Language.PT_BR))
                 .expectNext(List.of(SampleEvents.soleus()))
                 .expectComplete()
                 .verify(TIMEOUT);
-        assertThat(server.takeRequest(1, TimeUnit.SECONDS).getTarget()).isEqualTo("/v1/muscles");
+        assertThat(server.takeRequest(1, TimeUnit.SECONDS).getTarget()).isEqualTo("/v1/muscles?lang=pt-BR");
+    }
+
+    @Test
+    void forwardsTheLanguageOfTheCatalogs() throws InterruptedException {
+        server.enqueue(new MockResponse.Builder().addHeader("Content-Type", "application/json").body("[]").build());
+        server.enqueue(new MockResponse.Builder().addHeader("Content-Type", "application/json").body("[]").build());
+
+        StepVerifier.create(engine.listMuscles(Language.EN)).expectNext(List.of()).expectComplete().verify(TIMEOUT);
+        StepVerifier.create(engine.conditionCatalogJson(Language.EN)).expectNext("[]").expectComplete().verify(TIMEOUT);
+        assertThat(server.takeRequest(1, TimeUnit.SECONDS).getTarget()).isEqualTo("/v1/muscles?lang=en");
+        assertThat(server.takeRequest(1, TimeUnit.SECONDS).getTarget()).isEqualTo("/v1/conditions?lang=en");
     }
 
     @Test
@@ -298,7 +310,7 @@ class WebClientSimulationEngineTest {
                         """)
                 .build());
 
-        StepVerifier.create(engine.listMuscles())
+        StepVerifier.create(engine.listMuscles(Language.PT_BR))
                 .assertNext(presets -> {
                     var provenance = presets.getFirst().provenance();
                     assertThat(provenance).hasSize(2);
@@ -319,7 +331,7 @@ class WebClientSimulationEngineTest {
                         + "\"provenance\":[{\"field\":\"x\"}]}]")
                 .build());
 
-        StepVerifier.create(engine.listMuscles()).expectError(EngineProtocolException.class).verify(TIMEOUT);
+        StepVerifier.create(engine.listMuscles(Language.PT_BR)).expectError(EngineProtocolException.class).verify(TIMEOUT);
     }
 
     @Test
@@ -329,7 +341,7 @@ class WebClientSimulationEngineTest {
                 .body("[{\"id\":\"SOLEUS\",\"label\":\"Soleus\"}]")
                 .build());
 
-        StepVerifier.create(engine.listMuscles()).expectError(EngineProtocolException.class).verify(TIMEOUT);
+        StepVerifier.create(engine.listMuscles(Language.PT_BR)).expectError(EngineProtocolException.class).verify(TIMEOUT);
     }
 
     private WebClientSimulationEngine engineAt(String baseUrl) {

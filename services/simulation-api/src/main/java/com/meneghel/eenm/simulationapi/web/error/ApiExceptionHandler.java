@@ -39,6 +39,14 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return validationProblem("One or more fields are invalid.", toInvalidFields(error.violations()));
     }
 
+    @ExceptionHandler(UnsupportedLanguageException.class)
+    ResponseEntity<ProblemDetail> handleUnsupportedLanguage(UnsupportedLanguageException error) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Unsupported language.");
+        problem.setTitle("Invalid request");
+        problem.setProperty(ERRORS_PROPERTY, List.of(new InvalidField("lang", "must be pt-BR or en")));
+        return asProblemJson(HttpStatus.BAD_REQUEST, problem);
+    }
+
     @ExceptionHandler(EngineRejectedRequestException.class)
     ResponseEntity<ProblemDetail> handleEngineRejection(EngineRejectedRequestException error) {
         return validationProblem("The simulation engine rejected the request.", toInvalidFields(error.violations()));

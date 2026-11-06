@@ -23,6 +23,7 @@ from eenm_engine.domain.motor_unit_pool import Geometry, MotorUnitType, Muscle, 
 from eenm_engine.domain.muscle_profiles import FieldSource, literature_options, profile
 from eenm_engine.domain.simulation import SimulationConfig
 from eenm_engine.domain.stimulus import ModulationShape, ModulationTarget, StimulusProtocol, Waveform
+from eenm_engine.domain.texts_en import Lang, localized
 
 
 class _CamelModel(BaseModel):
@@ -211,16 +212,16 @@ class ConditionAdjustmentDto(_CamelModel):
     available: bool
 
     @classmethod
-    def of(cls, a: Adjustment) -> ConditionAdjustmentDto:
+    def of(cls, a: Adjustment, lang: Lang = "pt-BR") -> ConditionAdjustmentDto:
         s = a.source
         return cls(
             id=a.id,
-            label=a.label,
-            effect=a.effect,
-            finding=a.finding,
+            label=localized(a.label, lang),
+            effect=localized(a.effect, lang),
+            finding=localized(a.finding, lang),
             source=ConditionSourceDto(citation=s.citation, title=s.title, doi=s.doi, pmid=s.pmid),
             evidence=a.evidence.value,
-            measured_in=a.measured_in,
+            measured_in=localized(a.measured_in, lang),
             default=a.default,
             available=a.available,
         )
@@ -239,12 +240,12 @@ _CONDITION_LABELS = {
 }
 
 
-def condition_catalog() -> list[ConditionDto]:
+def condition_catalog(lang: Lang = "pt-BR") -> list[ConditionDto]:
     return [
         ConditionDto(
             id=c,
-            label=_CONDITION_LABELS[c],
-            adjustments=[ConditionAdjustmentDto.of(a) for a in ADJUSTMENTS if a.condition is c],
+            label=localized(_CONDITION_LABELS[c], lang),
+            adjustments=[ConditionAdjustmentDto.of(a, lang) for a in ADJUSTMENTS if a.condition is c],
         )
         for c in Condition
     ]
@@ -260,12 +261,12 @@ class FieldSourceDto(_CamelModel):
     """Only for this calibration target; ``None`` = always."""
 
     @classmethod
-    def of(cls, f: FieldSource) -> FieldSourceDto:
+    def of(cls, f: FieldSource, lang: Lang = "pt-BR") -> FieldSourceDto:
         s = f.source
         return cls(
-            field=f.field,
+            field=localized(f.field, lang),
             provenance=f.provenance.value,
-            value=f.value,
+            value=localized(f.value, lang),
             source=ConditionSourceDto(citation=s.citation, title=s.title, doi=s.doi, pmid=s.pmid) if s else None,
             evidence=f.evidence.value if f.evidence else None,
             calibration_target=f.target,
@@ -280,16 +281,16 @@ class MusclePresetDto(_CamelModel):
     """Where each value of the preset comes from (empty for the original model's leg presets)."""
 
     @classmethod
-    def of(cls, preset: MusclePreset) -> MusclePresetDto:
+    def of(cls, preset: MusclePreset, lang: Lang = "pt-BR") -> MusclePresetDto:
         return cls(
             id=preset.muscle,
-            label=preset.label,
+            label=localized(preset.label, lang),
             pool_size={
                 "S": preset.pool_size[MotorUnitType.S],
                 "FR": preset.pool_size[MotorUnitType.FR],
                 "FF": preset.pool_size[MotorUnitType.FF],
             },
-            provenance=[FieldSourceDto.of(f) for f in profile(preset.muscle)],
+            provenance=[FieldSourceDto.of(f, lang) for f in profile(preset.muscle)],
         )
 
 

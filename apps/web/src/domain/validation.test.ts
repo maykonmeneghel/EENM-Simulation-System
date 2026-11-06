@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
+import { setLocale } from '../i18n/locale';
 import { defaultRequest } from './defaults';
 import { validateRequest } from './validation';
 
@@ -32,5 +33,19 @@ describe('validateRequest', () => {
     const r = defaultRequest('ORIGINAL');
     delete r.unitsPerType;
     expect(validateRequest(r)).toEqual([]);
+  });
+});
+
+describe('validateRequest in English', () => {
+  afterEach(() => setLocale('pt-BR'));
+  it('gives the messages in the current language', () => {
+    const bad = { ...defaultRequest(), seed: -1 };
+    expect(validateRequest(bad)).toContainEqual({ field: 'seed', message: 'deve ser ≥ 0' });
+    setLocale('en');
+    expect(validateRequest(bad)).toContainEqual({ field: 'seed', message: 'must be ≥ 0' });
+    expect(validateRequest({ ...defaultRequest(), axonLengthPercent: 0 })).toContainEqual({
+      field: 'axonLengthPercent',
+      message: 'must be between 1 and 100',
+    });
   });
 });

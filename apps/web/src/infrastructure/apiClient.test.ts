@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { defaultRequest } from '../domain/defaults';
 import type { SimulationEvent } from '../domain/simulation';
 import { sse, sseResponse, splitEvery } from '../test/streams';
+import { setLocale } from '../i18n/locale';
 import { ApiHttpError, createApiClient, decodeEvent, StreamProtocolError } from './apiClient';
 
 const started = { simulationId: 'abc', durationMs: 1, outputStepMs: 0.5, motorUnits: { S: 1, FR: 0, FF: 0 }, muscle: 'SOLEUS' };
@@ -41,6 +42,29 @@ describe('createApiClient.streamSimulation', () => {
     const fetchMock = vi.fn(async (_url: string) => Response.json([]));
     await createApiClient({ baseUrl: 'http://x:8080/', fetch: fetchMock as unknown as typeof fetch }).getMuscles();
     expect(fetchMock.mock.calls[0]?.[0]).toBe('http://x:8080/api/v1/muscles');
+  });
+
+  it('asks the catalogs in the given language, and without ?lang= when none is given', async () => {
+    const fetchMock = vi.fn(async (_url: string) => Response.json([]));
+    const api = createApiClient({ fetch: fetchMock as unknown as typeof fetch });
+    await api.getMuscles(undefined, 'en');
+    await api.getConditions(undefined, 'pt-BR');
+    await api.getConditions();
+    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual([
+      '/api/v1/muscles?lang=en',
+      '/api/v1/conditions?lang=pt-BR',
+      '/api/v1/conditions',
+    ]);
+  });
+
+  it('protocol errors follow the current language', () => {
+    try {
+      setLocale('en');
+      expect(() => decodeEvent('chunk', '{nope')).toThrow('Invalid JSON in the "chunk" event');
+    } finally {
+      setLocale('pt-BR');
+    }
+    expect(() => decodeEvent('chunk', '{nope')).toThrow('JSON inválido no evento "chunk"');
   });
 
   it('stops after an error event', async () => {

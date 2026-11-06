@@ -11,6 +11,7 @@ from fastapi.responses import StreamingResponse
 
 from eenm_engine.application.run_simulation import RunSimulation
 from eenm_engine.domain.motor_unit_pool import MUSCLE_PRESETS
+from eenm_engine.domain.texts_en import Lang
 from eenm_engine.infrastructure.compiled_cisi_kohn import CompiledCisiKohnIntegrator
 from eenm_engine.infrastructure.compiled_motoneuron import CompiledPoolIntegrator
 from eenm_engine.infrastructure.scipy_solver import ScipyBdfSolver
@@ -39,12 +40,12 @@ def create_app(run_simulation: RunSimulation | None = None) -> FastAPI:
         return {"status": "ok"}
 
     @app.get("/v1/muscles", response_model=list[MusclePresetDto], response_model_by_alias=True)
-    def muscles() -> list[MusclePresetDto]:
-        return [MusclePresetDto.of(p) for p in MUSCLE_PRESETS.values()]
+    def muscles(lang: Lang = "pt-BR") -> list[MusclePresetDto]:
+        return [MusclePresetDto.of(p, lang) for p in MUSCLE_PRESETS.values()]
 
     @app.get("/v1/conditions", response_model=list[ConditionDto], response_model_by_alias=True)
-    def conditions() -> list[ConditionDto]:
-        return condition_catalog()
+    def conditions(lang: Lang = "pt-BR") -> list[ConditionDto]:
+        return condition_catalog(lang)
 
     @app.post("/v1/simulations/stream")
     def simulate(request: SimulationRequest) -> StreamingResponse:

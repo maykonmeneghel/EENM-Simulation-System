@@ -5,6 +5,7 @@ import type { StageId } from '../domain/modelEquations';
 import { MOTOR_UNIT_TYPES } from '../domain/simulation';
 import { useSvgScale } from './useSvgScale';
 import { txtNum } from './stageTex';
+import { tr } from '../i18n/locale';
 
 export interface DiagramViewProps {
   snapshot: ModelSnapshot;
@@ -37,12 +38,12 @@ function Block({
       className="dg-block"
       role="button"
       tabIndex={0}
-      aria-label={`${label} — ver equação ${stage}`}
+      aria-label={`${label} — ${tr({ 'pt-BR': 'ver equação', en: 'see equation' })} ${stage}`}
       onClick={() => onSelect(stage)}
       onKeyDown={onKeyDown}
       data-stage={stage}
     >
-      <title>{`${label} (etapa ${stage})`}</title>
+      <title>{`${label} (${tr({ 'pt-BR': 'etapa', en: 'stage' })} ${stage})`}</title>
       {children}
     </g>
   );
@@ -94,8 +95,14 @@ export function DiagramView({ snapshot: s, running, onSelectStage }: DiagramView
   return (
     <figure className="card diagram">
       <figcaption className="diagram-caption">
-        Cadeia neuromusculoesquelética — {lit ? 'modelo corrigido pela literatura' : 'modelo original'}.{' '}
-        <span className="muted">Clique num bloco para ver a explicação e as referências.</span>
+        {tr({ 'pt-BR': 'Cadeia neuromusculoesquelética', en: 'Neuromusculoskeletal chain' })} —{' '}
+        {lit
+          ? tr({ 'pt-BR': 'modelo corrigido pela literatura', en: 'model corrected by the literature' })
+          : tr({ 'pt-BR': 'modelo original', en: 'original model' })}
+        .{' '}
+        <span className="muted">
+          {tr({ 'pt-BR': 'Clique num bloco para ver a explicação e as referências.', en: 'Click a block to see its explanation and references.' })}
+        </span>
       </figcaption>
       <svg
         ref={measureSvg}
@@ -103,7 +110,7 @@ export function DiagramView({ snapshot: s, running, onSelectStage }: DiagramView
         viewBox="0 28 1100 222"
         className={`diagram-svg${running ? ' diagram-svg--running' : ''}`}
         role="group"
-        aria-label="Diagrama do modelo"
+        aria-label={tr({ 'pt-BR': 'Diagrama do modelo', en: 'Model diagram' })}
       >
         <defs>
           <marker id="dg-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -119,9 +126,9 @@ export function DiagramView({ snapshot: s, running, onSelectStage }: DiagramView
         {running ? <circle cx="150" cy={LINE_Y} r="6" className="dg-pulse" /> : null}
 
         {/* 1 stimulus */}
-        <Block stage="1" label="Estímulo" onSelect={onSelectStage}>
+        <Block stage="1" label={tr({ 'pt-BR': 'Estímulo', en: 'Stimulus' })} onSelect={onSelectStage}>
           <rect x="14" y="60" width="150" height="150" rx="18" className="dg-box" />
-          <text x="89" y="52" className="dg-title">Eletrodo / estímulo</text>
+          <text x="89" y="52" className="dg-title">{tr({ 'pt-BR': 'Eletrodo / estímulo', en: 'Electrode / stimulus' })}</text>
           <path d={pulsePath} className="dg-pulse-train" />
           <text x="89" y="148" className="dg-value">{`${txtNum(st.frequencyHz)} Hz`}</text>
           <text x="89" y="168" className="dg-value">{`PW ${txtNum(st.pwMs, 2)} ms`}</text>
@@ -131,9 +138,9 @@ export function DiagramView({ snapshot: s, running, onSelectStage }: DiagramView
 
         {/* 2 excitation: the skin and axons (non-invasive) or the motoneurons (invasive, and the original model) */}
         {skin ? (
-          <Block stage="2b" label="Pele e axônios motores" onSelect={onSelectStage}>
+          <Block stage="2b" label={tr({ 'pt-BR': 'Pele e axônios motores', en: 'Skin and motor axons' })} onSelect={onSelectStage}>
             <rect x="196" y="60" width="190" height="150" rx="18" className="dg-box" />
-            <text x="291" y="52" className="dg-title">Pele + axônios motores</text>
+            <text x="291" y="52" className="dg-title">{tr({ 'pt-BR': 'Pele + axônios motores', en: 'Skin + motor axons' })}</text>
             <rect x="206" y="72" width="170" height="14" rx="7" className="dg-skin" />
             <line x1="291" y1="62" x2="291" y2="72" className="dg-electrode" markerEnd="url(#dg-arrow)" />
             {Array.from({ length: axonCount }, (_, i) => (
@@ -147,47 +154,49 @@ export function DiagramView({ snapshot: s, running, onSelectStage }: DiagramView
               />
             ))}
             <text x="291" y="190" className="dg-value">
-              {s.recruitment ? `${txtNum(s.recruitment.fraction * 100, 0)} % recrutados` : 'recrutamento —'}
+              {s.recruitment
+                ? `${txtNum(s.recruitment.fraction * 100, 0)} % ${tr({ 'pt-BR': 'recrutados', en: 'recruited' })}`
+                : tr({ 'pt-BR': 'recrutamento —', en: 'recruitment —' })}
             </text>
             <text x="291" y="205" className="dg-small">
               {s.recruitment
-                ? `limiar ${txtNum(s.recruitment.thresholdMin, 1)} … ${txtNum(s.recruitment.thresholdMax, 1)}`
-                : 'limiar —'}
+                ? `${tr({ 'pt-BR': 'limiar', en: 'threshold' })} ${txtNum(s.recruitment.thresholdMin, 1)} … ${txtNum(s.recruitment.thresholdMax, 1)}`
+                : tr({ 'pt-BR': 'limiar —', en: 'threshold —' })}
             </text>
           </Block>
         ) : (
-          <Block stage={s.drive ? '2c' : '2a'} label="Motoneurônio" onSelect={onSelectStage}>
+          <Block stage={s.drive ? '2c' : '2a'} label={tr({ 'pt-BR': 'Motoneurônio', en: 'Motoneuron' })} onSelect={onSelectStage}>
             <rect x="196" y="60" width="190" height="150" rx="18" className="dg-box" />
-            <text x="291" y="52" className="dg-title">Motoneurônio</text>
+            <text x="291" y="52" className="dg-title">{tr({ 'pt-BR': 'Motoneurônio', en: 'Motoneuron' })}</text>
             {/* dendrite */}
             <path d="M 312 170 L 262 170 M 284 170 L 240 128 M 284 170 L 240 212 M 262 170 L 222 160" className="dg-dendrite" />
             <circle cx="330" cy="170" r="22" className="dg-soma" />
             <text x="330" y="174" className="dg-small dg-on-fill">soma</text>
-            <text x="238" y="120" className="dg-small">dendrito</text>
+            <text x="238" y="120" className="dg-small">{tr({ 'pt-BR': 'dendrito', en: 'dendrite' })}</text>
             {/* electrode */}
             {somaInjection ? (
               <line x1="330" y1="92" x2="330" y2="144" className="dg-electrode" markerEnd="url(#dg-arrow)" />
             ) : (
               <line x1="240" y1="80" x2="240" y2="122" className="dg-electrode" markerEnd="url(#dg-arrow)" />
             )}
-            <text x="291" y="200" className="dg-value">{somaInjection ? 'injeção no soma' : 'injeção no dendrito'}</text>
+            <text x="291" y="200" className="dg-value">{somaInjection ? tr({ 'pt-BR': 'injeção no soma', en: 'soma injection' }) : tr({ 'pt-BR': 'injeção no dendrito', en: 'dendrite injection' })}</text>
             <text x="291" y="84" className="dg-small">{`φ = ${txtNum(s.motoneuron.phi, 3)} (${txtNum(s.motoneuron.temperatureCelsius)} °C)`}</text>
           </Block>
         )}
 
         {/* 3 conduction */}
-        <Block stage="3" label="Condução pelo axônio" onSelect={onSelectStage}>
+        <Block stage="3" label={tr({ 'pt-BR': 'Condução pelo axônio', en: 'Conduction along the axon' })} onSelect={onSelectStage}>
           <rect x="400" y="140" width="150" height="60" rx="14" className="dg-hit" />
           <line x1="404" y1={LINE_Y} x2="546" y2={LINE_Y} className="dg-axon-main" />
-          <text x="475" y="132" className="dg-title">Axônio</text>
+          <text x="475" y="132" className="dg-title">{tr({ 'pt-BR': 'Axônio', en: 'Axon' })}</text>
           <text x="475" y="222" className="dg-value">{delayText}</text>
           <text x="475" y="240" className="dg-small">{`v = 44–53 m/s · x = ${txtNum(s.conduction.x, 2)}`}</text>
         </Block>
 
         {/* muscle fibres (force sum stage) */}
-        <Block stage={forceStage} label="Fibras musculares S, FR e FF" onSelect={onSelectStage}>
+        <Block stage={forceStage} label={tr({ 'pt-BR': 'Fibras musculares S, FR e FF', en: 'Muscle fibers S, FR and FF' })} onSelect={onSelectStage}>
           <rect x="564" y="60" width="190" height="150" rx="18" className="dg-box" />
-          <text x="659" y="52" className="dg-title">Fibras musculares</text>
+          <text x="659" y="52" className="dg-title">{tr({ 'pt-BR': 'Fibras musculares', en: 'Muscle fibers' })}</text>
           {MOTOR_UNIT_TYPES.map((t, i) => (
             <g key={t}>
               <rect x="578" y={86 + i * 40} width="162" height="28" rx="14" className={`dg-fibre dg-fibre--${t}`} />
@@ -196,14 +205,14 @@ export function DiagramView({ snapshot: s, running, onSelectStage }: DiagramView
           ))}
           <text x="659" y="204" className="dg-small">{s.muscleLabel}</text>
         </Block>
-        <Block stage="4" label="MUAP e EMG" onSelect={onSelectStage}>
+        <Block stage="4" label={tr({ 'pt-BR': 'MUAP e EMG', en: 'MUAP and EMG' })} onSelect={onSelectStage}>
           <rect x="700" y="214" width="54" height="22" rx="11" className="dg-chip" />
           <text x="727" y="229" className="dg-small">EMG</text>
         </Block>
         {lit ? (
-          <Block stage="7" label="Fadiga periférica" onSelect={onSelectStage}>
+          <Block stage="7" label={tr({ 'pt-BR': 'Fadiga periférica', en: 'Peripheral fatigue' })} onSelect={onSelectStage}>
             <rect x="564" y="214" width="130" height="22" rx="11" className="dg-chip dg-chip--warn" />
-            <text x="629" y="229" className="dg-small">fadiga periférica</text>
+            <text x="629" y="229" className="dg-small">{tr({ 'pt-BR': 'fadiga periférica', en: 'peripheral fatigue' })}</text>
           </Block>
         ) : null}
 
@@ -219,18 +228,18 @@ export function DiagramView({ snapshot: s, running, onSelectStage }: DiagramView
           </text>
         </Block>
         {lit ? (
-          <Block stage="6" label="Saturação por frequência" onSelect={onSelectStage}>
+          <Block stage="6" label={tr({ 'pt-BR': 'Saturação por frequência', en: 'Rate saturation' })} onSelect={onSelectStage}>
             <rect x="790" y="214" width="110" height="22" rx="11" className="dg-chip" />
             <text x="845" y="229" className="dg-small">{`g(NR) · ISI ${txtNum(s.rate.isiMs, 1)} ms`}</text>
           </Block>
         ) : null}
 
         {/* 8 force */}
-        <Block stage={forceStage} label="Força muscular" onSelect={onSelectStage}>
+        <Block stage={forceStage} label={tr({ 'pt-BR': 'Força muscular', en: 'Muscle force' })} onSelect={onSelectStage}>
           <rect x="930" y="120" width="160" height="100" rx="18" className="dg-hit" />
           <line x1="940" y1={LINE_Y} x2="1060" y2={LINE_Y} className="dg-force" markerEnd="url(#dg-arrow-big)" />
           <text x="1005" y="140" className="dg-title">F(t)</text>
-          <text x="1005" y="206" className="dg-small">{lit ? 'Σ ponderada pelo pool' : 'Σ das médias por tipo'}</text>
+          <text x="1005" y="206" className="dg-small">{lit ? tr({ 'pt-BR': 'Σ ponderada pelo pool', en: 'Σ weighted by the pool' }) : tr({ 'pt-BR': 'Σ das médias por tipo', en: 'Σ of the means per type' })}</text>
         </Block>
       </svg>
     </figure>

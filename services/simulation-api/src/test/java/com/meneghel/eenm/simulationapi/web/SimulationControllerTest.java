@@ -60,7 +60,7 @@ class SimulationControllerTest {
 
     @BeforeEach
     void stubPresets() {
-        when(engine.listMuscles()).thenReturn(Mono.just(List.of(SampleEvents.soleus())));
+        when(engine.listMuscles(any())).thenReturn(Mono.just(List.of(SampleEvents.soleus())));
     }
 
     @Test
@@ -111,7 +111,7 @@ class SimulationControllerTest {
         assertThat(request.getValue().requestedUnits()).isEmpty();
         assertThat(request.getValue().stimulus().trainOnMs()).isEqualTo(330);
         assertThat(request.getValue().stimulus().trainPeriodMs()).isEqualTo(1000);
-        verify(engine, never()).listMuscles();
+        verify(engine, never()).listMuscles(any());
     }
 
     @Test
@@ -229,7 +229,7 @@ class SimulationControllerTest {
 
     @Test
     void unitsAboveThePoolSizeAreAProblem() {
-        when(engine.listMuscles()).thenReturn(Mono.just(List.of(new MusclePreset(
+        when(engine.listMuscles(any())).thenReturn(Mono.just(List.of(new MusclePreset(
                 "SOLEUS", "Soleus", new MotorUnitCounts(3, 50, 50)))));
 
         post("{}").expectStatus().isBadRequest()
@@ -271,7 +271,7 @@ class SimulationControllerTest {
 
     @Test
     void unreachablePresetsAreBadGateway() {
-        when(engine.listMuscles()).thenReturn(Mono.error(new EngineUnavailableException("connection refused")));
+        when(engine.listMuscles(any())).thenReturn(Mono.error(new EngineUnavailableException("connection refused")));
 
         post("{}").expectStatus().isEqualTo(502)
                 .expectHeader().contentType(MediaType.APPLICATION_PROBLEM_JSON);

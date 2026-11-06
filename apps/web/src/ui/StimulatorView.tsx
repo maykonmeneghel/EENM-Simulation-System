@@ -29,6 +29,7 @@ import { HelpButton } from './HelpButton';
 import { SegmentedControl } from './SegmentedControl';
 import { Switch } from './Switch';
 import { useSvgScale } from './useSvgScale';
+import { fmtNumber, tr } from '../i18n/locale';
 
 export interface StimulatorViewProps {
   values: FormValues;
@@ -43,7 +44,7 @@ const parse = (raw: string) => {
   return t === '' ? NaN : Number(t);
 };
 const fmt = (x: number, digits = 1) =>
-  Number.isFinite(x) ? x.toLocaleString('pt-BR', { maximumFractionDigits: digits }) : '—';
+  Number.isFinite(x) ? fmtNumber(x, { maximumFractionDigits: digits }) : '—';
 
 // ---------- scopes (plain SVG; exact outlines, not sampled) ----------
 
@@ -97,11 +98,20 @@ function PulseScope({ s }: { s: StimulatorSettings }) {
   const sy = scale([-top, top], [H - PAD.b, PAD.t]);
   const scaled: Point[] = points.map(([x, y]) => [x, y * s.amplitude]);
   return (
-    <figure className="scope" aria-label="Forma do pulso">
+    <figure className="scope" aria-label={tr({ 'pt-BR': 'Forma do pulso', en: 'Pulse shape' })}>
       <figcaption>
-        Pulso <span className="muted">— uma fase de {fmt(s.pulseWidthUs, 0)} µs{biphasic ? ' + fase oposta' : ''} · tempo em µs</span>
+        {tr({ 'pt-BR': 'Pulso', en: 'Pulse' })}{' '}
+        <span className="muted">
+          {tr({
+            'pt-BR': `— uma fase de ${fmt(s.pulseWidthUs, 0)} µs${biphasic ? ' + fase oposta' : ''} · tempo em µs`,
+            en: `— one phase of ${fmt(s.pulseWidthUs, 0)} µs${biphasic ? ' + opposite phase' : ''} · time in µs`,
+          })}
+        </span>
       </figcaption>
-      <svg ref={measureSvg} style={svgScale} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Pulso ${biphasic ? 'bifásico' : 'monofásico'} de ${s.pulseWidthUs} µs`}>
+      <svg ref={measureSvg} style={svgScale} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={tr({
+          'pt-BR': `Pulso ${biphasic ? 'bifásico' : 'monofásico'} de ${s.pulseWidthUs} µs`,
+          en: `${biphasic ? 'Biphasic' : 'Monophasic'} pulse of ${s.pulseWidthUs} µs`,
+        })}>
         <line className="scope-zero" x1={PAD.l} x2={W - PAD.r} y1={sy(0)} y2={sy(0)} />
         <text className="scope-ylabel" x={PAD.l - 6} y={sy(ampRange(s)) + 4} textAnchor="end">
           +{fmt(ampRange(s), 0)}
@@ -130,11 +140,14 @@ function EnvelopeScope({ s }: { s: StimulatorSettings }) {
   const recruitPts: Point[] = stepped(recruit.map((p) => [p.tMs, p.fraction]));
   const showPulses = windowMs / periodMs(s) <= 160;
   return (
-    <figure className="scope" aria-label="Envelope do estímulo">
+    <figure className="scope" aria-label={tr({ 'pt-BR': 'Envelope do estímulo', en: 'Stimulus envelope' })}>
       <figcaption>
-        Envelope <span className="muted">— amplitude de cada pulso e unidades recrutadas · tempo em ms</span>
+        Envelope{' '}
+        <span className="muted">
+          {tr({ 'pt-BR': '— amplitude de cada pulso e unidades recrutadas · tempo em ms', en: '— amplitude of each pulse and recruited units · time in ms' })}
+        </span>
       </figcaption>
-      <svg ref={measureSvg} style={svgScale} viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Envelope de amplitude e fração recrutada ao longo do tempo">
+      <svg ref={measureSvg} style={svgScale} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={tr({ 'pt-BR': 'Envelope de amplitude e fração recrutada ao longo do tempo', en: 'Amplitude envelope and recruited fraction over time' })}>
         {showPulses
           ? recruit.map((p) => (
               <line key={p.tMs} className="scope-pulse" x1={sx(p.tMs)} x2={sx(p.tMs)} y1={sy(0)} y2={sy(p.amplitude)} />
@@ -146,7 +159,7 @@ function EnvelopeScope({ s }: { s: StimulatorSettings }) {
           {fmt(ampRange(s), 0)}
         </text>
         <text className="scope-ylabel scope-recruit-label" x={W - PAD.r} y={sr(1) - 4} textAnchor="end">
-          100 % recrutado
+          {tr({ 'pt-BR': '100 % recrutado', en: '100 % recruited' })}
         </text>
         <Axis ticks={ticksOf(windowMs)} sx={sx} y={H - PAD.b} />
       </svg>
@@ -200,7 +213,7 @@ function Dial({
       <input
         type="range"
         className="dial-slider"
-        aria-label={`${control.label} (controle deslizante)`}
+        aria-label={`${control.label} (${tr({ 'pt-BR': 'controle deslizante', en: 'slider' })})`}
         min={control.min}
         max={control.max}
         step={control.step}
@@ -232,7 +245,7 @@ interface PercentSpec {
   decimals: number;
 }
 
-const pctText = (x: number) => x.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+const pctText = (x: number) => fmtNumber(x, { maximumFractionDigits: 1 });
 
 /** A dial set as a percentage of a whole (the pulse period, the run, the on time); the form keeps the absolute value. */
 function PercentDial({
@@ -290,7 +303,7 @@ function PercentDial({
       <input
         type="range"
         className="dial-slider"
-        aria-label={`${control.label} (controle deslizante, % ${spec.wholeLabel})`}
+        aria-label={`${control.label} (${tr({ 'pt-BR': 'controle deslizante', en: 'slider' })}, % ${spec.wholeLabel})`}
         min={spec.pctMin}
         max={spec.pctMax}
         step={spec.pctStep}
@@ -327,6 +340,8 @@ export function StimulatorControls({ values, onValuesChange: setValues, errors, 
   const onTime = parse(values['stimulus.trainOnMs']);
   const positive = (x: number) => (Number.isFinite(x) && x > 0 ? x : null);
   const rampWhole = values.trainsEnabled ? positive(onTime) : positive(duration);
+  const ofDuration = tr({ 'pt-BR': 'da duração', en: 'of the duration' });
+  const ofOnTime = tr({ 'pt-BR': 'do tempo ligado', en: 'of the on time' });
   const percent = (c: StimulatorControl, spec: Omit<PercentSpec, 'control'>) => (
     <PercentDial
       key={c.path}
@@ -343,19 +358,19 @@ export function StimulatorControls({ values, onValuesChange: setValues, errors, 
   );
   const C = STIMULATOR_CONTROLS;
   return (
-    <section className="stimulator-panel" aria-label="Painel do estimulador">
+    <section className="stimulator-panel" aria-label={tr({ 'pt-BR': 'Painel do estimulador', en: 'Stimulator panel' })}>
       <div className="dial dial--wide">
         <span className="dial-label">
-          Modo{' '}
-          <HelpButton label="Modo de aplicação">
-            <strong>Não invasivo (pele):</strong> {STIMULATION_SITE_HELP.SKIN_SURFACE}
+          {tr({ 'pt-BR': 'Modo', en: 'Mode' })}{' '}
+          <HelpButton label={tr({ 'pt-BR': 'Modo de aplicação', en: 'Application mode' })}>
+            <strong>{tr({ 'pt-BR': 'Não invasivo (pele):', en: 'Non-invasive (skin):' })}</strong> {STIMULATION_SITE_HELP.SKIN_SURFACE}
             <br />
-            <strong>Invasivo (pool de motoneurônios):</strong> {STIMULATION_SITE_HELP.MOTONEURON_POOL}
+            <strong>{tr({ 'pt-BR': 'Invasivo (pool de motoneurônios):', en: 'Invasive (motoneuron pool):' })}</strong> {STIMULATION_SITE_HELP.MOTONEURON_POOL}
           </HelpButton>
         </span>
         <SegmentedControl<StimulationSite>
           id="stim-site"
-          label="Modo de aplicação"
+          label={tr({ 'pt-BR': 'Modo de aplicação', en: 'Application mode' })}
           options={STIMULATION_SITE_OPTIONS}
           value={values.stimulationSite === 'MOTONEURON_POOL' ? 'MOTONEURON_POOL' : 'SKIN_SURFACE'}
           disabled={running}
@@ -370,11 +385,11 @@ export function StimulatorControls({ values, onValuesChange: setValues, errors, 
         {dial(C.amplitude)}
         <div className="dial dial--wide">
           <span className="dial-label" id="stim-waveform-label">
-            Forma de onda
+            {tr({ 'pt-BR': 'Forma de onda', en: 'Waveform' })}
           </span>
           <SegmentedControl<StimulatorWaveform>
             id="stim-waveform"
-            label="Forma de onda"
+            label={tr({ 'pt-BR': 'Forma de onda', en: 'Waveform' })}
             options={STIMULATOR_WAVEFORMS}
             value={values['stimulus.waveform'] === 'MONOPHASIC' ? 'MONOPHASIC' : 'BIPHASIC_SYMMETRIC'}
             disabled={running}
@@ -391,22 +406,27 @@ export function StimulatorControls({ values, onValuesChange: setValues, errors, 
 
       {values.stimulationSite === 'MOTONEURON_POOL' ? (
         <p className="dial-hint" aria-live="polite">
-          No pool de motoneurônios o recrutamento não segue a lei de Weiss: depende da dinâmica de cada motoneurônio
-          (etapa Fisiologia). Veja as unidades que disparam após simular.
+          {tr({
+            'pt-BR':
+              'No pool de motoneurônios o recrutamento não segue a lei de Weiss: depende da dinâmica de cada motoneurônio (etapa Fisiologia). Veja as unidades que disparam após simular.',
+            en: "In the motoneuron pool, recruitment does not follow Weiss's law: it depends on each motoneuron's dynamics (Physiology step). See the units that fire after simulating.",
+          })}
         </p>
       ) : (
         <div className="recruit-meter" aria-live="polite">
           <div className="recruit-meter-label">
-            <span>Unidades recrutadas no platô</span>
+            <span>{tr({ 'pt-BR': 'Unidades recrutadas no platô', en: 'Units recruited at the plateau' })}</span>
             <strong>{plateauPct === null ? '—' : `${plateauPct} %`}</strong>
           </div>
-          <div className="recruit-meter-track" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={plateauPct ?? 0} aria-label="Unidades recrutadas">
+          <div className="recruit-meter-track" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={plateauPct ?? 0} aria-label={tr({ 'pt-BR': 'Unidades recrutadas', en: 'Recruited units' })}>
             <div className="recruit-meter-fill" style={{ width: `${plateauPct ?? 0}%` }} />
           </div>
           {plateau ? (
             <small className="dial-hint">
-              Limiar com {fmt(settings!.pulseWidthUs, 0)} µs: primeira unidade em {fmt(plateau.thresholdMin)}, todas em{' '}
-              {fmt(plateau.thresholdMax)}.
+              {tr({
+                'pt-BR': `Limiar com ${fmt(settings!.pulseWidthUs, 0)} µs: primeira unidade em ${fmt(plateau.thresholdMin)}, todas em ${fmt(plateau.thresholdMax)}.`,
+                en: `Threshold at ${fmt(settings!.pulseWidthUs, 0)} µs: first unit at ${fmt(plateau.thresholdMin)}, all at ${fmt(plateau.thresholdMax)}.`,
+              })}
             </small>
           ) : null}
         </div>
@@ -416,19 +436,19 @@ export function StimulatorControls({ values, onValuesChange: setValues, errors, 
         <Switch
           checked={values.trainsEnabled}
           disabled={running}
-          label="Trens (ligado / desligado)"
-          description={values.trainsEnabled ? undefined : 'estímulo contínuo durante toda a simulação'}
+          label={tr({ 'pt-BR': 'Trens (ligado / desligado)', en: 'Trains (on / off)' })}
+          description={values.trainsEnabled ? undefined : tr({ 'pt-BR': 'estímulo contínuo durante toda a simulação', en: 'continuous stimulus over the whole simulation' })}
           onChange={(on) => setValues((v) => ({ ...v, trainsEnabled: on }))}
         />
         {values.trainsEnabled ? (
           <div className="dial-grid">
-            {percent(C.trainOn, { whole: positive(duration), wholeLabel: 'da duração', pctMin: 0.5, pctMax: 100, pctStep: 0.5, decimals: 0 })}
-            {percent(C.trainOff, { whole: positive(duration), wholeLabel: 'da duração', pctMin: 0, pctMax: 100, pctStep: 0.5, decimals: 0 })}
+            {percent(C.trainOn, { whole: positive(duration), wholeLabel: ofDuration, pctMin: 0.5, pctMax: 100, pctStep: 0.5, decimals: 0 })}
+            {percent(C.trainOff, { whole: positive(duration), wholeLabel: ofDuration, pctMin: 0, pctMax: 100, pctStep: 0.5, decimals: 0 })}
           </div>
         ) : null}
         <div className="dial-grid">
-          {percent(C.rampUp, { whole: rampWhole, wholeLabel: values.trainsEnabled ? 'do tempo ligado' : 'da duração', pctMin: 0, pctMax: 50, pctStep: 0.5, decimals: 0 })}
-          {percent(C.rampDown, { whole: rampWhole, wholeLabel: values.trainsEnabled ? 'do tempo ligado' : 'da duração', pctMin: 0, pctMax: 50, pctStep: 0.5, decimals: 0 })}
+          {percent(C.rampUp, { whole: rampWhole, wholeLabel: values.trainsEnabled ? ofOnTime : ofDuration, pctMin: 0, pctMax: 50, pctStep: 0.5, decimals: 0 })}
+          {percent(C.rampDown, { whole: rampWhole, wholeLabel: values.trainsEnabled ? ofOnTime : ofDuration, pctMin: 0, pctMax: 50, pctStep: 0.5, decimals: 0 })}
         </div>
       </div>
     </section>
@@ -460,7 +480,7 @@ function InspectableCard({
       className={`card card--inspectable ${className}`}
       role="button"
       tabIndex={0}
-      aria-label={`${label} — ver explicação`}
+      aria-label={`${label} — ${tr({ 'pt-BR': 'ver explicação', en: 'see explanation' })}`}
       onClick={onInspect}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -480,10 +500,10 @@ export function StimulatorScopes({ values, errors, onInspect }: StimulatorScopes
   const inspect = (topic: InspectorTopic) => (onInspect ? () => onInspect(topic) : undefined);
   const invasive = values.stimulationSite === 'MOTONEURON_POOL';
   return (
-    <section className="stimulator-scopes" aria-label="Osciloscópio">
-      <InspectableCard label="Modo de aplicação" onInspect={inspect({ kind: 'mode' })} className="mode-card">
-        <span className="mode-card-eyebrow">Modo</span>
-        <strong className="mode-card-title">{invasive ? 'Invasivo · pool de motoneurônios' : 'Não invasivo · pele'}</strong>
+    <section className="stimulator-scopes" aria-label={tr({ 'pt-BR': 'Osciloscópio', en: 'Oscilloscope' })}>
+      <InspectableCard label={tr({ 'pt-BR': 'Modo de aplicação', en: 'Application mode' })} onInspect={inspect({ kind: 'mode' })} className="mode-card">
+        <span className="mode-card-eyebrow">{tr({ 'pt-BR': 'Modo', en: 'Mode' })}</span>
+        <strong className="mode-card-title">{invasive ? tr({ 'pt-BR': 'Invasivo · pool de motoneurônios', en: 'Invasive · motoneuron pool' }) : tr({ 'pt-BR': 'Não invasivo · pele', en: 'Non-invasive · skin' })}</strong>
         <span className="mode-card-text">{invasive ? STIMULATION_SITE_HELP.MOTONEURON_POOL : STIMULATION_SITE_HELP.SKIN_SURFACE}</span>
       </InspectableCard>
       {problems.length > 0 ? (
@@ -493,15 +513,15 @@ export function StimulatorScopes({ values, errors, onInspect }: StimulatorScopes
       ) : null}
       {settings && problems.length === 0 ? (
         <>
-          <InspectableCard label="Forma do pulso" onInspect={inspect({ kind: 'scope', scope: 'pulse' })} className="scope-card">
+          <InspectableCard label={tr({ 'pt-BR': 'Forma do pulso', en: 'Pulse shape' })} onInspect={inspect({ kind: 'scope', scope: 'pulse' })} className="scope-card">
             <PulseScope s={settings} />
           </InspectableCard>
-          <InspectableCard label="Envelope e trens" onInspect={inspect({ kind: 'scope', scope: 'envelope' })} className="scope-card">
+          <InspectableCard label={tr({ 'pt-BR': 'Envelope e trens', en: 'Envelope and trains' })} onInspect={inspect({ kind: 'scope', scope: 'envelope' })} className="scope-card">
             <EnvelopeScope s={settings} />
           </InspectableCard>
         </>
       ) : !settings ? (
-        <div className="card scope-card muted">Informe valores numéricos válidos para ver a onda.</div>
+        <div className="card scope-card muted">{tr({ 'pt-BR': 'Informe valores numéricos válidos para ver a onda.', en: 'Enter valid numbers to see the waveform.' })}</div>
       ) : null}
     </section>
   );

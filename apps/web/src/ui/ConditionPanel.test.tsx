@@ -1,11 +1,12 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useEffect, useState } from 'react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import type { FormValues } from '../application/formModel';
 import { changeCondition, defaultFormValues, parseForm, toggleAdjustment } from '../application/formModel';
 import type { ConditionInfo } from '../domain/simulation';
 import { ConditionPanel } from './ConditionPanel';
+import { setLocale } from '../i18n/locale';
 
 const adj = (id: string, extra: Partial<ConditionInfo['adjustments'][number]> = {}) => ({
   id,
@@ -86,5 +87,28 @@ describe('ConditionPanel', () => {
     expect(screen.getByRole('switch', { name: /PD_TREMOR/ })).toBeDisabled();
     expect(screen.getByRole('link', { name: 'PubMed 1' })).toHaveAttribute('href', 'https://pubmed.ncbi.nlm.nih.gov/1/');
     expect(request().conditionAdjustments).toEqual(['PD_MOTOR_UNIT_LOSS']);
+  });
+});
+
+describe('ConditionPanel in English', () => {
+  afterEach(() => setLocale('pt-BR'));
+  it('labels and badges are in English; an English catalog text "thigh (other muscle)" is still flagged', async () => {
+    setLocale('en');
+    const en: ConditionInfo[] = [
+      CATALOG[0]!,
+      { id: 'SCI_CHRONIC', label: 'Chronic spinal cord injury', adjustments: [adj('SCI_ATROPHY', { evidence: 'ABSTRACT', measuredIn: 'thigh (other muscle)' })] },
+    ];
+    const user = userEvent.setup();
+    function EnControlled() {
+      const [values, setValues] = useState<FormValues>(() => defaultFormValues());
+      return <ConditionPanel values={values} onChange={setValues} conditions={en} error={null} disabled={false} />;
+    }
+    render(<EnControlled />);
+    expect(screen.getByLabelText('Condition')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Help: Condition' })).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText('Condition'), 'SCI_CHRONIC');
+    const list = screen.getByRole('list', { name: 'Adjustments of Chronic spinal cord injury' });
+    expect(within(list).getByText('Abstract only')).toBeInTheDocument();
+    expect(within(list).getByText('Other muscle')).toBeInTheDocument();
   });
 });

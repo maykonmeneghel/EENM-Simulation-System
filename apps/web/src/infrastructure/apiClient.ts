@@ -1,3 +1,5 @@
+import type { Locale } from '../i18n/locale';
+import { tr } from '../i18n/locale';
 import type { ConditionInfo, FieldError, MusclePreset, SimulationEvent, SimulationRequest } from '../domain/simulation';
 import { readSseStream } from './sseParser';
 
@@ -39,9 +41,10 @@ export class StreamProtocolError extends Error {
 }
 
 export interface ApiClient {
-  getMuscles(signal?: AbortSignal): Promise<MusclePreset[]>;
-  /** Conditions and their per-article adjustments (engine catalog). */
-  getConditions(signal?: AbortSignal): Promise<ConditionInfo[]>;
+  /** Muscle presets, with their texts in `locale` (the server's default, pt-BR, when omitted). */
+  getMuscles(signal?: AbortSignal, locale?: Locale): Promise<MusclePreset[]>;
+  /** Conditions and their per-article adjustments (engine catalog), with their texts in `locale`. */
+  getConditions(signal?: AbortSignal, locale?: Locale): Promise<ConditionInfo[]>;
   /** Starts a simulation and yields stream events as they arrive. Abort via `signal`. */
   streamSimulation(request: SimulationRequest, signal?: AbortSignal): AsyncGenerator<SimulationEvent>;
 }
@@ -57,21 +60,21 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
   const doFetch = options.fetch ?? ((input, init) => globalThis.fetch(input, init));
 
   return {
-    async getMuscles(signal) {
-      const res = await doFetch(`${baseUrl}/api/v1/muscles`, {
+    async getMuscles(signal, locale) {
+      const res = await doFetch(`${baseUrl}/api/v1/muscles${langQuery(locale)}`, {
         headers: { Accept: 'application/json' },
         signal,
       });
       if (!res.ok) throw await toHttpError(res);
       const body: unknown = await res.json();
       if (!Array.isArray(body)) {
-        throw new StreamProtocolError('BAD_RESPONSE', 'Resposta inesperada de /api/v1/muscles');
+        throw new StreamProtocolError('BAD_RESPONSE', tr({ 'pt-BR': 'Resposta inesperada de /api/v1/muscles', en: 'Unexpected response from /api/v1/muscles' }));
       }
       return body as MusclePreset[];
     },
 
-    async getConditions(signal) {
-      const res = await doFetch(`${baseUrl}/api/v1/conditions`, { headers: { Accept: 'application/json' }, signal });
+    async getConditions(signal, locale) {
+      const res = await doFetch(`${baseUrl}/api/v1/conditions${langQuery(locale)}`, { headers: { Accept: 'application/json' }, signal });
       if (!res.ok) throw await toHttpError(res);
       const body: unknown = await res.json();
       if (!Array.isArray(body)) throw new Error('unexpected conditions body');
@@ -89,7 +92,7 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
         signal,
       });
       if (!res.ok) throw await toHttpError(res);
-      if (!res.body) throw new StreamProtocolError('NO_BODY', 'Resposta sem corpo de stream');
+      if (!res.body) throw new StreamProtocolError('NO_BODY', tr({ 'pt-BR': 'Resposta sem corpo de stream', en: 'Response without a stream body' }));
 
       let terminal = false;
       let truncated = false;
@@ -106,12 +109,17 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
         throw new StreamProtocolError(
           'STREAM_TRUNCATED',
           truncated
-            ? 'O stream terminou no meio de um evento'
-            : 'O stream terminou sem evento "completed" ou "error"',
+            ? tr({ 'pt-BR': 'O stream terminou no meio de um evento', en: 'The stream ended in the middle of an event' })
+            : tr({ 'pt-BR': 'O stream terminou sem evento "completed" ou "error"', en: 'The stream ended without a "completed" or "error" event' }),
         );
       }
     },
   };
+}
+
+/** `?lang=` of the catalog endpoints; none when the locale is not given (the server answers in pt-BR). */
+function langQuery(locale: Locale | undefined): string {
+  return locale ? `?lang=${encodeURIComponent(locale)}` : '';
 }
 
 const KNOWN_TYPES = new Set(['started', 'chunk', 'completed', 'error']);
@@ -122,10 +130,10 @@ export function decodeEvent(eventName: string, data: string): SimulationEvent | 
   try {
     parsed = JSON.parse(data);
   } catch {
-    throw new StreamProtocolError('BAD_EVENT', `JSON inválido no evento "${eventName}"`);
+    throw new StreamProtocolError('BAD_EVENT', tr({ 'pt-BR': `JSON inválido no evento "${eventName}"`, en: `Invalid JSON in the "${eventName}" event` }));
   }
   if (typeof parsed !== 'object' || parsed === null) {
-    throw new StreamProtocolError('BAD_EVENT', `Evento "${eventName}" não é um objeto`);
+    throw new StreamProtocolError('BAD_EVENT', tr({ 'pt-BR': `Evento "${eventName}" não é um objeto`, en: `The "${eventName}" event is not an object` }));
   }
   const obj = parsed as Record<string, unknown>;
   // The contract puts the type both in `event:` and in `data.type`; data wins, event is fallback.
@@ -139,11 +147,11 @@ export function decodeEvent(eventName: string, data: string): SimulationEvent | 
 function assertChunkShape(c: Extract<SimulationEvent, { type: 'chunk' }>): void {
   const arrays = [c.timeMs, c.stimulus, c.emg, c.force?.total, c.force?.S, c.force?.FR, c.force?.FF];
   if (!arrays.every(Array.isArray)) {
-    throw new StreamProtocolError('BAD_CHUNK', 'Chunk sem todas as séries do contrato');
+    throw new StreamProtocolError('BAD_CHUNK', tr({ 'pt-BR': 'Chunk sem todas as séries do contrato', en: 'Chunk without all the series of the contract' }));
   }
   const n = c.timeMs.length;
   if (!arrays.every((a) => (a as unknown[]).length === n)) {
-    throw new StreamProtocolError('BAD_CHUNK', 'Séries do chunk com tamanhos diferentes');
+    throw new StreamProtocolError('BAD_CHUNK', tr({ 'pt-BR': 'Séries do chunk com tamanhos diferentes', en: 'Chunk series of different lengths' }));
   }
 }
 

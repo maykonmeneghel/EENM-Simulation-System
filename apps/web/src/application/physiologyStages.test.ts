@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
+import { setLocale } from '../i18n/locale';
 import { defaultFormValues } from './formModel';
 import { changedStage } from './physiologyStages';
 import { texSpan } from '../ui/stageTex';
@@ -89,5 +90,22 @@ describe('electrode position in the equations', () => {
       const s3 = buildStageContents(buildModelSnapshot({ values, muscles: [] })).find((s) => s.id === '3')!;
       expect(s3.symbolic.join(' ')).not.toMatch(/eletrodo/);
     }
+  });
+});
+
+describe('changes in English', () => {
+  afterEach(() => setLocale('pt-BR'));
+  it('names the setting and its value in English, with a decimal point', () => {
+    setLocale('en');
+    const base = defaultFormValues();
+    expect(changedStage(base, { ...base, calibrationTarget: 'SINGLE_UNIT' })?.change).toBe('Twitch calibration: single unit');
+    expect(changedStage(base, { ...base, temperatureCelsius: '30.5' })?.change).toBe('Temperature: 30.5');
+    expect(changedStage(base, { ...base, condition: 'SCI_CHRONIC', conditionAdjustments: ['SCI_FATIGABILITY'] })?.change).toBe(
+      'Condition: Chronic spinal cord injury',
+    );
+    const sci = { ...base, condition: 'SCI_CHRONIC', conditionAdjustments: ['SCI_FATIGABILITY'] };
+    expect(changedStage(sci, { ...sci, conditionAdjustments: [] })?.change).toBe('SCI_FATIGABILITY: off');
+    setLocale('pt-BR');
+    expect(changedStage(base, { ...base, temperatureCelsius: '30.5' })?.change).toBe('Temperatura: 30,5');
   });
 });

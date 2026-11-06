@@ -1,12 +1,15 @@
 import type { CalibrationTarget, MusclePreset, PresetFieldSource } from '../domain/simulation';
 import { HelpButton } from './HelpButton';
+import { evidenceText } from './evidence';
+import type { Localized } from '../i18n/locale';
+import { tr } from '../i18n/locale';
 
 const scholar = (title: string) => `https://scholar.google.com/scholar?q=${encodeURIComponent(`"${title}"`)}`;
 
-const BADGE: Record<PresetFieldSource['provenance'], { text: string; tone: string }> = {
-  MEASURED: { text: 'Medido', tone: 'good' },
-  FITTED: { text: 'Ajustado', tone: 'good' },
-  INHERITED: { text: 'Herdado', tone: 'warn' },
+const BADGE: Record<PresetFieldSource['provenance'], { text: Localized; tone: string }> = {
+  MEASURED: { text: { 'pt-BR': 'Medido', en: 'Measured' }, tone: 'good' },
+  FITTED: { text: { 'pt-BR': 'Ajustado', en: 'Fitted' }, tone: 'good' },
+  INHERITED: { text: { 'pt-BR': 'Herdado', en: 'Inherited' }, tone: 'warn' },
 };
 
 export interface MuscleSourcesProps {
@@ -23,14 +26,21 @@ export function MuscleSources({ preset, calibrationTarget }: MuscleSourcesProps)
   return (
     <div className="row muscle-sources">
       <div className="row-label">
-        <span>Origem dos valores</span>
-        <HelpButton label="Origem dos valores do músculo">
-          Medido: lido num estudo humano deste músculo. Ajustado: o modelo foi calibrado para reproduzir um valor
-          medido neste músculo. Herdado: não há dado verificado, e o valor é o do sóleo. Os itens de tempo do abalo
-          mudam com a calibração escolhida.
+        <span>{tr({ 'pt-BR': 'Origem dos valores', en: 'Source of the values' })}</span>
+        <HelpButton label={tr({ 'pt-BR': 'Origem dos valores do músculo', en: "Source of the muscle's values" })}>
+          {tr({
+            'pt-BR':
+              'Medido: lido num estudo humano deste músculo. Ajustado: o modelo foi calibrado para reproduzir um valor ' +
+              'medido neste músculo. Herdado: não há dado verificado, e o valor é o do sóleo. Os itens de tempo do abalo ' +
+              'mudam com a calibração escolhida.',
+            en:
+              'Measured: read in a human study of this muscle. Fitted: the model was calibrated to reproduce a value ' +
+              'measured in this muscle. Inherited: there is no verified data, and the value is the soleus one. The twitch ' +
+              'timing items change with the chosen calibration.',
+          })}
         </HelpButton>
       </div>
-      <ul className="adjustments" aria-label={`Origem dos valores de ${preset?.label ?? ''}`}>
+      <ul className="adjustments" aria-label={tr({ 'pt-BR': `Origem dos valores de ${preset?.label ?? ''}`, en: `Source of the values of ${preset?.label ?? ''}` })}>
         {fields.map((f) => {
           const badge = BADGE[f.provenance];
           const s = f.source;
@@ -42,10 +52,10 @@ export function MuscleSources({ preset, calibrationTarget }: MuscleSourcesProps)
           return (
             <li key={`${f.field}-${f.calibrationTarget ?? 'all'}`} className="adjustment">
               <p className="adjustment-finding">
-                <span className={`badge badge--${badge.tone}`}>{badge.text}</span>{' '}
+                <span className={`badge badge--${badge.tone}`}>{tr(badge.text)}</span>{' '}
                 {f.evidence ? (
                   <span className={`badge badge--${f.evidence === 'FULL_TEXT' ? 'good' : 'warn'}`}>
-                    {f.evidence === 'FULL_TEXT' ? 'texto completo' : 'só resumo'}
+                    {evidenceText(f.evidence)}
                   </span>
                 ) : null}{' '}
                 <strong>{f.field}</strong>

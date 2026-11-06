@@ -123,6 +123,7 @@ separate adjustments). The engine owns the catalog — `GET /v1/conditions`, rel
 `title`, `doi`, `pmid`), `evidence` (`FULL_TEXT` | `ABSTRACT`), `measuredIn`, `default`, `available`. An id of another
 condition, an unknown id or an unavailable adjustment is a validation error. Sources and values:
 `docs/research/disease-literature.md`; effects: `docs/validation/literature-comparison.md`, "Conditions".
+The texts (`label`, `effect`, `finding`, `measuredIn`) come in the language of `?lang=` (see "Catalog language").
 
 ### `stimulationSite`
 
@@ -210,7 +211,8 @@ client from `force.total`.
 | Method | Path | Response |
 |---|---|---|
 | GET | `/health` | `{"status":"ok"}` |
-| GET | `/v1/muscles` | list of muscle presets (below) |
+| GET | `/v1/muscles?lang=` | list of muscle presets (below) |
+| GET | `/v1/conditions?lang=` | catalog of conditions and their adjustments (§2, `condition`) |
 | POST | `/v1/simulations/stream` | `200 application/x-ndjson` stream of events; `422` on invalid body |
 
 Muscle preset:
@@ -233,15 +235,25 @@ Muscle preset:
 to that twitch calibration. With `LITERATURE`, the muscle also selects its own twitch calibration where one exists
 (FCR whole muscle, ECR single unit); otherwise the soleus fit is used.
 
+### Catalog language
+
+`GET /v1/muscles` and `GET /v1/conditions` take an optional `lang` query parameter: `pt-BR` (default, the texts as
+they have always been) or `en`. It changes only the texts — preset `label`, provenance `field` and `value`, condition
+`label`, adjustment `label`, `effect`, `finding` and `measuredIn` — never ids, numbers, flags or `source` (citations
+and titles stay as published). Any other value is `422`. English texts: `domain/texts_en.py`, keyed by the pt-BR text.
+
 ## 4. Simulation API (Java) — public, port 8080
 
 | Method | Path | Response |
 |---|---|---|
 | GET | `/actuator/health` | Spring health |
-| GET | `/api/v1/muscles` | relays engine presets |
+| GET | `/api/v1/muscles?lang=` | relays engine presets |
+| GET | `/api/v1/conditions?lang=` | relays the engine catalog of conditions verbatim |
 | POST | `/api/v1/simulations` | `200 text/event-stream` relaying events; `400` problem+json on validation errors |
 
 Validation errors use RFC 9457 `application/problem+json` with an `errors` array of
 `{ "field": "stimulus.frequencyHz", "message": "must be between 1 and 200" }`.
+`lang` (optional on the two catalog endpoints, forwarded to the engine; `pt-BR` when absent) other than `pt-BR` or
+`en` is `400` problem+json with `{ "field": "lang", "message": "must be pt-BR or en" }`.
 If the engine is unreachable: `502` problem+json before streaming starts, or an `error` event
 (`code: "ENGINE_UNAVAILABLE"`) once streaming has started. CORS allows `http://localhost:5173`.

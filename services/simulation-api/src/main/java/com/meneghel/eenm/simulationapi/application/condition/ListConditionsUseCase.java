@@ -1,6 +1,7 @@
 package com.meneghel.eenm.simulationapi.application.condition;
 
 import com.meneghel.eenm.simulationapi.application.port.SimulationEngine;
+import com.meneghel.eenm.simulationapi.domain.language.Language;
 import reactor.core.publisher.Mono;
 
 /**
@@ -15,7 +16,7 @@ public final class ListConditionsUseCase {
         this.engine = engine;
     }
 
-    public Mono<String> catalogJson() {
-        return engine.conditionCatalogJson();
+    public Mono<String> catalogJson(Language language) {
+        return engine.conditionCatalogJson(language);
     }
 }

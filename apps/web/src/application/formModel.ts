@@ -18,6 +18,7 @@ import type {
   Waveform,
 } from '../domain/simulation';
 import { validateRequest } from '../domain/validation';
+import { fmtNumber, tr } from '../i18n/locale';
 
 /**
  * Form state: every SimulationRequest field as a string, keyed by its contract path
@@ -262,11 +263,11 @@ export function parseForm(values: FormValues, muscles: readonly MusclePreset[] =
   const num = (path: FieldPath): number => {
     const raw = values[path].trim();
     if (raw === '') {
-      errors.push({ field: path, message: 'obrigatório' });
+      errors.push({ field: path, message: tr({ 'pt-BR': 'obrigatório', en: 'required' }) });
       return NaN;
     }
     const n = parseNumber(raw);
-    if (!Number.isFinite(n)) errors.push({ field: path, message: 'deve ser um número' });
+    if (!Number.isFinite(n)) errors.push({ field: path, message: tr({ 'pt-BR': 'deve ser um número', en: 'must be a number' }) });
     return n;
   };
 
@@ -356,10 +357,14 @@ export function parseForm(values: FormValues, muscles: readonly MusclePreset[] =
   if (advice) {
     notices.push({
       field: 'outputStepMs',
-      message:
-        `Passo de saída ajustado de ${request.outputStepMs} para ${advice.suggestedMs} ms ` +
-        `(seriam ${advice.points.toLocaleString('pt-BR')} pontos por série; limite ` +
-        `${MAX_POINTS_PER_SERIES.toLocaleString('pt-BR')}).`,
+      message: tr({
+        'pt-BR':
+          `Passo de saída ajustado de ${request.outputStepMs} para ${advice.suggestedMs} ms ` +
+          `(seriam ${fmtNumber(advice.points)} pontos por série; limite ${fmtNumber(MAX_POINTS_PER_SERIES)}).`,
+        en:
+          `Output step raised from ${request.outputStepMs} to ${advice.suggestedMs} ms ` +
+          `(it would be ${fmtNumber(advice.points)} points per series; limit ${fmtNumber(MAX_POINTS_PER_SERIES)}).`,
+      }),
     });
     request.outputStepMs = advice.suggestedMs;
   }

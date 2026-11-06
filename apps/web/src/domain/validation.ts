@@ -8,6 +8,7 @@ import {
   PULSE_WIDTH_US,
 } from './defaults';
 import { MOTOR_UNIT_TYPES } from './simulation';
+import { tr } from '../i18n/locale';
 
 /**
  * Client-side mirror of the ranges the API enforces (docs/contracts.md §1).
@@ -20,13 +21,13 @@ export function validateRequest(
 ): FieldError[] {
   const errors: FieldError[] = [];
   const range = (field: string, value: number, min: number, max: number) => {
-    if (!Number.isFinite(value)) errors.push({ field, message: 'deve ser um número' });
+    if (!Number.isFinite(value)) errors.push({ field, message: tr({ 'pt-BR': 'deve ser um número', en: 'must be a number' }) });
     else if (value < min || value > max)
-      errors.push({ field, message: `deve estar entre ${min} e ${max}` });
+      errors.push({ field, message: tr({ 'pt-BR': `deve estar entre ${min} e ${max}`, en: `must be between ${min} and ${max}` }) });
   };
   const integer = (field: string, value: number) => {
     if (Number.isFinite(value) && !Number.isInteger(value))
-      errors.push({ field, message: 'deve ser um número inteiro' });
+      errors.push({ field, message: tr({ 'pt-BR': 'deve ser um número inteiro', en: 'must be a whole number' }) });
   };
 
   const s = req.stimulus;
@@ -41,11 +42,11 @@ export function validateRequest(
     if (Number.isFinite(s.frequencyHz) && s.frequencyHz > 0 && phases * s.pulseWidthUs >= 1e6 / s.frequencyHz) {
       errors.push({
         field: 'stimulus.pulseWidthUs',
-        message: phases === 2 ? 'as duas fases devem caber no período' : 'deve ser menor que o período',
+        message: phases === 2 ? tr({ 'pt-BR': 'as duas fases devem caber no período', en: 'both phases must fit in the period' }) : tr({ 'pt-BR': 'deve ser menor que o período', en: 'must be shorter than the period' }),
       });
     }
   } else if (s.waveform === 'BIPHASIC_SYMMETRIC') {
-    errors.push({ field: 'stimulus.pulseWidthUs', message: 'obrigatório para bifásica simétrica' });
+    errors.push({ field: 'stimulus.pulseWidthUs', message: tr({ 'pt-BR': 'obrigatório para bifásica simétrica', en: 'required for symmetric biphasic' }) });
   }
   const up = s.rampUpMs ?? 0;
   const down = s.rampDownMs ?? 0;
@@ -53,17 +54,17 @@ export function validateRequest(
   range('stimulus.rampDownMs', down, 0, MAX_RAMP_MS);
   const onTime = s.trainOnMs ?? s.durationMs;
   if (up + down > 0 && Number.isFinite(onTime) && up + down > onTime) {
-    errors.push({ field: 'stimulus.rampUpMs', message: 'subida + descida deve caber no tempo ligado' });
+    errors.push({ field: 'stimulus.rampUpMs', message: tr({ 'pt-BR': 'subida + descida deve caber no tempo ligado', en: 'ramp up + ramp down must fit in the on time' }) });
   }
 
   if (s.modulation.shape === 'TRIANGLE') {
     const p = s.modulation.peakTimeMs;
     if (p === null || !Number.isFinite(p)) {
-      errors.push({ field: 'stimulus.modulation.peakTimeMs', message: 'obrigatório para TRIANGLE' });
+      errors.push({ field: 'stimulus.modulation.peakTimeMs', message: tr({ 'pt-BR': 'obrigatório para TRIANGLE', en: 'required for TRIANGLE' }) });
     } else if (!(p > 0 && p < s.durationMs)) {
       errors.push({
         field: 'stimulus.modulation.peakTimeMs',
-        message: 'deve estar entre 0 e a duração (exclusivo)',
+        message: tr({ 'pt-BR': 'deve estar entre 0 e a duração (exclusivo)', en: 'must be between 0 and the duration (exclusive)' }),
       });
     }
   }
@@ -72,17 +73,17 @@ export function validateRequest(
   const period = s.trainPeriodMs;
   if ((on === null) !== (period === null)) {
     const missing = on === null ? 'stimulus.trainOnMs' : 'stimulus.trainPeriodMs';
-    errors.push({ field: missing, message: 'informe a duração ligada e o período do trem juntos' });
+    errors.push({ field: missing, message: tr({ 'pt-BR': 'informe a duração ligada e o período do trem juntos', en: 'give the train on time and period together' }) });
   } else if (on !== null && period !== null) {
     if (!Number.isFinite(on) || on <= 0) {
-      errors.push({ field: 'stimulus.trainOnMs', message: 'deve ser > 0' });
+      errors.push({ field: 'stimulus.trainOnMs', message: tr({ 'pt-BR': 'deve ser > 0', en: 'must be > 0' }) });
     } else if (Number.isFinite(period) && on > period) {
-      errors.push({ field: 'stimulus.trainOnMs', message: 'deve ser ≤ período do trem' });
+      errors.push({ field: 'stimulus.trainOnMs', message: tr({ 'pt-BR': 'deve ser ≤ período do trem', en: 'must be ≤ the train period' }) });
     }
     if (!Number.isFinite(period) || period <= 0) {
-      errors.push({ field: 'stimulus.trainPeriodMs', message: 'deve ser > 0' });
+      errors.push({ field: 'stimulus.trainPeriodMs', message: tr({ 'pt-BR': 'deve ser > 0', en: 'must be > 0' }) });
     } else if (Number.isFinite(s.durationMs) && period > s.durationMs) {
-      errors.push({ field: 'stimulus.trainPeriodMs', message: 'deve ser ≤ duração' });
+      errors.push({ field: 'stimulus.trainPeriodMs', message: tr({ 'pt-BR': 'deve ser ≤ duração', en: 'must be ≤ the duration' }) });
     }
   }
 
@@ -96,27 +97,27 @@ export function validateRequest(
       integer(field, value);
       if (Number.isFinite(value)) sum += value;
     }
-    if (sum < 1) errors.push({ field: 'unitsPerType', message: 'pelo menos uma unidade motora' });
+    if (sum < 1) errors.push({ field: 'unitsPerType', message: tr({ 'pt-BR': 'pelo menos uma unidade motora', en: 'at least one motor unit' }) });
   }
 
   range('axonLengthPercent', req.axonLengthPercent, 1, 100);
   range('temperatureCelsius', req.temperatureCelsius, 0, 45);
 
-  if (!Number.isFinite(req.seed)) errors.push({ field: 'seed', message: 'deve ser um número' });
-  else if (req.seed < 0) errors.push({ field: 'seed', message: 'deve ser ≥ 0' });
+  if (!Number.isFinite(req.seed)) errors.push({ field: 'seed', message: tr({ 'pt-BR': 'deve ser um número', en: 'must be a number' }) });
+  else if (req.seed < 0) errors.push({ field: 'seed', message: tr({ 'pt-BR': 'deve ser ≥ 0', en: 'must be ≥ 0' }) });
   integer('seed', req.seed);
 
   const out = req.outputStepMs;
   if (!Number.isFinite(out)) {
-    errors.push({ field: 'outputStepMs', message: 'deve ser um número' });
+    errors.push({ field: 'outputStepMs', message: tr({ 'pt-BR': 'deve ser um número', en: 'must be a number' }) });
   } else if (out > MAX_OUTPUT_STEP_MS) {
-    errors.push({ field: 'outputStepMs', message: `deve ser ≤ ${MAX_OUTPUT_STEP_MS}` });
+    errors.push({ field: 'outputStepMs', message: tr({ 'pt-BR': `deve ser ≤ ${MAX_OUTPUT_STEP_MS}`, en: `must be ≤ ${MAX_OUTPUT_STEP_MS}` }) });
   } else if (Number.isFinite(s.stepMs) && s.stepMs > 0) {
     const ratio = out / s.stepMs;
     if (out < s.stepMs - 1e-12) {
-      errors.push({ field: 'outputStepMs', message: 'deve ser ≥ passo de integração' });
+      errors.push({ field: 'outputStepMs', message: tr({ 'pt-BR': 'deve ser ≥ passo de integração', en: 'must be ≥ the integration step' }) });
     } else if (Math.abs(ratio - Math.round(ratio)) > 1e-6) {
-      errors.push({ field: 'outputStepMs', message: 'deve ser múltiplo do passo de integração' });
+      errors.push({ field: 'outputStepMs', message: tr({ 'pt-BR': 'deve ser múltiplo do passo de integração', en: 'must be a multiple of the integration step' }) });
     }
   }
 

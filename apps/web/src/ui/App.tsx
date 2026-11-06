@@ -15,10 +15,19 @@ import type { StageFocus } from './EquationsView';
 import { EquationsView } from './EquationsView';
 import { FatiguePanel } from './FatiguePanel';
 import { InspectorPanel } from './InspectorPanel';
+import { Footer } from './Footer';
 import { HelpContext } from './helpContext';
 import type { ShowHelp } from './helpContext';
 import { LiveCharts } from './LiveCharts';
 import { SegmentedControl } from './SegmentedControl';
+import type { Locale } from '../i18n/locale';
+import { APP_NAME, setLocale, tr } from '../i18n/locale';
+import { useLocale } from '../i18n/useLocale';
+
+const LANGUAGE_OPTIONS = [
+  { value: 'pt-BR' as const, label: 'PT' },
+  { value: 'en' as const, label: 'EN' },
+];
 import { SIM_FORM_ID, SimulationForm } from './SimulationForm';
 import { StimulatorScopes } from './StimulatorView';
 import type { StepId } from './steps';
@@ -33,7 +42,8 @@ import { useSimulation } from './useSimulation';
 
 const NO_ERRORS: readonly FieldError[] = [];
 
-const STEP_OPTIONS = STEPS.map((s) => ({ value: s.id, label: s.label }));
+/** Read at render: the step labels follow the locale. */
+const stepOptions = () => STEPS.map((s) => ({ value: s.id, label: s.label }));
 const panelId = (s: StepId) => `panel-${s}`;
 const tabId = (s: StepId) => `tab-${s}`;
 
@@ -51,6 +61,11 @@ function SidebarIcon({ side }: { side: 'left' | 'right' }) {
 }
 
 export function App({ api, controller }: { api: ApiClient; controller: SimulationController }) {
+  const locale = useLocale();
+  useEffect(() => {
+    document.title = tr(APP_NAME);
+    document.documentElement.lang = locale;
+  }, [locale]);
   const state = useSimulation(controller);
   const catalog = useMuscleCatalog(api);
   const conditionCatalog = useConditionCatalog(api);
@@ -147,6 +162,14 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
   }, [controller, mac]);
 
   const current = STEPS.find((s) => s.id === step)!;
+  const navigatorLabel = navigatorOpen
+    ? tr({ 'pt-BR': 'Ocultar barra lateral', en: 'Hide sidebar' })
+    : tr({ 'pt-BR': 'Mostrar barra lateral', en: 'Show sidebar' });
+  const inspectorLabel = inspector.open
+    ? tr({ 'pt-BR': 'Ocultar explicação', en: 'Hide explanation' })
+    : tr({ 'pt-BR': 'Mostrar explicação', en: 'Show explanation' });
+  const stopText = tr({ 'pt-BR': 'Parar', en: 'Stop' });
+  const simulateText = tr({ 'pt-BR': 'Simular', en: 'Simulate' });
   const classes = ['window', navigatorOpen ? '' : 'window--no-navigator', inspector.open ? '' : 'window--no-inspector']
     .filter(Boolean)
     .join(' ');
@@ -161,20 +184,20 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
               className="toolbar-icon"
               aria-pressed={navigatorOpen}
               aria-controls="navigator"
-              aria-label={navigatorOpen ? 'Ocultar barra lateral' : 'Mostrar barra lateral'}
-              title={navigatorOpen ? 'Ocultar barra lateral' : 'Mostrar barra lateral'}
+              aria-label={navigatorLabel}
+              title={navigatorLabel}
               onClick={() => setNavigatorOpen((o) => !o)}
             >
               <SidebarIcon side="left" />
             </button>
-            <h1>Simulador EENM</h1>
+            <h1>{tr(APP_NAME)}</h1>
           </div>
           <div className="toolbar-center">
             <SegmentedControl<StepId>
-              options={STEP_OPTIONS}
+              options={stepOptions()}
               value={step}
               onChange={setStep}
-              label="Etapa"
+              label={tr({ 'pt-BR': 'Etapa', en: 'Step' })}
               mode="tabs"
               panelId={panelId}
               tabId={tabId}
@@ -183,29 +206,38 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
           </div>
           <div className="toolbar-actions">
             {running ? (
-              <span className="live-pill" role="status" title="Progresso">
+              <span className="live-pill" role="status" title={tr({ 'pt-BR': 'Progresso', en: 'Progress' })}>
                 <span className="live-dot" aria-hidden="true" /> {Math.round(state.progress * 100)} %
               </span>
             ) : null}
-            <button type="button" className="btn" onClick={stop} disabled={!running} title={`Parar (${shortcutLabel('stop', mac)})`}>
-              Parar
+            <button type="button" className="btn" onClick={stop} disabled={!running} title={`${stopText} (${shortcutLabel('stop', mac)})`}>
+              {stopText}
             </button>
             <button
               type="submit"
               form={SIM_FORM_ID}
               className="btn btn--primary"
               disabled={running}
-              title={`Simular (${shortcutLabel('simulate', mac)})`}
+              title={`${simulateText} (${shortcutLabel('simulate', mac)})`}
             >
-              Simular
+              {simulateText}
             </button>
+            <SegmentedControl<Locale>
+              label={tr({ 'pt-BR': 'Idioma', en: 'Language' })}
+              mode="radio"
+              size="small"
+              options={LANGUAGE_OPTIONS}
+              titles={(l) => (l === 'en' ? 'English' : 'Português (Brasil)')}
+              value={locale}
+              onChange={setLocale}
+            />
             <button
               type="button"
               className="toolbar-icon"
               aria-pressed={inspector.open}
               aria-controls="inspector"
-              aria-label={inspector.open ? 'Ocultar explicação' : 'Mostrar explicação'}
-              title={inspector.open ? 'Ocultar explicação' : 'Mostrar explicação'}
+              aria-label={inspectorLabel}
+              title={inspectorLabel}
               onClick={() => setInspector((i) => ({ ...i, open: !i.open }))}
             >
               <SidebarIcon side="right" />
@@ -213,9 +245,11 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
           </div>
         </header>
 
-        <aside id="navigator" className="navigator" aria-label={`Ajustes — ${current.label}`} inert={!navigatorOpen}>
+        <aside id="navigator" className="navigator" aria-label={`${tr({ 'pt-BR': 'Ajustes', en: 'Settings' })} — ${current.label}`} inert={!navigatorOpen}>
           <header className="navigator-head">
-            <span className="navigator-step">Etapa {current.number} de {STEPS.length}</span>
+            <span className="navigator-step">
+              {tr({ 'pt-BR': `Etapa ${current.number} de ${STEPS.length}`, en: `Step ${current.number} of ${STEPS.length}` })}
+            </span>
             <h2>{current.label}</h2>
           </header>
           {catalog.error ? <div className="banner banner--warn">{catalog.error}</div> : null}
@@ -258,9 +292,10 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
           </section>
         </main>
 
-        <aside id="inspector" className="explainer" aria-label="Explicação" inert={!inspector.open}>
+        <aside id="inspector" className="explainer" aria-label={tr({ 'pt-BR': 'Explicação', en: 'Explanation' })} inert={!inspector.open}>
           <InspectorPanel topic={inspector.topic} values={values} axonEvents={controller.axonEvents} onShowEquation={showEquation} />
         </aside>
+        <Footer />
       </div>
     </HelpContext.Provider>
   );
