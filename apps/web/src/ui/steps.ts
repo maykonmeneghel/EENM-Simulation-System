@@ -22,7 +22,8 @@ export const STEPS: readonly Step[] = [
 /** Sidebar groups of each step (the stimulus itself is the stimulator step's own panel). */
 export const GROUPS_BY_STEP: Record<StepId, readonly GroupId[]> = {
   stimulator: [],
-  physiology: ['condition', 'drive', 'muscle', 'motoneuron', 'model'],
+  // in the order of the equations they change: 2a (drive, motoneuron), 3 and 8b (muscle), 5b (calibration), 7/8b (condition)
+  physiology: ['drive', 'motoneuron', 'muscle', 'model', 'condition'],
   simulation: ['simulation'],
   results: [],
 };

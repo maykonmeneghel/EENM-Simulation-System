@@ -12,6 +12,8 @@ export interface StageFocus {
   stage: StageId;
   /** Changes on every request so the same stage can be focused twice. */
   nonce: number;
+  /** Move the keyboard focus to the stage (default); false when the change came from a sidebar control. */
+  takeFocus?: boolean;
 }
 
 const stageElementId = (id: StageId) => `stage-${id}`;
@@ -34,8 +36,9 @@ export function EquationsView({
     const el = rootRef.current?.querySelector<HTMLElement>(`#${stageElementId(focus.stage)}`);
     if (!el) return;
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    el.scrollIntoView?.({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
-    el.focus({ preventScroll: true });
+    el.scrollIntoView?.({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+    // a change in the sidebar highlights without taking the keyboard focus away from the control being edited
+    if (focus.takeFocus !== false) el.focus({ preventScroll: true });
     el.classList.remove('stage--flash');
     void el.offsetWidth; // restart the highlight animation
     el.classList.add('stage--flash');

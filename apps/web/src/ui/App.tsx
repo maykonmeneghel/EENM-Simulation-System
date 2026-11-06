@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormValues } from '../application/formModel';
 import { defaultFormValues } from '../application/formModel';
 import type { InspectorTopic } from '../application/inspectorTopics';
+import { changedStage } from '../application/physiologyStages';
 import { buildModelSnapshot } from '../application/modelView';
 import type { SimulationController } from '../application/simulationController';
 import type { StageId } from '../domain/modelEquations';
@@ -28,7 +29,7 @@ import { useSimulation } from './useSimulation';
 
 const NO_ERRORS: readonly FieldError[] = [];
 
-const STEP_OPTIONS = STEPS.map((s) => ({ value: s.id, label: `${s.number}  ${s.label}` }));
+const STEP_OPTIONS = STEPS.map((s) => ({ value: s.id, label: s.label }));
 const panelId = (s: StepId) => `panel-${s}`;
 const tabId = (s: StepId) => `tab-${s}`;
 
@@ -81,6 +82,14 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
     setSeenError(state.error);
     const first = state.error?.fieldErrors[0];
     if (first) setStep(stepOfField(first.field));
+  }
+
+  // In the physiology step, an edited setting brings its equation to the centre of the body and highlights it.
+  const [seenValues, setSeenValues] = useState(values);
+  if (values !== seenValues) {
+    setSeenValues(values);
+    const stage = step === 'physiology' ? changedStage(seenValues, values) : null;
+    if (stage) setFocus((f) => ({ stage, nonce: (f?.nonce ?? 0) + 1, takeFocus: false }));
   }
 
   const snapshot = useMemo(

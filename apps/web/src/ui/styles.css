@@ -526,8 +526,11 @@ body { overflow: hidden; }
 .equations-intro { margin: 0; font-size: var(--fs-md); }
 .stage { scroll-margin-top: 1rem; outline: none; transition: box-shadow 300ms var(--ease); }
 .stage:focus-visible { box-shadow: var(--focus), var(--shadow); }
-.stage--flash { animation: flash 1.2s var(--ease); }
-@keyframes flash { 0% { box-shadow: 0 0 0 3px var(--accent), var(--shadow); } 100% { box-shadow: 0 0 0 0 transparent, var(--shadow); } }
+.stage--flash { animation: flash 1.8s var(--ease); }
+@keyframes flash {
+  0%, 35% { box-shadow: 0 0 0 3px var(--accent), var(--shadow); background-color: var(--accent-tint, rgba(0, 122, 255, 0.07)); }
+  100% { box-shadow: 0 0 0 0 transparent, var(--shadow); }
+}
 .stage-header { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.4rem; }
 .stage-badge {
   display: inline-grid;

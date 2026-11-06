@@ -9,14 +9,22 @@ import { settingsFromForm } from '../application/stimulatorForm';
 import { StimulatorView } from './StimulatorView';
 
 const seen: { values: FormValues | null } = { values: null };
-function Controlled({ errors = [], running = false }: { errors?: FieldError[]; running?: boolean }) {
-  const [values, setValues] = useState<FormValues>(() => defaultFormValues());
+function Controlled({
+  errors = [],
+  running = false,
+  initial = {},
+}: {
+  errors?: FieldError[];
+  running?: boolean;
+  initial?: Partial<FormValues>;
+}) {
+  const [values, setValues] = useState<FormValues>(() => ({ ...defaultFormValues(), ...initial }));
   useEffect(() => {
     seen.values = values;
   }, [values]);
   return <StimulatorView values={values} onValuesChange={setValues} errors={errors} running={running} />;
 }
-const setup = (props: { errors?: FieldError[]; running?: boolean } = {}) => {
+const setup = (props: { errors?: FieldError[]; running?: boolean; initial?: Partial<FormValues> } = {}) => {
   render(<Controlled {...props} />);
   return userEvent.setup();
 };
@@ -30,7 +38,8 @@ describe('StimulatorView', () => {
   it('shows the device controls, both scopes and the recruitment meter with the defaults', () => {
     setup();
     expect(screen.getByLabelText('Frequência')).toHaveValue('40');
-    expect(screen.getByLabelText('Largura de pulso')).toHaveValue('300');
+    expect(screen.getByLabelText('Largura de pulso')).toHaveValue('1,2'); // % of the 25 000 µs period
+    expect(screen.getByText(/= 300 µs · % do período/)).toBeInTheDocument();
     expect(screen.getByLabelText('Amplitude')).toHaveValue('153');
     expect(screen.getByRole('radio', { name: 'Bifásica simétrica' })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByRole('img', { name: /Pulso bifásico de 300 µs/ })).toBeInTheDocument();
@@ -49,7 +58,7 @@ describe('StimulatorView', () => {
     expect(partial).toBeLessThan(100);
     const pw = screen.getByLabelText('Largura de pulso');
     await user.clear(pw);
-    await user.type(pw, '600');
+    await user.type(pw, '2,4'); // 2,4 % of the period = 600 µs
     expect(Number(meter.getAttribute('aria-valuenow'))).toBeGreaterThan(partial); // longer pulse, lower threshold
     expect(request().stimulus).toMatchObject({ pulseWidthUs: 600, amplitude: 80 });
   });
@@ -59,22 +68,24 @@ describe('StimulatorView', () => {
     await user.click(screen.getByRole('radio', { name: 'Monofásica' }));
     expect(screen.getByRole('img', { name: /Pulso monofásico/ })).toBeInTheDocument();
     await user.click(screen.getByRole('switch', { name: /Trens/ }));
+    expect(screen.getByLabelText('Tempo ligado')).toHaveValue('33'); // % of the 1000 ms run
     const ramp = screen.getByLabelText('Rampa de subida');
     await user.clear(ramp);
-    await user.type(ramp, '100');
+    await user.type(ramp, '30'); // % of the 330 ms on time
     expect(request().stimulus).toMatchObject({
       waveform: 'MONOPHASIC',
       trainOnMs: 330,
       trainPeriodMs: 1000,
-      rampUpMs: 100,
+      rampUpMs: 99,
     });
+    const off = screen.getByLabelText('Tempo desligado');
+    await user.clear(off);
+    await user.type(off, '17');
+    expect(request().stimulus.trainPeriodMs).toBe(500); // on 330 + off 170 ms
   });
 
-  it('warns instead of drawing when the ramps do not fit in the on time', async () => {
-    const user = setup();
-    const ramp = screen.getByLabelText('Rampa de subida');
-    await user.clear(ramp);
-    await user.type(ramp, '1500');
+  it('warns instead of drawing when the ramps do not fit in the on time', () => {
+    setup({ initial: { 'stimulus.rampUpMs': '700', 'stimulus.rampDownMs': '700' } });
     expect(screen.getByText(/Rampa de subida \+ descida maior que o tempo ligado/)).toBeInTheDocument();
     expect(screen.queryByRole('img', { name: /Envelope/ })).toBeNull();
   });

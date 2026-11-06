@@ -63,6 +63,15 @@ export function InspectorPanel({ topic, values, axonEvents, onShowEquation }: In
         <p className="muted">{invasive ? 'Modo invasivo' : 'Modo não invasivo'}{drive ? ' · drive central' : ''}{tremor ? ' · tremor' : ''}</p>
       </header>
 
+      {view.reading ? (
+        <section className="explain-section explain-section--reading" aria-labelledby="explain-reading">
+          <h3 id="explain-reading">O que o gráfico mostra</h3>
+          {view.reading.map((t) => (
+            <p key={t}>{t}</p>
+          ))}
+        </section>
+      ) : null}
+
       {view.stages.map((id) => {
         const ex = STAGE_EXPLANATIONS[id];
         return (

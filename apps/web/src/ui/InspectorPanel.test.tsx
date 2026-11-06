@@ -104,3 +104,16 @@ describe('steps', () => {
     expect(nextStep('results')).toBeNull();
   });
 });
+
+describe('chart readings', () => {
+  it('each results chart explains what it plots', () => {
+    for (const chart of ['force', 'stimulus', 'emg'] as const) {
+      const { unmount } = render(<InspectorPanel topic={{ kind: 'chart', chart }} values={base} axonEvents={null} />);
+      const reading = screen.getByRole('heading', { name: 'O que o gráfico mostra' }).closest('section')!;
+      expect(reading.textContent!.length).toBeGreaterThan(120);
+      unmount();
+    }
+    render(<InspectorPanel topic={{ kind: 'fatigue' }} values={base} axonEvents={null} />);
+    expect(screen.getByText(/Mostra a capacidade de força que resta/)).toBeInTheDocument();
+  });
+});
