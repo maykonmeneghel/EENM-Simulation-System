@@ -10,6 +10,8 @@ import numpy as np
 from numba import njit
 from numpy.typing import NDArray
 
+from eenm_engine.domain.central_drive import split_at_electrode
+
 # merge state per unit (``AxonMerge.counters`` columns)
 CENTRAL, CENTRAL_TRANSMITTED, FES_TRANSMITTED, COLLISIONS, FES_BLOCKED, RESETS = range(6)
 
@@ -101,10 +103,8 @@ class AxonMerge:
         initial_vs: NDArray[np.float64] | None = None,
         reset_density: float = 400.0,
     ) -> None:
-        if not 0 < electrode_fraction <= 1:
-            raise ValueError("electrode_fraction must be in (0, 1]")
         n = soma_to_muscle_samples.size
-        self.to_electrode = np.floor(soma_to_muscle_samples * electrode_fraction + 0.5).astype(np.int64)
+        self.to_electrode = split_at_electrode(soma_to_muscle_samples, electrode_fraction)[0]
         self.refractory = max(1, round(self.REFRACTORY_MS / step_ms))
         self.reset_density = reset_density
         self.reset_samples = max(1, round(self.RESET_MS / step_ms))

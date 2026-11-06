@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 import uuid
 from collections.abc import Iterator
+from dataclasses import replace
 
 import numpy as np
 from numpy.typing import NDArray
@@ -19,7 +20,7 @@ from eenm_engine.application.events import (
 )
 from eenm_engine.application.ports import DrivenPoolIntegration, DrivenPoolIntegrator, OdeSolver, PoolIntegrator
 from eenm_engine.domain.axon_stimulation import axon_spike_events, spikes_in
-from eenm_engine.domain.central_drive import DriveGenerator
+from eenm_engine.domain.central_drive import DriveGenerator, split_at_electrode
 from eenm_engine.domain.cisi_kohn import cisi_kohn_pool, current_factor
 from eenm_engine.domain.max_force import maximal_force
 from eenm_engine.domain.model_options import StimulationSite
@@ -65,7 +66,7 @@ class RunSimulation:
         setup = MotorUnitSetup.from_config(config)
         times = protocol.time_grid()
         stimulus = stimulus_series(protocol)
-        force = IncrementalForce(setup, config, times.size, stride=config.output_stride)
+        force = IncrementalForce(_force_setup(setup, config), config, times.size, stride=config.output_stride)
 
         yield SimulationStarted(
             simulation_id=str(uuid.uuid4()),
@@ -251,3 +252,17 @@ class RunSimulation:
             fatigue=fatigue,
             axon_events=axon_events,
         )
+
+
+def _force_setup(setup: MotorUnitSetup, config: SimulationConfig) -> MotorUnitSetup:
+    """The setup the force pipeline delays spikes with. In the non-invasive mode with a central drive the spikes are
+    taken where they leave the electrode, so only the electrode → muscle part of the conduction delay remains (the
+    soma → electrode part is in the axon merge)."""
+    if config.model.central_drive is None or config.model.stimulation_site is StimulationSite.MOTONEURON_SOMA:
+        return setup
+    fraction = config.model.electrode_fraction
+    groups = {
+        t: replace(g, muap_delay_samples=split_at_electrode(g.muap_delay_samples, fraction)[1])
+        for t, g in setup.groups.items()
+    }
+    return replace(setup, groups=groups)

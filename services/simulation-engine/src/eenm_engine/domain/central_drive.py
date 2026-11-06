@@ -114,3 +114,18 @@ class DriveGenerator:
             noise = np.zeros((rows, units))
         out: NDArray[np.float64] = (noise + common[:, None]) * self._factor
         return out
+
+
+def split_at_electrode(
+    soma_to_muscle_samples: NDArray[np.int64], electrode_fraction: float
+) -> tuple[NDArray[np.int64], NDArray[np.int64]]:
+    """Soma → electrode and electrode → muscle conduction times per unit, in samples (design §3.3).
+
+    The two parts add up to the soma → muscle delay, so moving the electrode changes where FES and central spikes
+    meet, not when an uncollided central spike reaches the muscle.
+    """
+    if not 0 < electrode_fraction <= 1:
+        raise ValueError("electrode_fraction must be in (0, 1]")
+    total = np.asarray(soma_to_muscle_samples, dtype=np.int64)
+    to_electrode = np.floor(total * electrode_fraction + 0.5).astype(np.int64)
+    return to_electrode, total - to_electrode

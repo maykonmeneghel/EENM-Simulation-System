@@ -267,14 +267,14 @@ function stage3(s: ModelSnapshot): StageContent {
   const c = s.conduction;
   const st = s.stimulus;
   const orig = s.variant === 'ORIGINAL';
-  const symbolic = orig
+  const symbolic: string[] = orig
     ? [
         'V_J = V_s \\cdot \\frac{0{,}070\\,\\lambda}{2}\\, e^{-x/\\lambda}, \\qquad \\lambda = \\sqrt{1/0{,}070}, \\qquad x = \\frac{\\text{axonLengthPercent}}{100}',
         '\\Delta_k = \\frac{x}{v_k}\\cdot \\frac{T}{\\delta t}\\ \\text{amostras (ORIGINAL, Q4)}',
       ]
     : ['\\Delta_k = \\frac{x}{v_k}\\cdot\\frac{1000}{\\delta t}\\ \\text{amostras (LITERATURE)}, \\qquad x = \\frac{\\text{axonLengthPercent}}{100}'];
   const scale = orig ? texNum(st.durationMs) : '1000';
-  const substituted = [
+  const substituted: string[] = [
     ...(orig
       ? [`V_J = V_s \\cdot ${texNum(c.junctionGain, 4)} \\quad (\\lambda = ${texNum(Math.sqrt(1 / CONSTANTS.junctionG), 3)},\\ x = ${texNum(c.x)})`]
       : []),
@@ -289,19 +289,44 @@ function stage3(s: ModelSnapshot): StageContent {
       return `v_k = ${texSpan(sp.velocity, 2)}\\ \\text{m/s} \\;\\Rightarrow\\; \\Delta_k = ${texSpan(sp.delayMs, 2)}\\ \\text{ms}`;
     }),
   );
+  // non-invasive mode with a central drive: the electrode splits the axon, and FES and central spikes meet on its
+  // soma side (``domain/central_drive.split_at_electrode``, ``infrastructure/axon_merge.py``)
+  const e = s.drive && !s.drive.invasive ? s.drive.electrodeFraction : null;
+  if (e !== null) {
+    symbolic.push(
+      '\\Delta_k = \\underbrace{f\\,\\Delta_k}_{\\text{soma}\\to\\text{eletrodo}} + \\underbrace{(1-f)\\,\\Delta_k}_{\\text{eletrodo}\\to\\text{músculo}}',
+      '\\text{colisão: o disparo central sai do soma até } f\\,\\Delta_k \\text{ antes do pulso ou até } f\\,\\Delta_k \\text{ depois} \\;\\Rightarrow\\; \\text{janela} = 2\\,f\\,\\Delta_k',
+    );
+    substituted.push(
+      `f = ${texNum(e, 2)}`,
+      ...perType(s, (t) => {
+        const d = s.typeSpans[t].delayMs;
+        if (!d) return null;
+        const part = (k: number) => texSpan({ from: d.from * k, to: d.to * k }, 2);
+        return `\\text{soma}\\to\\text{eletrodo} = ${part(e)},\\ \\text{eletrodo}\\to\\text{músculo} = ${part(1 - e)},\\ \\text{janela} = ${part(2 * e)}\\ \\text{ms}`;
+      }),
+    );
+  }
+  const electrodeNotes =
+    e !== null
+      ? [
+          'f = posição do eletrodo (fração do caminho soma → músculo). Ela muda onde os disparos se encontram, não o atraso total: sem FES, a força é a mesma em qualquer posição.',
+          'Quanto mais longe do soma, maior a janela e mais disparos centrais o FES anula: consequência da regra de colisão (algoritmo de Formento et al. 2018).',
+        ]
+      : [];
   return {
     id: '3',
     title: 'Condução até o músculo',
-    source: 'domain/force_pipeline.py, domain/motor_unit_pool.py',
+    source: e !== null ? 'domain/force_pipeline.py, domain/central_drive.py, infrastructure/axon_merge.py' : 'domain/force_pipeline.py, domain/motor_unit_pool.py',
     symbolic,
     substituted,
-    notes: orig
+    notes: [...electrodeNotes, ...(orig
       ? [
           'Somente soma; V_J passa por filtro de mediana 3×3.',
           'x em metros (axonLengthPercent/100), v_k (APAT) em m/s, 44–53. No ORIGINAL o atraso em ms é x/v·T, escalando com a duração T (Q4).',
           ...countsNote(s),
         ]
-      : ['x em metros (axonLengthPercent/100), v_k (APAT) em m/s, 44–53; atraso em ms = x/v·1000, independente da duração.', ...countsNote(s)],
+      : ['x em metros (axonLengthPercent/100), v_k (APAT) em m/s, 44–53; atraso em ms = x/v·1000, independente da duração.', ...countsNote(s)])],
   };
 }
 

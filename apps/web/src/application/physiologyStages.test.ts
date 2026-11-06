@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { defaultFormValues } from './formModel';
 import { changedStage } from './physiologyStages';
+import { texSpan } from '../ui/stageTex';
 
 describe('changedStage', () => {
   const base = defaultFormValues();
@@ -56,5 +57,37 @@ describe('condition effects in the equations', () => {
       stage: '7',
       change: 'Condição: Lesão medular crônica',
     });
+  });
+});
+
+describe('electrode position in the equations', () => {
+  it('stage 3 splits the conduction delay at the electrode and changes with the position', async () => {
+    const { buildModelSnapshot } = await import('./modelView');
+    const { buildStageContents } = await import('../ui/stageTex');
+    const drive = { ...defaultFormValues(), driveEnabled: true, stimulationSite: 'SKIN_SURFACE' as const };
+    const stage3 = (f: string) =>
+      buildStageContents(buildModelSnapshot({ values: { ...drive, 'centralDrive.electrodeFraction': f }, muscles: [] })).find(
+        (s) => s.id === '3',
+      )!;
+    const near = stage3('0.5');
+    const far = stage3('0.9');
+    expect(changedStage(drive, { ...drive, 'centralDrive.electrodeFraction': '0.5' })?.stage).toBe('3');
+    expect(near.symbolic.join(' ')).toMatch(/eletrodo/);
+    expect(near.substituted).toContain('f = 0{,}5');
+    expect(near.substituted.join(' ')).not.toBe(far.substituted.join(' '));
+    // the two parts add up to the whole delay: f = 0.9 puts 0.1 of it after the electrode
+    const lit = buildModelSnapshot({ values: drive, muscles: [] }).typeSpans.S.delayMs!;
+    expect(far.substituted.join(' ')).toContain(`\\text{eletrodo}\\to\\text{músculo} = ${texSpan({ from: lit.from * 0.1, to: lit.to * 0.1 }, 2)}`);
+  });
+  it('without the drive or in the invasive mode stage 3 has no electrode split', async () => {
+    const { buildModelSnapshot } = await import('./modelView');
+    const { buildStageContents } = await import('../ui/stageTex');
+    for (const values of [
+      defaultFormValues(),
+      { ...defaultFormValues(), driveEnabled: true, stimulationSite: 'MOTONEURON_POOL' as const },
+    ]) {
+      const s3 = buildStageContents(buildModelSnapshot({ values, muscles: [] })).find((s) => s.id === '3')!;
+      expect(s3.symbolic.join(' ')).not.toMatch(/eletrodo/);
+    }
   });
 });

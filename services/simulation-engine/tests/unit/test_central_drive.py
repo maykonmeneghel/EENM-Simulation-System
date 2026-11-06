@@ -129,6 +129,25 @@ def test_non_invasive_mode_reports_collisions_with_fes_on() -> None:
     assert event_to_json(last)["axonEvents"] == last.axon_events
 
 
+def _at_electrode(fraction: float, amplitude: float) -> list[SimulationChunk]:
+    config = _drive_config(StimulationSite.MOTOR_AXONS, amplitude=amplitude, seconds=1.0, units=30)
+    return _chunks(replace(config, model=replace(config.model, electrode_fraction=fraction)))
+
+
+def test_without_fes_the_electrode_position_does_not_change_when_central_spikes_reach_the_muscle() -> None:
+    # soma → electrode + electrode → muscle is the whole soma → muscle delay; before the fix the force pipeline added
+    # the whole delay again after the electrode, so the force started 16 ms later at 1.0 than at 0.1
+    near, far = (np.concatenate([c.force_total for c in _at_electrode(f, 0.0)]) for f in (0.1, 1.0))
+    assert near.max() > 0
+    np.testing.assert_allclose(near, far, rtol=0, atol=1e-12)
+
+
+def test_with_fes_on_a_longer_soma_to_electrode_path_makes_more_collisions() -> None:
+    near, far = (_at_electrode(f, 153.0)[-1].axon_events for f in (0.1, 1.0))
+    assert near is not None and far is not None
+    assert far["collisions"] > near["collisions"]
+
+
 def test_request_turns_the_drive_on_and_adds_the_tremor_only_with_the_parkinson_adjustment() -> None:
     base = {"modelVariant": "LITERATURE", "stimulationSite": "SKIN_SURFACE"}
     assert SimulationRequest.model_validate(base).to_config().model.central_drive is None
