@@ -1,6 +1,6 @@
 # Design: the 3D view (forearm at human scale, structure + firing replay)
 
-Status: **proposal, not implemented**. Everything below was checked on 2026-11-06 unless marked otherwise. Items
+Status: **decided, in implementation**. The author accepted every proposal of Section 9 on 2026-11-06. Everything below was checked on 2026-11-06 unless marked otherwise. Items
 marked **DECISION** need the author's choice before implementation.
 
 ## 1. What the view is for
@@ -257,7 +257,7 @@ a run whose events do not add up. Negative probe: drop one event and check that 
 
 ## 9. Decisions
 
-| # | Decision | Proposal |
+| # | Decision | Status (all accepted by the author, 2026-11-06) |
 |---|---|---|
 | 1 | License of the BodyParts3D meshes (site CC BY 4.0, file headers CC BY-SA 2.1 JP) | comply with both; adapted meshes under BY-SA, in their own folder with `LICENSE.md` |
 | 2 | Motoneurons are ≈ 0.8 m away in the spinal cord | broken axis with the omitted length written on it |
