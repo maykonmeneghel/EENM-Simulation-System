@@ -109,3 +109,18 @@ export const STAGE_EXPLANATIONS: Record<StageId, StageExplanation> = {
     refs: [{ id: 'potvinFuglevand2017', supports: 'força do músculo como soma das forças das unidades' }],
   },
 };
+
+/** Short titles of the stages (as in the equations view). */
+export const STAGE_TITLES: Record<StageId, string> = {
+  '1': 'Estímulo',
+  '2a': 'Motoneurônio (soma + dendrito)',
+  '2b': 'Axônio motor (Weiss)',
+  '3': 'Condução até o músculo',
+  '4': 'Potencial de ação da unidade motora e EMG',
+  '5a': 'Twitch (Fuglevand 1993)',
+  '5b': 'Twitch generalizado',
+  '6': 'Saturação por frequência',
+  '7': 'Fadiga periférica',
+  '8a': 'Força muscular',
+  '8b': 'Força muscular (ponderada pelo pool)',
+};

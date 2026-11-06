@@ -50,6 +50,7 @@ function Block({
 
 export function DiagramView({ snapshot: s, running, onSelectStage }: DiagramViewProps) {
   const lit = s.variant === 'LITERATURE';
+  const skin = lit && s.stimulationSite !== 'MOTONEURON_POOL';
   const st = s.stimulus;
   const [measureSvg, svgScale] = useSvgScale(1100);
 
@@ -94,7 +95,7 @@ export function DiagramView({ snapshot: s, running, onSelectStage }: DiagramView
     <figure className="card diagram">
       <figcaption className="diagram-caption">
         Cadeia neuromusculoesquelética — {lit ? 'modelo corrigido pela literatura' : 'modelo original'}.{' '}
-        <span className="muted">Clique num bloco para ver a equação.</span>
+        <span className="muted">Clique num bloco para ver a explicação e as referências.</span>
       </figcaption>
       <svg
         ref={measureSvg}
@@ -128,8 +129,8 @@ export function DiagramView({ snapshot: s, running, onSelectStage }: DiagramView
           {st.train ? <text x="89" y="204" className="dg-small">{`trens ${txtNum(st.train.onMs)}/${txtNum(st.train.periodMs)} ms`}</text> : null}
         </Block>
 
-        {/* 2 excitation */}
-        {lit ? (
+        {/* 2 excitation: the skin and axons (non-invasive) or the motoneurons (invasive, and the original model) */}
+        {skin ? (
           <Block stage="2b" label="Pele e axônios motores" onSelect={onSelectStage}>
             <rect x="196" y="60" width="190" height="150" rx="18" className="dg-box" />
             <text x="291" y="52" className="dg-title">Pele + axônios motores</text>

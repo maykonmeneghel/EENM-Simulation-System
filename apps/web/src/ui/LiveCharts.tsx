@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { maxForceOf, percentSource } from '../application/forcePercent';
 import type { SeriesBuffer } from '../application/seriesBuffer';
+import type { InspectorTopic } from '../application/inspectorTopics';
 import type { SessionState } from '../application/session';
 import type { LiveSeriesSpec } from './LiveChart';
 import { LiveChart } from './LiveChart';
@@ -17,7 +18,18 @@ const FORCE: LiveSeriesSpec[] = [
 const STIMULUS: LiveSeriesSpec[] = [{ key: 'stimulus', label: 'Corrente', color: 'blue' }];
 const EMG: LiveSeriesSpec[] = [{ key: 'emg', label: 'MUAP médio', color: 'blue' }];
 
-export function LiveCharts({ state, buffer, zoom }: { state: SessionState; buffer: SeriesBuffer; zoom: ZoomSync }) {
+export function LiveCharts({
+  state,
+  buffer,
+  zoom,
+  onInspect,
+}: {
+  state: SessionState;
+  buffer: SeriesBuffer;
+  zoom: ZoomSync;
+  onInspect?(topic: InspectorTopic): void;
+}) {
+  const inspect = (chart: 'force' | 'stimulus' | 'emg') => (onInspect ? { onInspect: () => onInspect({ kind: 'chart', chart }) } : {});
   const theme = CHART_THEMES[useColorScheme()];
   const maxForce = maxForceOf(state.run?.maxForce);
   const forceSource = useMemo(() => (maxForce ? percentSource(buffer, maxForce) : null), [buffer, maxForce]);
@@ -44,9 +56,10 @@ export function LiveCharts({ state, buffer, zoom }: { state: SessionState; buffe
         {...common}
         {...(forceSource ? { buffer: forceSource } : {})}
         {...(maxForce ? { yRange: [0, 105] as [number, number] } : {})}
+        {...inspect('force')}
       />
-      <LiveChart title="Corrente de estímulo" yLabel="µA/cm²" series={STIMULUS} stepped {...common} />
-      <LiveChart title="EMG — potencial de ação médio das unidades motoras" yLabel="EMG (unidades do modelo)" series={EMG} {...common} />
+      <LiveChart title="Corrente de estímulo" yLabel="µA/cm²" series={STIMULUS} stepped {...common} {...inspect('stimulus')} />
+      <LiveChart title="EMG — potencial de ação médio das unidades motoras" yLabel="EMG (unidades do modelo)" series={EMG} {...common} {...inspect('emg')} />
     </div>
   );
 }

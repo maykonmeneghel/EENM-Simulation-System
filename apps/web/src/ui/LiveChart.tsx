@@ -6,6 +6,7 @@ export interface ChartSource {
   view(): { timeMs: Float64Array } & Record<string, Float64Array>;
 }
 import type { ChartTheme } from './theme';
+import { InfoIcon } from './InfoIcon';
 import type { ZoomSync } from './zoomSync';
 
 const LONG_RUN_MS = 2_000;
@@ -37,6 +38,8 @@ export interface LiveChartProps {
   yRange?: [number, number];
   /** Shared time zoom: a box dragged here zooms every chart in time (and this one in amplitude). */
   zoom?: ZoomSync;
+  /** Clicking the title opens the chart's explanation (the plot area keeps zoom and pan). */
+  onInspect?: () => void;
 }
 
 /** Canvas can't use CSS variables: read the app font and type scale once. */
@@ -67,6 +70,7 @@ export function LiveChart({
   theme,
   yRange,
   zoom,
+  onInspect,
 }: LiveChartProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const plotRef = useRef<uPlot | null>(null);
@@ -228,7 +232,16 @@ export function LiveChart({
 
   return (
     <figure className="chart">
-      <figcaption>{title}</figcaption>
+      <figcaption>
+        {onInspect ? (
+          <button type="button" className="caption-button" onClick={onInspect} aria-label={`${title} — ver explicação`}>
+            <span>{title}</span>
+            <InfoIcon />
+          </button>
+        ) : (
+          title
+        )}
+      </figcaption>
       <div ref={hostRef} className="chart-host" />
     </figure>
   );

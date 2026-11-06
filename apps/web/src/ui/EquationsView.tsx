@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
+import type { InspectorTopic } from '../application/inspectorTopics';
+import { InfoIcon } from './InfoIcon';
 import type { ModelSnapshot } from '../application/modelView';
 import type { StageId } from '../domain/modelEquations';
 import { REFERENCES, scholarUrl, sourceUrl } from '../domain/references';
@@ -10,11 +12,22 @@ export interface StageFocus {
   stage: StageId;
   /** Changes on every request so the same stage can be focused twice. */
   nonce: number;
+  /** Move the keyboard focus to the stage (default); false when the change came from a sidebar control. */
+  takeFocus?: boolean;
 }
 
 const stageElementId = (id: StageId) => `stage-${id}`;
 
-export function EquationsView({ snapshot, focus }: { snapshot: ModelSnapshot; focus: StageFocus | null }) {
+export function EquationsView({
+  snapshot,
+  focus,
+  onInspect,
+}: {
+  snapshot: ModelSnapshot;
+  focus: StageFocus | null;
+  /** Clicking a stage card opens its explanation and sources in the right sidebar. */
+  onInspect?(topic: InspectorTopic): void;
+}) {
   const stages = useMemo(() => buildStageContents(snapshot), [snapshot]);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -23,8 +36,9 @@ export function EquationsView({ snapshot, focus }: { snapshot: ModelSnapshot; fo
     const el = rootRef.current?.querySelector<HTMLElement>(`#${stageElementId(focus.stage)}`);
     if (!el) return;
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    el.scrollIntoView?.({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
-    el.focus({ preventScroll: true });
+    el.scrollIntoView?.({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+    // a change in the sidebar highlights without taking the keyboard focus away from the control being edited
+    if (focus.takeFocus !== false) el.focus({ preventScroll: true });
     el.classList.remove('stage--flash');
     void el.offsetWidth; // restart the highlight animation
     el.classList.add('stage--flash');
@@ -40,8 +54,12 @@ export function EquationsView({ snapshot, focus }: { snapshot: ModelSnapshot; fo
         <article
           key={st.id}
           id={stageElementId(st.id)}
-          className="card stage"
+          className={`card stage${onInspect ? ' card--inspectable' : ''}`}
           tabIndex={-1}
+          onClick={onInspect ? (e) => {
+            if ((e.target as HTMLElement).closest('a, button')) return;
+            onInspect({ kind: 'stage', stage: st.id });
+          } : undefined}
           aria-labelledby={`${stageElementId(st.id)}-title`}
           data-stage={st.id}
         >
@@ -49,6 +67,16 @@ export function EquationsView({ snapshot, focus }: { snapshot: ModelSnapshot; fo
             <span className="stage-badge">{st.id}</span>
             <h3 id={`${stageElementId(st.id)}-title`}>{st.title}</h3>
             <code className="stage-source">{st.source}</code>
+            {onInspect ? (
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={`Etapa ${st.id} — ver explicação`}
+                onClick={() => onInspect({ kind: 'stage', stage: st.id })}
+              >
+                <InfoIcon />
+              </button>
+            ) : null}
           </header>
           <p className="stage-plain">
             <span className="stage-label">Em palavras</span>

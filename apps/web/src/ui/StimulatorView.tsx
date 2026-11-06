@@ -1,4 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
+import type { InspectorTopic } from '../application/inspectorTopics';
 import type { Dispatch, SetStateAction } from 'react';
 import type { FieldPath, FormValues } from '../application/formModel';
 import { partitionFieldErrors, stepNumber } from '../application/formModel';
@@ -217,81 +219,183 @@ function Dial({
   );
 }
 
-export function StimulatorView({ values, onValuesChange: setValues, errors, running }: StimulatorViewProps) {
+interface PercentSpec {
+  control: StimulatorControl;
+  /** The whole the value is a percentage of, in the control's unit (null when it cannot be computed). */
+  whole: number | null;
+  wholeLabel: string;
+  pctMin: number;
+  pctMax: number;
+  pctStep: number;
+  /** Decimals of the absolute value written to the form. */
+  decimals: number;
+}
+
+const pctText = (x: number) => x.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+
+/** A dial set as a percentage of a whole (the pulse period, the run, the on time); the form keeps the absolute value. */
+function PercentDial({
+  spec,
+  values,
+  update,
+  errors,
+  disabled,
+}: {
+  spec: PercentSpec;
+  values: FormValues;
+  update(path: FieldPath, value: string): void;
+  errors: readonly string[] | undefined;
+  disabled: boolean;
+}) {
+  const { control, whole } = spec;
+  const id = `stim-${control.path.replace(/\./g, '-')}`;
+  const absolute = parse(values[control.path]);
+  const pct = whole && Number.isFinite(absolute) ? (absolute / whole) * 100 : NaN;
+  const [draft, setDraft] = useState<string | null>(null);
+  const setPct = (p: number) => {
+    if (!whole || !Number.isFinite(p)) return;
+    const clamped = Math.min(spec.pctMax, Math.max(spec.pctMin, p));
+    update(control.path, String(Number(((clamped / 100) * whole).toFixed(spec.decimals))));
+  };
+  return (
+    <div className={`dial${errors ? ' dial--invalid' : ''}${disabled ? ' dial--disabled' : ''}`}>
+      <label htmlFor={id} className="dial-label">
+        {control.label}
+      </label>
+      <div className="dial-readout">
+        <input
+          id={id}
+          className="dial-input"
+          type="text"
+          inputMode="decimal"
+          value={draft ?? (Number.isFinite(pct) ? pctText(pct) : '—')}
+          disabled={disabled || !whole}
+          aria-invalid={errors ? true : undefined}
+          aria-describedby={`${id}-hint`}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            setPct(parse(e.target.value));
+          }}
+          onBlur={() => setDraft(null)}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+              e.preventDefault();
+              setPct((Number.isFinite(pct) ? pct : spec.pctMin) + (e.key === 'ArrowUp' ? spec.pctStep : -spec.pctStep));
+            }
+          }}
+        />
+        <span className="dial-unit">%</span>
+      </div>
+      <input
+        type="range"
+        className="dial-slider"
+        aria-label={`${control.label} (controle deslizante, % ${spec.wholeLabel})`}
+        min={spec.pctMin}
+        max={spec.pctMax}
+        step={spec.pctStep}
+        value={Number.isFinite(pct) ? Math.min(spec.pctMax, Math.max(spec.pctMin, pct)) : spec.pctMin}
+        disabled={disabled || !whole}
+        onChange={(e) => setPct(Number(e.target.value))}
+      />
+      <small id={`${id}-hint`} className="dial-hint">
+        {Number.isFinite(absolute) ? `= ${fmt(absolute, spec.decimals)} ${control.unit}` : '—'} · % {spec.wholeLabel}
+        {whole ? ` (${fmt(whole, 0)} ${control.unit})` : ''}
+      </small>
+      {errors ? (
+        <small className="field-error" role="alert">
+          {errors.join('; ')}
+        </small>
+      ) : null}
+    </div>
+  );
+}
+
+function useStimulator(values: FormValues, errors: readonly FieldError[]) {
   const { byField } = useMemo(() => partitionFieldErrors(errors), [errors]);
   const settings = useMemo(() => settingsFromForm(values), [values]);
   const problems = settings ? stimulatorProblems(settings) : [];
-  const update = (p: FieldPath, value: string) => setValues((v) => ({ ...v, [p]: value }));
   const plateau = settings ? axonRecruitment(settings.amplitude, settings.pulseWidthUs / 1000) : null;
   const plateauPct = plateau ? Math.round((plateau.status === 'none' ? 0 : plateau.fraction) * 100) : null;
+  return { byField, settings, problems, plateau, plateauPct };
+}
+
+/** The device's controls (left sidebar, step 1): mode, dials, waveform, trains and ramps. */
+export function StimulatorControls({ values, onValuesChange: setValues, errors, running }: StimulatorViewProps) {
+  const { byField, settings, plateau, plateauPct } = useStimulator(values, errors);
+  const frequency = parse(values['stimulus.frequencyHz']);
+  const duration = parse(values['stimulus.durationMs']);
+  const onTime = parse(values['stimulus.trainOnMs']);
+  const positive = (x: number) => (Number.isFinite(x) && x > 0 ? x : null);
+  const periodUs = positive(frequency) ? 1e6 / frequency : null;
+  const rampWhole = values.trainsEnabled ? positive(onTime) : positive(duration);
+  const percent = (c: StimulatorControl, spec: Omit<PercentSpec, 'control'>) => (
+    <PercentDial
+      key={c.path}
+      spec={{ control: c, ...spec }}
+      values={values}
+      update={update}
+      errors={byField[c.path]}
+      disabled={running}
+    />
+  );
+  const update = (p: FieldPath, value: string) => setValues((v) => ({ ...v, [p]: value }));
   const dial = (c: StimulatorControl, disabled = running) => (
     <Dial key={c.path} control={c} values={values} update={update} errors={byField[c.path]} disabled={disabled} />
   );
   const C = STIMULATOR_CONTROLS;
-
   return (
-    <div className="stimulator">
-      <section className="card stimulator-panel" aria-label="Painel do estimulador">
-        <header className="stimulator-head">
-          <h2>Estimulador</h2>
-          <HelpPopover label="Sobre o estimulador">
-            Ajuste como num aparelho de FES. O botão Simular usa este estímulo. A amplitude está na unidade do modelo
-            (recrutamento herdado do modelo original, sem conversão verificada para mA); o recrutamento segue a lei de
-            Weiss (τ = 0,459 ms) para a largura de pulso escolhida. No bifásico, só a primeira fase excita o axônio.
+    <section className="stimulator-panel" aria-label="Painel do estimulador">
+      <div className="dial dial--wide">
+        <span className="dial-label">
+          Modo{' '}
+          <HelpPopover label="Modo de aplicação">
+            <strong>Não invasivo (pele):</strong> {STIMULATION_SITE_HELP.SKIN_SURFACE}
+            <br />
+            <strong>Invasivo (pool de motoneurônios):</strong> {STIMULATION_SITE_HELP.MOTONEURON_POOL}
           </HelpPopover>
-        </header>
+        </span>
+        <SegmentedControl<StimulationSite>
+          id="stim-site"
+          label="Modo de aplicação"
+          options={STIMULATION_SITE_OPTIONS}
+          value={values.stimulationSite === 'MOTONEURON_POOL' ? 'MOTONEURON_POOL' : 'SKIN_SURFACE'}
+          disabled={running}
+          size="small"
+          onChange={(site) => update('stimulationSite', site)}
+        />
+      </div>
 
+      <div className="dial-grid">
+        {dial(C.frequency)}
+        {percent(C.pulseWidth, { whole: periodUs, wholeLabel: 'do período', pctMin: 0.1, pctMax: 50, pctStep: 0.1, decimals: 0 })}
+        {dial(C.amplitude)}
         <div className="dial dial--wide">
-          <span className="dial-label">
-            Modo{' '}
-            <HelpPopover label="Modo de aplicação">
-              <strong>Não invasivo (pele):</strong> {STIMULATION_SITE_HELP.SKIN_SURFACE}
-              <br />
-              <strong>Invasivo (pool de motoneurônios):</strong> {STIMULATION_SITE_HELP.MOTONEURON_POOL}
-            </HelpPopover>
+          <span className="dial-label" id="stim-waveform-label">
+            Forma de onda
           </span>
-          <SegmentedControl<StimulationSite>
-            id="stim-site"
-            label="Modo de aplicação"
-            options={STIMULATION_SITE_OPTIONS}
-            value={values.stimulationSite === 'MOTONEURON_POOL' ? 'MOTONEURON_POOL' : 'SKIN_SURFACE'}
+          <SegmentedControl<StimulatorWaveform>
+            id="stim-waveform"
+            label="Forma de onda"
+            options={STIMULATOR_WAVEFORMS}
+            value={values['stimulus.waveform'] === 'MONOPHASIC' ? 'MONOPHASIC' : 'BIPHASIC_SYMMETRIC'}
             disabled={running}
             size="small"
-            onChange={(site) => update('stimulationSite', site)}
+            onChange={(w) => update('stimulus.waveform', w)}
           />
+          {byField['stimulus.waveform'] ? (
+            <small className="field-error" role="alert">
+              {byField['stimulus.waveform'].join('; ')}
+            </small>
+          ) : null}
         </div>
+      </div>
 
-        <div className="dial-grid">
-          {dial(C.frequency)}
-          {dial(C.pulseWidth)}
-          {dial(C.amplitude)}
-          <div className="dial dial--wide">
-            <span className="dial-label" id="stim-waveform-label">
-              Forma de onda
-            </span>
-            <SegmentedControl<StimulatorWaveform>
-              id="stim-waveform"
-              label="Forma de onda"
-              options={STIMULATOR_WAVEFORMS}
-              value={values['stimulus.waveform'] === 'MONOPHASIC' ? 'MONOPHASIC' : 'BIPHASIC_SYMMETRIC'}
-              disabled={running}
-              size="small"
-              onChange={(w) => update('stimulus.waveform', w)}
-            />
-            {byField['stimulus.waveform'] ? (
-              <small className="field-error" role="alert">
-                {byField['stimulus.waveform'].join('; ')}
-              </small>
-            ) : null}
-          </div>
-        </div>
-
-        {values.stimulationSite === 'MOTONEURON_POOL' ? (
-          <p className="dial-hint" aria-live="polite">
-            No pool de motoneurônios o recrutamento não segue a lei de Weiss: depende da dinâmica de cada motoneurônio
-            (tamanho, temperatura, local de injeção, na barra lateral). Veja as unidades que disparam após simular.
-          </p>
-        ) : (
+      {values.stimulationSite === 'MOTONEURON_POOL' ? (
+        <p className="dial-hint" aria-live="polite">
+          No pool de motoneurônios o recrutamento não segue a lei de Weiss: depende da dinâmica de cada motoneurônio
+          (etapa Fisiologia). Veja as unidades que disparam após simular.
+        </p>
+      ) : (
         <div className="recruit-meter" aria-live="polite">
           <div className="recruit-meter-label">
             <span>Unidades recrutadas no platô</span>
@@ -307,40 +411,111 @@ export function StimulatorView({ values, onValuesChange: setValues, errors, runn
             </small>
           ) : null}
         </div>
-        )}
+      )}
 
-        <div className="stimulator-section">
-          <Switch
-            checked={values.trainsEnabled}
-            disabled={running}
-            label="Trens (ligado / desligado)"
-            description={values.trainsEnabled ? undefined : 'estímulo contínuo durante toda a simulação'}
-            onChange={(on) => setValues((v) => ({ ...v, trainsEnabled: on }))}
-          />
-          {values.trainsEnabled ? <div className="dial-grid">{[dial(C.trainOn), dial(C.trainOff)]}</div> : null}
-          <div className="dial-grid">{[dial(C.rampUp), dial(C.rampDown)]}</div>
-        </div>
-      </section>
-
-      <section className="stimulator-scopes" aria-label="Osciloscópio">
-        {problems.length > 0 ? (
-          <div className="banner banner--warn" role="status">
-            {problems.join(' ')}
+      <div className="stimulator-section">
+        <Switch
+          checked={values.trainsEnabled}
+          disabled={running}
+          label="Trens (ligado / desligado)"
+          description={values.trainsEnabled ? undefined : 'estímulo contínuo durante toda a simulação'}
+          onChange={(on) => setValues((v) => ({ ...v, trainsEnabled: on }))}
+        />
+        {values.trainsEnabled ? (
+          <div className="dial-grid">
+            {percent(C.trainOn, { whole: positive(duration), wholeLabel: 'da duração', pctMin: 0.5, pctMax: 100, pctStep: 0.5, decimals: 0 })}
+            {percent(C.trainOff, { whole: positive(duration), wholeLabel: 'da duração', pctMin: 0, pctMax: 100, pctStep: 0.5, decimals: 0 })}
           </div>
         ) : null}
-        {settings && problems.length === 0 ? (
-          <>
-            <div className="card scope-card">
-              <PulseScope s={settings} />
-            </div>
-            <div className="card scope-card">
-              <EnvelopeScope s={settings} />
-            </div>
-          </>
-        ) : !settings ? (
-          <div className="card scope-card muted">Informe valores numéricos válidos para ver a onda.</div>
-        ) : null}
-      </section>
+        <div className="dial-grid">
+          {percent(C.rampUp, { whole: rampWhole, wholeLabel: values.trainsEnabled ? 'do tempo ligado' : 'da duração', pctMin: 0, pctMax: 50, pctStep: 0.5, decimals: 0 })}
+          {percent(C.rampDown, { whole: rampWhole, wholeLabel: values.trainsEnabled ? 'do tempo ligado' : 'da duração', pctMin: 0, pctMax: 50, pctStep: 0.5, decimals: 0 })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export interface StimulatorScopesProps {
+  values: FormValues;
+  errors: readonly FieldError[];
+  /** Opens the explanation of a clicked component in the right sidebar. */
+  onInspect?(topic: InspectorTopic): void;
+}
+
+/** A card of the centre column that opens its explanation when clicked (like a source-list item). */
+function InspectableCard({
+  label,
+  onInspect,
+  className = '',
+  children,
+}: {
+  label: string;
+  onInspect?: () => void;
+  className?: string;
+  children: ReactNode;
+}) {
+  if (!onInspect) return <div className={`card ${className}`}>{children}</div>;
+  return (
+    <div
+      className={`card card--inspectable ${className}`}
+      role="button"
+      tabIndex={0}
+      aria-label={`${label} — ver explicação`}
+      onClick={onInspect}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onInspect();
+        }
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** What the stimulator produces (centre column, step 1): the mode, the recruitment and the scopes. */
+export function StimulatorScopes({ values, errors, onInspect }: StimulatorScopesProps) {
+  const { settings, problems } = useStimulator(values, errors);
+  const inspect = (topic: InspectorTopic) => (onInspect ? () => onInspect(topic) : undefined);
+  const invasive = values.stimulationSite === 'MOTONEURON_POOL';
+  return (
+    <section className="stimulator-scopes" aria-label="Osciloscópio">
+      <InspectableCard label="Modo de aplicação" onInspect={inspect({ kind: 'mode' })} className="mode-card">
+        <span className="mode-card-eyebrow">Modo</span>
+        <strong className="mode-card-title">{invasive ? 'Invasivo · pool de motoneurônios' : 'Não invasivo · pele'}</strong>
+        <span className="mode-card-text">{invasive ? STIMULATION_SITE_HELP.MOTONEURON_POOL : STIMULATION_SITE_HELP.SKIN_SURFACE}</span>
+      </InspectableCard>
+      {problems.length > 0 ? (
+        <div className="banner banner--warn" role="status">
+          {problems.join(' ')}
+        </div>
+      ) : null}
+      {settings && problems.length === 0 ? (
+        <>
+          <InspectableCard label="Forma do pulso" onInspect={inspect({ kind: 'scope', scope: 'pulse' })} className="scope-card">
+            <PulseScope s={settings} />
+          </InspectableCard>
+          <InspectableCard label="Envelope e trens" onInspect={inspect({ kind: 'scope', scope: 'envelope' })} className="scope-card">
+            <EnvelopeScope s={settings} />
+          </InspectableCard>
+        </>
+      ) : !settings ? (
+        <div className="card scope-card muted">Informe valores numéricos válidos para ver a onda.</div>
+      ) : null}
+    </section>
+  );
+}
+
+/** Controls and scopes side by side (kept for standalone use and tests). */
+export function StimulatorView(props: StimulatorViewProps & { onInspect?(topic: InspectorTopic): void }) {
+  return (
+    <div className="stimulator">
+      <div className="card">
+        <StimulatorControls {...props} />
+      </div>
+      <StimulatorScopes values={props.values} errors={props.errors} {...(props.onInspect ? { onInspect: props.onInspect } : {})} />
     </div>
   );
 }

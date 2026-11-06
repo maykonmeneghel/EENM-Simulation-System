@@ -22,9 +22,17 @@ export const STAGES_BY_VARIANT: Record<ModelVariant, readonly StageId[]> = {
 };
 
 /** LITERATURE with the stimulus in the motoneuron pool uses the motoneuron compartments (2a), not the axon layer. */
-export function stagesFor(variant: ModelVariant, site: StimulationSite = 'SKIN_SURFACE'): readonly StageId[] {
+/** Stages of the current model: the motoneuron (2a) replaces the axon layer (2b) in the invasive mode, and joins it in
+ * the non-invasive mode with a central drive (the motoneurons fire from the drive, the stimulus fires the axons). */
+export function stagesFor(
+  variant: ModelVariant,
+  site: StimulationSite = 'SKIN_SURFACE',
+  centralDrive = false,
+): readonly StageId[] {
   const stages = STAGES_BY_VARIANT[variant];
-  return variant === 'LITERATURE' && site === 'MOTONEURON_POOL' ? stages.map((s) => (s === '2b' ? '2a' : s)) : stages;
+  if (variant !== 'LITERATURE') return stages;
+  if (site === 'MOTONEURON_POOL') return stages.map((s) => (s === '2b' ? '2a' : s));
+  return centralDrive ? stages.flatMap((s) => (s === '2b' ? (['2a', '2b'] as const) : [s])) : stages;
 }
 
 // ---- constants (model-equations.md) ----
