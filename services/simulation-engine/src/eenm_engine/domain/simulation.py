@@ -140,7 +140,10 @@ class IncrementalForce:
     def __init__(self, setup: MotorUnitSetup, config: SimulationConfig, total_samples: int) -> None:
         self._setup = setup
         self._total = total_samples
-        self._voltage = np.empty((total_samples, setup.motoneurons.n_units))
+        # Only the recent samples the force stages still read are kept (bounded memory for long runs): row 0 of
+        # ``_voltage`` is sample ``_offset``; samples older than ``_released - _keep`` are dropped.
+        self._voltage = np.empty((0, setup.motoneurons.n_units))
+        self._offset = 0
         self._known = 0
         self._released = 0
         self._aggregation = config.model.force_aggregation
@@ -160,6 +163,12 @@ class IncrementalForce:
             )
             for t in UNIT_TYPES
         }
+        self._keep = max(f.history for f in self._types.values()) + self.LOOKAHEAD + 4
+
+    @property
+    def buffered_samples(self) -> int:
+        """Samples held in memory (bounded by the force stages' history, not by the duration)."""
+        return int(self._voltage.shape[0])
 
     def add(self, samples: NDArray[np.float64]) -> ForceSeries | None:
         """Append ``(rows, units)`` samples — soma voltages, or axon spike trains with axon stimulation —
@@ -167,13 +176,17 @@ class IncrementalForce:
         rows = samples.shape[0]
         if self._known + rows > self._total:
             raise ValueError("more samples than the simulation duration")
-        self._voltage[self._known : self._known + rows] = samples
+        self._voltage = np.concatenate((self._voltage, samples), axis=0)
         self._known += rows
         final = self._total if self._known == self._total else self._final_sample()
         if final <= self._released:
             return None
         series = self._compute(self._released, final)
         self._released = final
+        drop = max(0, self._released - self._keep) - self._offset
+        if drop > 0:
+            self._voltage = self._voltage[drop:].copy()
+            self._offset += drop
         return series
 
     def capacity(self) -> dict[MotorUnitType, NDArray[np.float64]] | None:
@@ -209,13 +222,13 @@ class IncrementalForce:
     def _final_sample(self) -> int:
         final = self._known - self.LOOKAHEAD
         for t, columns in self._setup.column_slices().items():
-            final = min(final, self._types[t].unresolved_from(self._voltage[: self._known, columns]))
+            final = min(final, self._types[t].unresolved_from(self._voltage[:, columns], self._offset))
         return max(0, final)
 
     def _compute(self, start: int, stop: int) -> ForceSeries:
         force, emg = {}, np.zeros(stop - start)
         for t, columns in self._setup.column_slices().items():
-            signals = self._types[t].compute(self._voltage[: self._known, columns], start, stop)
+            signals = self._types[t].compute(self._voltage[:, columns], start, stop, self._offset)
             if self._aggregation is ForceAggregation.SUM:
                 force[t] = signals.summed_force() * self._weights[t]
             else:

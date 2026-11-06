@@ -18,7 +18,7 @@ from eenm_engine.application.events import (
     SimulationSummary,
 )
 from eenm_engine.application.ports import OdeSolver
-from eenm_engine.domain.axon_stimulation import axon_spikes
+from eenm_engine.domain.axon_stimulation import axon_spike_events, spikes_in
 from eenm_engine.domain.model_options import StimulationSite
 from eenm_engine.domain.motoneuron import MotoneuronPool
 from eenm_engine.domain.simulation import (
@@ -99,12 +99,13 @@ class RunSimulation:
     ) -> Iterator[ForceSeries]:
         """Axon stimulation: spikes follow from the stimulus directly, no ODE; still released block by block."""
         protocol = config.stimulus
-        spikes = axon_spikes(stimulus, protocol.step_ms, setup.axon_rheobase, config.model.axon_excitability).astype(
-            np.float64
+        index, fires = axon_spike_events(
+            stimulus, protocol.step_ms, setup.axon_rheobase, config.model.axon_excitability
         )
         block = max(1, round(self._block_ms / protocol.step_ms))
-        for start in range(0, spikes.shape[0], block):
-            released = force.add(spikes[start : start + block])
+        for start in range(0, stimulus.size, block):
+            # dense spike rows only for this block: memory does not grow with the duration
+            released = force.add(spikes_in(index, fires, start, min(start + block, stimulus.size)))
             if released is not None:
                 yield released
 

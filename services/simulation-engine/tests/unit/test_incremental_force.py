@@ -154,3 +154,61 @@ def test_a_zero_plateau_does_not_hold_back_release() -> None:
 
     assert _trailing_run_start(np.array([1.0, 0.0, 0.0, 0.0])) is None  # zero can never be a peak
     assert _trailing_run_start(np.array([1.0, 2.0, 3.0, 3.0])) == 2
+
+
+def test_long_axon_run_keeps_bounded_memory_and_equals_the_complete_computation() -> None:
+    """Thousands of samples beyond the kept history: the dropped samples must not change any force value.
+
+    Block (97 samples) and pulse period (37 Hz) are deliberately incommensurate: with aligned values (100 samples,
+    40 Hz) a too-short history went unnoticed because spikes never fell in the samples it dropped.
+    """
+    BLOCK = 97  # noqa: N806
+    from eenm_engine.domain.axon_stimulation import axon_spikes
+    from eenm_engine.domain.force_pipeline import type_signals
+    from eenm_engine.domain.model_options import LITERATURE_UNITS, ModelOptions
+    from eenm_engine.domain.motor_unit_pool import MUSCLE_PRESETS, Muscle, pool_twitch_range, proportional_units
+    from eenm_engine.domain.simulation import IncrementalForce, MotorUnitSetup, SimulationConfig
+    from eenm_engine.domain.stimulus import StimulusProtocol, Waveform, stimulus_series
+
+    options = ModelOptions.literature()
+    units = {t: max(1, n // 10) for t, n in proportional_units(Muscle.SOLEUS, LITERATURE_UNITS).items()}
+    protocol = StimulusProtocol(
+        duration_ms=600,
+        step_ms=0.05,
+        frequency_hz=37,
+        pulse_width_us=300,
+        amplitude=153,
+        waveform=Waveform.BIPHASIC_SYMMETRIC,
+        ramp_up_ms=200,
+    )
+    config = SimulationConfig(stimulus=protocol, model=options, units_per_type=units)
+    setup = MotorUnitSetup.from_config(config)
+    spikes = axon_spikes(stimulus_series(protocol), protocol.step_ms, setup.axon_rheobase, options.axon_excitability)
+    spikes = spikes.astype(np.float64)
+
+    force = IncrementalForce(setup, config, spikes.shape[0])
+    streamed, most_buffered = [], 0
+    for start in range(0, spikes.shape[0], BLOCK):
+        series = force.add(spikes[start : start + BLOCK])
+        most_buffered = max(most_buffered, force.buffered_samples)
+        if series is not None:
+            streamed.append(series.total_force)
+    total = np.concatenate(streamed)
+
+    pool = MUSCLE_PRESETS[Muscle.SOLEUS].pool_size
+    expected = np.zeros(spikes.shape[0])
+    for t, cols in setup.column_slices().items():
+        weight = pool[t] / setup.groups[t].size
+        sig = type_signals(
+            spikes[:, cols],
+            setup.groups[t],
+            setup.muap_shapes[t],
+            80.0,
+            protocol.step_ms,
+            options,
+            pool_twitch_range(Muscle.SOLEUS),
+        )
+        expected += sig.summed_force() * weight
+    assert total.shape == expected.shape
+    np.testing.assert_allclose(total, expected, rtol=1e-9, atol=1e-12)
+    assert most_buffered < spikes.shape[0] / 3  # 12 001 samples, history ≈ 600 + block
