@@ -11,6 +11,7 @@ from fastapi.responses import StreamingResponse
 
 from eenm_engine.application.run_simulation import RunSimulation
 from eenm_engine.domain.motor_unit_pool import MUSCLE_PRESETS
+from eenm_engine.infrastructure.compiled_motoneuron import CompiledPoolIntegrator
 from eenm_engine.infrastructure.scipy_solver import ScipyBdfSolver
 from eenm_engine.interfaces.http.schemas import (
     ConditionDto,
@@ -27,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 def create_app(run_simulation: RunSimulation | None = None) -> FastAPI:
     """Composition root. Tests inject a ``RunSimulation`` with a fake solver."""
-    use_case = run_simulation or RunSimulation(ScipyBdfSolver())
+    use_case = run_simulation or RunSimulation(ScipyBdfSolver(), pool_integrator=CompiledPoolIntegrator())
     app = FastAPI(title="EENM simulation engine", version="0.1.0")
 
     @app.get("/health")

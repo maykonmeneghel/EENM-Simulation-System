@@ -36,6 +36,16 @@ follows `Mathematical Model/`.
 4. **Empty unit type.** `mean` over zero units is `NaN` in MATLAB and would make the total force `NaN`;
    the port treats a type with no simulated units as contributing zero.
 
+5. **Compiled pool integrator (default since 2026-11-06).** The app integrates the motoneuron pool with a compiled
+   fixed-step scheme (`infrastructure/compiled_motoneuron.py`, Numba, parallel over units): gates and calcium by exact
+   exponential updates (Rush–Larsen), the two compartment voltages by backward Euler (2 × 2 solve), one substep per
+   0.01 ms sample while quiet and 20 while a unit is driven, above −50 mV or moving > 0.2 mV per sample. Against an
+   accurate BDF reference (rtol 1e-7) it is closer than the production BDF (rtol 1e-3): 6 vs 21 of 120 near-threshold
+   units with a different spike count (300 µs pulses into the soma, 200 ms), spike times within 0.01 ms; on `Main.m`
+   (1 s) it matches Octave with Vs rms 0.41 mV (BDF 0.76), spike times within 0.02 ms (BDF 0.06), mean force 0.15 %
+   (BDF 0.18 %). About 23× faster than BDF on the pool. The BDF solver stays the reference for the Octave comparison
+   and the validation scripts.
+
 ## Checked against the original code run in GNU Octave
 
 `services/simulation-engine/validation/octave/run.sh [duration_ms]` (needs Docker) runs `Mathematical Model/Main.m`
