@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormValues } from '../application/formModel';
-import { defaultFormValues } from '../application/formModel';
+import { defaultFormValues, toFormValues } from '../application/formModel';
+import { SavedSimulations } from '../application/savedSimulations';
+import { MemorySavedSimulationStore } from '../infrastructure/savedSimulationStore';
 import type { InspectorTopic } from '../application/inspectorTopics';
 import { changedStage } from '../application/physiologyStages';
 import { driveActive } from '../application/formModel';
@@ -10,7 +12,10 @@ import type { SimulationController } from '../application/simulationController';
 import type { StageId } from '../domain/modelEquations';
 import type { FieldError, ModelVariant, SimulationRequest, StimulationSite } from '../domain/simulation';
 import type { ApiClient } from '../infrastructure/apiClient';
+import { CompareSidebar } from './CompareSidebar';
+import { CompareView } from './CompareView';
 import { DiagramView } from './DiagramView';
+import { SaveRunCard } from './SaveRunCard';
 import type { StageFocus } from './EquationsView';
 import { EquationsView } from './EquationsView';
 import { FatiguePanel } from './FatiguePanel';
@@ -60,7 +65,21 @@ function SidebarIcon({ side }: { side: 'left' | 'right' }) {
   );
 }
 
-export function App({ api, controller }: { api: ApiClient; controller: SimulationController }) {
+export function App({
+  api,
+  controller,
+  saved: savedProp,
+}: {
+  api: ApiClient;
+  controller: SimulationController;
+  /** Saved simulations (IndexedDB in the browser); in memory when not given. */
+  saved?: SavedSimulations;
+}) {
+  const [fallbackSaved] = useState(() => new SavedSimulations(new MemorySavedSimulationStore()));
+  const saved = savedProp ?? fallbackSaved;
+  useEffect(() => {
+    void saved.load();
+  }, [saved]);
   const locale = useLocale();
   useEffect(() => {
     document.title = tr(APP_NAME);
@@ -134,6 +153,16 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
     [controller],
   );
   const stop = useCallback(() => controller.stop(), [controller]);
+  // a saved simulation's settings go back into the form, to run it again or change one thing
+  const openSaved = useCallback((request: SimulationRequest) => {
+    setValues(toFormValues(request));
+    setStep('stimulator');
+  }, []);
+  const muscleLabel = useCallback((id: string) => catalog.muscles.find((m) => m.id === id)?.label ?? id, [catalog.muscles]);
+  const conditionLabel = useCallback(
+    (id: string) => conditionCatalog.conditions.find((c) => c.id === id)?.label ?? id,
+    [conditionCatalog.conditions],
+  );
   const inspect = useCallback((topic: InspectorTopic) => setInspector({ open: true, topic }), []);
   const showHelp = useCallback<ShowHelp>((label, content) => inspect({ kind: 'help', label, content }), [inspect]);
   const inspectStage = useCallback((stage: StageId) => inspect({ kind: 'stage', stage }), [inspect]);
@@ -253,6 +282,9 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
             <h2>{current.label}</h2>
           </header>
           {catalog.error ? <div className="banner banner--warn">{catalog.error}</div> : null}
+          {step === 'compare' ? <CompareSidebar saved={saved} onOpen={openSaved} /> : null}
+          {/* kept mounted on the Compare step (hidden): ⌘↩ and the toolbar's Simular submit it */}
+          <div hidden={step === 'compare'}>
           <SimulationForm
             step={step}
             onGoToStep={setStep}
@@ -267,6 +299,7 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
             conditionsError={conditionCatalog.error}
             onClientErrors={onClientErrors}
           />
+          </div>
         </aside>
 
         <main className="content">
@@ -277,6 +310,8 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
               <EquationsView snapshot={snapshot} focus={focus} onInspect={inspect} />
             ) : step === 'simulation' ? (
               <DiagramView snapshot={snapshot} running={running} onSelectStage={inspectStage} />
+            ) : step === 'compare' ? (
+              <CompareView saved={saved} muscleLabel={muscleLabel} />
             ) : (
               <>
                 <div className="card status-card">
@@ -284,6 +319,13 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
                 </div>
                 <ErrorBanner error={state.error} />
                 <SummaryCard state={state} />
+                <SaveRunCard
+                  state={state}
+                  controller={controller}
+                  saved={saved}
+                  labels={{ muscle: muscleLabel, condition: conditionLabel }}
+                  onCompare={() => setStep('compare')}
+                />
                 <ZoomBar zoom={zoom} durationMs={state.run?.durationMs ?? state.request?.stimulus.durationMs ?? null} />
                 <LiveCharts state={state} buffer={controller.series} zoom={zoom} onInspect={inspect} />
                 <FatiguePanel state={state} fatigue={controller.fatigue} series={controller.series} zoom={zoom} onInspect={inspect} />

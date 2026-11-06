@@ -1,5 +1,5 @@
 /** Keyboard shortcuts: ⌘ on macOS, Ctrl elsewhere. */
-export type ShortcutAction = 'simulate' | 'stop' | 'view-1' | 'view-2' | 'view-3' | 'view-4';
+export type ShortcutAction = 'simulate' | 'stop' | 'view-1' | 'view-2' | 'view-3' | 'view-4' | 'view-5';
 
 export interface KeyLike {
   key: string;
@@ -30,6 +30,8 @@ export function matchShortcut(e: KeyLike, mac: boolean): ShortcutAction | null {
       return 'view-3';
     case '4':
       return 'view-4';
+    case '5':
+      return 'view-5';
     default:
       return null;
   }
@@ -37,6 +39,6 @@ export function matchShortcut(e: KeyLike, mac: boolean): ShortcutAction | null {
 
 /** Human label of a shortcut for tooltips (e.g. "⌘↩" or "Ctrl+Enter"). */
 export function shortcutLabel(action: ShortcutAction, mac: boolean): string {
-  const key = { simulate: mac ? '↩' : 'Enter', stop: '.', 'view-1': '1', 'view-2': '2', 'view-3': '3', 'view-4': '4' }[action];
+  const key = { simulate: mac ? '↩' : 'Enter', stop: '.', 'view-1': '1', 'view-2': '2', 'view-3': '3', 'view-4': '4', 'view-5': '5' }[action];
   return mac ? `⌘${key}` : `Ctrl+${key}`;
 }

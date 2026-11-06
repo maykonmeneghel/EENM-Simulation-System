@@ -239,10 +239,10 @@ describe('SimulationForm in English', () => {
 
   it('step labels and the step counter follow the language', () => {
     setLocale('en');
-    expect(STEPS.map((s) => s.label)).toEqual(['Stimulator', 'Physiology', 'Simulation', 'Results']);
-    expect(stepCounter(STEPS[1]!)).toBe('Step 2 of 4');
+    expect(STEPS.map((s) => s.label)).toEqual(['Stimulator', 'Physiology', 'Simulation', 'Results', 'Compare']);
+    expect(stepCounter(STEPS[1]!)).toBe('Step 2 of 5');
     setLocale('pt-BR');
     expect(STEPS[0]!.label).toBe('Estimulador');
-    expect(stepCounter(STEPS[1]!)).toBe('Etapa 2 de 4');
+    expect(stepCounter(STEPS[1]!)).toBe('Etapa 2 de 5');
   });
 });
