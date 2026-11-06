@@ -34,6 +34,74 @@ _PARAMS = (
 )  # fmt: skip
 
 
+@njit(cache=True, fastmath=False, inline="always")
+def _substeps(
+    vs: float,
+    snah: float,
+    sn: float,
+    scam: float,
+    scah: float,
+    sca: float,
+    vd: float,
+    dcas: float,
+    dca: float,
+    mnap: float,
+    hnap: float,
+    p: NDArray[np.float64],
+    a: float,
+    h: float,
+    n_sub: int,
+    i_s: float,
+    i_d: float,
+    temp: float,
+) -> tuple[float, float, float, float, float, float, float, float, float, float, float]:
+    """``n_sub`` steps of length ``h`` for one unit: gates and calcium exactly for frozen voltages (Rush–Larsen),
+    then both voltages by backward Euler for frozen gates (2 × 2 solve)."""
+    (vna, vk, vl, vca, vrest, gls, gld, cd, cs, gc, pp, kd, f, kca, alpha, sgna, sgk, sgca, camtau, cahtau, sgkca,
+     dcastau, taunap, naptau, perkca, dgkca, gnap, dgcas, alpha2, pernap) = p  # fmt: skip
+    e_na, e_k, e_l, e_ca = vna + vrest, vk + vrest, vl + vrest, vca + vrest
+    for _ in range(n_sub):
+        # gates: exact exponential update for the voltages at the start of the step (rates × temp)
+        tau = 30.0 / (math.exp((vs + 50.0) / 15.0) + math.exp(-(vs + 50.0) / 16.0)) / temp
+        snah += (1.0 / (1.0 + math.exp((vs + 55.0) / 7.0)) - snah) * (1.0 - math.exp(-h / tau))
+        tau = 7.0 / (math.exp((vs + 40.0) / 40.0) + math.exp(-(vs + 40.0) / 50.0)) / temp
+        sn += (1.0 / (1.0 + math.exp(-(vs + 28.0) / 12.0)) - sn) * (1.0 - math.exp(-h / tau))
+        scam += (1.0 / (1.0 + math.exp(-(vs + 30.0) / 5.0)) - scam) * (1.0 - math.exp(-h * temp / camtau))
+        scah += (1.0 / (1.0 + math.exp((vs + 45.0) / 5.0)) - scah) * (1.0 - math.exp(-h * temp / cahtau))
+        dcas += (1.0 / (1.0 + math.exp(-(vd + 39.0) / 7.0)) - dcas) * (1.0 - math.exp(-h * temp / dcastau))
+        mnap += (1.0 / (1.0 + math.exp(-(vd + 48.0) / 3.0)) - mnap) * (1.0 - math.exp(-h * temp / taunap))
+        hnap += (1.0 / (1.0 + math.exp((vd + 35.0) / 6.0)) - hnap) * (1.0 - math.exp(-h * temp / naptau))
+        # calcium: d[Ca]/dt = temp·(−f·α·I_Ca − f·kca·[Ca]), linear in [Ca] for a frozen I_Ca
+        i_ca_s = sgca * scam * scam * scah * (vs - e_ca)
+        i_ca_d = dgcas * dcas * (vd - e_ca)
+        decay = math.exp(-h * temp * f * kca)
+        sca = -alpha * i_ca_s / kca + (sca + alpha * i_ca_s / kca) * decay
+        dca = -alpha2 * i_ca_d / kca + (dca + alpha2 * i_ca_d / kca) * decay
+        # voltages: backward Euler with the conductances frozen (sodium activation at the start voltage)
+        m = 1.0 / (1.0 + math.exp(-(vs + 35.0) / 7.8))
+        g_na = sgna * m * m * m * snah
+        g_ca_s = sgca * scam * scam * scah
+        g_k = sgk * sn * sn * sn * sn
+        g_kca_s = perkca * sgkca * (sca**pp / (kd**pp + sca**pp))
+        g_s = g_na + g_ca_s + g_k + g_kca_s + gls
+        e_s = g_na * e_na + g_ca_s * e_ca + (g_k + g_kca_s) * e_k + gls * e_l
+        g_nap = pernap * gnap * mnap * hnap
+        g_kca_d = perkca * dgkca * (dca**pp / (kd**pp + dca**pp))
+        g_d = dgcas * dcas + g_nap + g_kca_d + gld
+        e_d = dgcas * dcas * e_ca + g_nap * e_na + g_kca_d * e_k + gld * e_l
+        c_s = gc / a
+        c_d = gc / (1.0 - a)
+        a11 = cs / h + g_s + c_s
+        a12 = -c_s
+        a21 = -c_d
+        a22 = cd / h + g_d + c_d
+        b1 = cs / h * vs + i_s + e_s
+        b2 = cd / h * vd + i_d + e_d
+        det = a11 * a22 - a12 * a21
+        vs, vd = (b1 * a22 - a12 * b2) / det, (a11 * b2 - a21 * b1) / det
+    return vs, snah, sn, scam, scah, sca, vd, dcas, dca, mnap, hnap
+
+
 @njit(cache=True, fastmath=False, parallel=True)
 def _integrate(
     s: NDArray[np.float64],
@@ -47,10 +115,11 @@ def _integrate(
     out: NDArray[np.float64],
     active_substeps: int,
     active_dv: float,
+    drive: NDArray[np.float64],
+    has_drive: bool,
 ) -> None:
-    (vna, vk, vl, vca, vrest, gls, gld, cd, cs, gc, pp, kd, f, kca, alpha, sgna, sgk, sgca, camtau, cahtau, sgkca,
-     dcastau, taunap, naptau, perkca, dgkca, gnap, dgcas, alpha2, pernap) = p  # fmt: skip
-    e_na, e_k, e_l, e_ca = vna + vrest, vk + vrest, vl + vrest, vca + vrest
+    """``current``: the stimulus (fine steps while it is non-zero); ``drive``: a slow per-unit current added to it
+    (central drive, ``has_drive``), which does not by itself call for fine steps."""
     n_units = s.shape[1]
     for k in prange(n_units):  # units are independent: one thread per unit
         a = area[k]
@@ -63,51 +132,137 @@ def _integrate(
             moving = abs(vs - previous) > active_dv
             previous = vs
             n_sub = active_substeps if (i_in != 0.0 or moving or vs > -50.0) else substeps
-            h = dt / n_sub
-            i_s = i_in if soma else 0.0
-            i_d = 0.0 if soma else i_in
-            for _ in range(n_sub):
-                # gates: exact exponential update for the voltages at the start of the step (rates × temp)
-                tau = 30.0 / (math.exp((vs + 50.0) / 15.0) + math.exp(-(vs + 50.0) / 16.0)) / temp
-                snah += (1.0 / (1.0 + math.exp((vs + 55.0) / 7.0)) - snah) * (1.0 - math.exp(-h / tau))
-                tau = 7.0 / (math.exp((vs + 40.0) / 40.0) + math.exp(-(vs + 40.0) / 50.0)) / temp
-                sn += (1.0 / (1.0 + math.exp(-(vs + 28.0) / 12.0)) - sn) * (1.0 - math.exp(-h / tau))
-                scam += (1.0 / (1.0 + math.exp(-(vs + 30.0) / 5.0)) - scam) * (1.0 - math.exp(-h * temp / camtau))
-                scah += (1.0 / (1.0 + math.exp((vs + 45.0) / 5.0)) - scah) * (1.0 - math.exp(-h * temp / cahtau))
-                dcas += (1.0 / (1.0 + math.exp(-(vd + 39.0) / 7.0)) - dcas) * (1.0 - math.exp(-h * temp / dcastau))
-                mnap += (1.0 / (1.0 + math.exp(-(vd + 48.0) / 3.0)) - mnap) * (1.0 - math.exp(-h * temp / taunap))
-                hnap += (1.0 / (1.0 + math.exp((vd + 35.0) / 6.0)) - hnap) * (1.0 - math.exp(-h * temp / naptau))
-                # calcium: d[Ca]/dt = temp·(−f·α·I_Ca − f·kca·[Ca]), linear in [Ca] for a frozen I_Ca
-                i_ca_s = sgca * scam * scam * scah * (vs - e_ca)
-                i_ca_d = dgcas * dcas * (vd - e_ca)
-                decay = math.exp(-h * temp * f * kca)
-                sca = -alpha * i_ca_s / kca + (sca + alpha * i_ca_s / kca) * decay
-                dca = -alpha2 * i_ca_d / kca + (dca + alpha2 * i_ca_d / kca) * decay
-                # voltages: backward Euler with the conductances frozen (sodium activation at the start voltage)
-                m = 1.0 / (1.0 + math.exp(-(vs + 35.0) / 7.8))
-                g_na = sgna * m * m * m * snah
-                g_ca_s = sgca * scam * scam * scah
-                g_k = sgk * sn * sn * sn * sn
-                g_kca_s = perkca * sgkca * (sca**pp / (kd**pp + sca**pp))
-                g_s = g_na + g_ca_s + g_k + g_kca_s + gls
-                e_s = g_na * e_na + g_ca_s * e_ca + (g_k + g_kca_s) * e_k + gls * e_l
-                g_nap = pernap * gnap * mnap * hnap
-                g_kca_d = perkca * dgkca * (dca**pp / (kd**pp + dca**pp))
-                g_d = dgcas * dcas + g_nap + g_kca_d + gld
-                e_d = dgcas * dcas * e_ca + g_nap * e_na + g_kca_d * e_k + gld * e_l
-                c_s = gc / a
-                c_d = gc / (1.0 - a)
-                a11 = cs / h + g_s + c_s
-                a12 = -c_s
-                a21 = -c_d
-                a22 = cd / h + g_d + c_d
-                b1 = cs / h * vs + i_s + e_s
-                b2 = cd / h * vd + i_d + e_d
-                det = a11 * a22 - a12 * a21
-                vs, vd = (b1 * a22 - a12 * b2) / det, (a11 * b2 - a21 * b1) / det
+            if has_drive:
+                i_in += drive[j, k]
+            vs, snah, sn, scam, scah, sca, vd, dcas, dca, mnap, hnap = _substeps(
+                vs, snah, sn, scam, scah, sca, vd, dcas, dca, mnap, hnap,
+                p, a, dt / n_sub, n_sub, i_in if soma else 0.0, 0.0 if soma else i_in, temp,
+            )  # fmt: skip
             out[j, k] = vs
         s[0, k], s[1, k], s[2, k], s[3, k], s[4, k], s[5, k] = vs, snah, sn, scam, scah, sca
         s[6, k], s[7, k], s[8, k], s[9, k], s[10, k] = vd, dcas, dca, mnap, hnap
+
+
+SPIKE_THRESHOLD_MV = -20.0
+"""A soma spike is an upward crossing of this voltage."""
+
+# merge state per unit (``MergeState.counters`` columns)
+CENTRAL, CENTRAL_TRANSMITTED, FES_TRANSMITTED, COLLISIONS, FES_BLOCKED, RESETS = range(6)
+
+
+@njit(cache=True, fastmath=False, parallel=True)
+def _integrate_merged(
+    s: NDArray[np.float64],
+    area: NDArray[np.float64],
+    drive: NDArray[np.float64],
+    recruit: NDArray[np.bool_],
+    p: NDArray[np.float64],
+    dt: float,
+    substeps: int,
+    temp: float,
+    active_substeps: int,
+    active_dv: float,
+    to_electrode: NDArray[np.int64],
+    refractory: int,
+    reset_density: float,
+    reset_samples: int,
+    ignore_samples: int,
+    base: int,
+    inflight: NDArray[np.int64],
+    n_inflight: NDArray[np.int64],
+    antidromic: NDArray[np.int64],
+    n_antidromic: NDArray[np.int64],
+    unit_state: NDArray[np.int64],
+    previous_vs: NDArray[np.float64],
+    counters: NDArray[np.int64],
+    spikes: NDArray[np.float64],
+) -> None:
+    """Central drive into the soma, FES at the electrode, both on the same motor axon (design §3.3, after Formento
+    et al. 2018). ``spikes[j, k] = 1`` when a spike leaves the electrode towards the muscle at sample ``base + j``.
+
+    Per unit, in time order: (1) a central spike reaching the electrode passes on; (2) an FES pulse that recruits the
+    axon fires it unless the electrode is refractory; its antidromic spike annihilates the central spike nearest the
+    electrode, or else travels to the soma; (3) the soma integrates the drive (plus a brief reset current when an
+    antidromic spike arrives); (4) a new soma spike meets a pending antidromic spike (both lost) or starts down the
+    axon; a soma spike caused by an antidromic arrival is not sent (the axon behind it is refractory); (5) a fibre
+    cannot follow two spikes within ``refractory`` samples. ``unit_state`` columns: last pass, reset samples left,
+    ignore-until.
+    """
+    n_units = s.shape[1]
+    cap = inflight.shape[1]
+    for k in prange(n_units):
+        a = area[k]
+        vs, snah, sn, scam, scah, sca = s[0, k], s[1, k], s[2, k], s[3, k], s[4, k], s[5, k]
+        vd, dcas, dca, mnap, hnap = s[6, k], s[7, k], s[8, k], s[9, k], s[10, k]
+        previous = previous_vs[k]
+        last_pass, reset_left, ignore_until = unit_state[k, 0], unit_state[k, 1], unit_state[k, 2]
+        for j in range(drive.shape[0]):
+            n = base + j
+            # (1) central spikes reaching the electrode
+            while n_inflight[k] > 0 and inflight[k, 0] + to_electrode[k] <= n:
+                for q in range(n_inflight[k] - 1):
+                    inflight[k, q] = inflight[k, q + 1]
+                n_inflight[k] -= 1
+                if n - last_pass >= refractory:
+                    spikes[j, k] = 1.0
+                    last_pass = n
+                    counters[k, CENTRAL_TRANSMITTED] += 1
+            # (2) FES pulse
+            if recruit[j, k]:
+                if n - last_pass < refractory:
+                    counters[k, FES_BLOCKED] += 1
+                else:
+                    spikes[j, k] = 1.0
+                    last_pass = n
+                    counters[k, FES_TRANSMITTED] += 1
+                    if n_inflight[k] > 0:  # meets the central spike nearest the electrode (the oldest)
+                        for q in range(n_inflight[k] - 1):
+                            inflight[k, q] = inflight[k, q + 1]
+                        n_inflight[k] -= 1
+                        counters[k, COLLISIONS] += 1
+                    elif n_antidromic[k] < cap:
+                        antidromic[k, n_antidromic[k]] = n + to_electrode[k]
+                        n_antidromic[k] += 1
+            # (3) soma
+            i_in = drive[j, k]
+            resetting = reset_left > 0
+            if resetting:
+                i_in += reset_density
+                reset_left -= 1
+            moving = abs(vs - previous) > active_dv
+            previous = vs
+            n_sub = active_substeps if (resetting or moving or vs > -50.0) else substeps
+            v_before = vs
+            vs, snah, sn, scam, scah, sca, vd, dcas, dca, mnap, hnap = _substeps(
+                vs, snah, sn, scam, scah, sca, vd, dcas, dca, mnap, hnap,
+                p, a, dt / n_sub, n_sub, i_in, 0.0, temp,
+            )  # fmt: skip
+            # (4) a new soma spike
+            if v_before < SPIKE_THRESHOLD_MV <= vs:
+                if n < ignore_until:
+                    pass  # caused by an antidromic arrival: blocked in the refractory axon
+                else:
+                    counters[k, CENTRAL] += 1
+                    if n_antidromic[k] > 0:  # meets the antidromic spike nearest the soma (the oldest)
+                        for q in range(n_antidromic[k] - 1):
+                            antidromic[k, q] = antidromic[k, q + 1]
+                        n_antidromic[k] -= 1
+                        counters[k, COLLISIONS] += 1
+                    elif n_inflight[k] < cap:
+                        inflight[k, n_inflight[k]] = n
+                        n_inflight[k] += 1
+            # antidromic spikes reaching the soma reset it
+            while n_antidromic[k] > 0 and antidromic[k, 0] <= n:
+                for q in range(n_antidromic[k] - 1):
+                    antidromic[k, q] = antidromic[k, q + 1]
+                n_antidromic[k] -= 1
+                reset_left = reset_samples
+                ignore_until = n + ignore_samples
+                counters[k, RESETS] += 1
+        s[0, k], s[1, k], s[2, k], s[3, k], s[4, k], s[5, k] = vs, snah, sn, scam, scah, sca
+        s[6, k], s[7, k], s[8, k], s[9, k], s[10, k] = vd, dcas, dca, mnap, hnap
+        previous_vs[k] = previous
+        unit_state[k, 0], unit_state[k, 1], unit_state[k, 2] = last_pass, reset_left, ignore_until
 
 
 class CompiledPoolIntegration:
@@ -126,15 +281,16 @@ class CompiledPoolIntegration:
         self._active_dv = active_dv
         self._temp = 3 ** ((pool.temperature_c - REFERENCE_TEMPERATURE_C) / 10)
         self._soma = pool.injection_site is InjectionSite.SOMA
+        self._merge: AxonMerge | None = None
 
     @property
     def soma_voltage(self) -> NDArray[np.float64]:
         voltage: NDArray[np.float64] = self._state[VS].copy()
         return voltage
 
-    def advance(self, current: NDArray[np.float64]) -> NDArray[np.float64]:
-        """Integrate one sample interval per row of ``current`` (``(rows,)`` shared, or ``(rows, units)``);
-        return the soma voltage at the end of each interval, ``(rows, units)``."""
+    def advance(self, current: NDArray[np.float64], drive: NDArray[np.float64] | None = None) -> NDArray[np.float64]:
+        """Integrate one sample interval per row of ``current`` (``(rows,)`` shared, or ``(rows, units)``), plus the
+        per-unit ``drive`` ``(rows, units)`` if given; return the soma voltage at the end of each interval."""
         n_units = self._area.size
         per_unit = current if current.ndim == 2 else np.repeat(current[:, None], n_units, axis=1)
         out = np.empty((per_unit.shape[0], n_units))
@@ -150,8 +306,84 @@ class CompiledPoolIntegration:
             out,
             self._active_substeps,
             self._active_dv,
+            np.ascontiguousarray(drive, dtype=np.float64) if drive is not None else np.zeros((1, 1)),
+            drive is not None,
         )
         return out
+
+    def enable_merge(self, soma_to_muscle_samples: NDArray[np.int64], electrode_fraction: float) -> None:
+        self._merge = AxonMerge(
+            np.asarray(soma_to_muscle_samples, dtype=np.int64), self._step, electrode_fraction, self._state[VS]
+        )
+
+    def axon_events(self) -> dict[str, int]:
+        return self._merge.totals() if self._merge is not None else {}
+
+    def advance_merged(self, drive: NDArray[np.float64], recruit: NDArray[np.bool_]) -> NDArray[np.float64]:
+        """Drive into the soma and FES at the electrode on the same axons (``_integrate_merged``): the spikes that
+        leave the electrode towards the muscle, ``(rows, units)`` (1 = spike). ``recruit[j, k]``: the FES pulse ending
+        at that sample fires the axon of unit ``k`` (``axon_stimulation``). Samples are numbered from 1 on the first
+        call (sample 0 is the initial state)."""
+        merge = self._merge
+        if merge is None:
+            raise ValueError("call enable_merge first")
+        rows = drive.shape[0]
+        spikes = np.zeros((rows, self._area.size))
+        _integrate_merged(
+            self._state, self._area, np.ascontiguousarray(drive, dtype=np.float64),
+            np.ascontiguousarray(recruit, dtype=np.bool_), self._params, self._step, self._substeps, self._temp,
+            self._active_substeps, self._active_dv, merge.to_electrode, merge.refractory, merge.reset_density,
+            merge.reset_samples, merge.ignore_samples, merge.next_sample, merge.inflight, merge.n_inflight,
+            merge.antidromic, merge.n_antidromic, merge.unit_state, merge.previous_vs, merge.counters, spikes,
+        )  # fmt: skip
+        merge.next_sample += rows
+        return spikes
+
+
+class AxonMerge:
+    """State of the axon merge between calls, and its parameters (design §3.3).
+
+    ``to_electrode``: soma → electrode conduction time per unit, in samples (``electrode_fraction`` of the soma →
+    muscle delay; Decision 4: 0.9). ``refractory``: 1.6 ms (Formento et al. 2018). The antidromic reset is a
+    0.3 ms soma current of ``reset_density`` µA/cm², enough to fire every unit, whose spike is not sent.
+    """
+
+    REFRACTORY_MS = 1.6
+    RESET_DENSITY = 400.0
+    RESET_MS = 0.3
+    IGNORE_MS = 3.0
+    CAPACITY = 64
+
+    def __init__(self, soma_to_muscle_samples: NDArray[np.int64], step_ms: float, electrode_fraction: float = 0.9,
+                 initial_vs: NDArray[np.float64] | None = None) -> None:  # fmt: skip
+        if not 0 < electrode_fraction <= 1:
+            raise ValueError("electrode_fraction must be in (0, 1]")
+        n = soma_to_muscle_samples.size
+        self.to_electrode = np.floor(soma_to_muscle_samples * electrode_fraction + 0.5).astype(np.int64)
+        self.refractory = max(1, round(self.REFRACTORY_MS / step_ms))
+        self.reset_density = self.RESET_DENSITY
+        self.reset_samples = max(1, round(self.RESET_MS / step_ms))
+        self.ignore_samples = max(1, round(self.IGNORE_MS / step_ms))
+        self.next_sample = 1
+        self.inflight = np.zeros((n, self.CAPACITY), dtype=np.int64)
+        self.n_inflight = np.zeros(n, dtype=np.int64)
+        self.antidromic = np.zeros((n, self.CAPACITY), dtype=np.int64)
+        self.n_antidromic = np.zeros(n, dtype=np.int64)
+        self.unit_state = np.zeros((n, 3), dtype=np.int64)
+        self.unit_state[:, 0] = -(10**9)  # no spike has passed the electrode yet
+        self.previous_vs = np.full(n, -1000.0) if initial_vs is None else initial_vs.astype(np.float64).copy()
+        self.counters = np.zeros((n, 6), dtype=np.int64)
+
+    def totals(self) -> dict[str, int]:
+        c = self.counters.sum(axis=0)
+        return {
+            "central": int(c[CENTRAL]),
+            "centralTransmitted": int(c[CENTRAL_TRANSMITTED]),
+            "fesTransmitted": int(c[FES_TRANSMITTED]),
+            "collisions": int(c[COLLISIONS]),
+            "fesBlocked": int(c[FES_BLOCKED]),
+            "resets": int(c[RESETS]),
+        }
 
 
 class CompiledPoolIntegrator:

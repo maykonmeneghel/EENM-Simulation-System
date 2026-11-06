@@ -44,9 +44,22 @@ class OdeSolver(Protocol):
 class PoolIntegration(Protocol):
     """One ongoing integration of a motoneuron pool, one sample interval per call row."""
 
-    def advance(self, current: NDArray[np.float64]) -> NDArray[np.float64]:
+    def advance(self, current: NDArray[np.float64], drive: NDArray[np.float64] | None = None) -> NDArray[np.float64]:
         """Integrate one sample interval per row of ``current`` (``(rows,)`` shared by every unit, or
-        ``(rows, units)``) and return the soma voltage at the end of each interval, ``(rows, units)``."""
+        ``(rows, units)``), plus an optional per-unit ``drive`` ``(rows, units)``, and return the soma voltage at the
+        end of each interval, ``(rows, units)``."""
+        ...
+
+    def enable_merge(self, soma_to_muscle_samples: NDArray[np.int64], electrode_fraction: float) -> None:
+        """Non-invasive mode: from now on ``advance_merged`` merges FES and central spikes on the axons."""
+        ...
+
+    def advance_merged(self, drive: NDArray[np.float64], recruit: NDArray[np.bool_]) -> NDArray[np.float64]:
+        """Drive into the somas, FES firing the axons where ``recruit``; the spikes sent to the muscle."""
+        ...
+
+    def axon_events(self) -> dict[str, int]:
+        """Cumulative counts of the merge: central spikes, transmitted, collisions, blocked FES, resets."""
         ...
 
 

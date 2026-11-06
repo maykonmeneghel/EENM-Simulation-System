@@ -1,6 +1,7 @@
 package com.meneghel.eenm.simulationapi.web.simulation;
 
 import com.meneghel.eenm.simulationapi.domain.event.ForceSeries;
+import com.meneghel.eenm.simulationapi.domain.event.AxonEvents;
 import com.meneghel.eenm.simulationapi.domain.event.FatigueSnapshot;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationChunk;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationCompleted;
@@ -22,7 +23,8 @@ final class SimulationEventSseMapper {
                     started.simulationId(), started.durationMs(), started.outputStepMs(),
                     MotorUnitCountsPayload.from(started.motorUnits()), started.muscle(), started.maxForce());
             case SimulationChunk chunk -> new SimulationEventPayloads.Chunk(chunk.type(), chunk.progress(),
-                    chunk.timeMs(), chunk.stimulus(), toPayload(chunk.force()), chunk.emg(), toPayload(chunk.fatigue()));
+                    chunk.timeMs(), chunk.stimulus(), toPayload(chunk.force()), chunk.emg(), toPayload(chunk.fatigue()),
+                    toPayload(chunk.axonEvents()));
             case SimulationCompleted completed -> new SimulationEventPayloads.Completed(completed.type(),
                     completed.elapsedSeconds(), new SimulationEventPayloads.Summary(completed.summary().peakForce(),
                             completed.summary().meanForce(), completed.summary().timeToPeakMs()));
@@ -34,6 +36,11 @@ final class SimulationEventSseMapper {
     private SimulationEventPayloads.Force toPayload(ForceSeries force) {
         return new SimulationEventPayloads.Force(force.total(), force.slow(), force.fastResistant(),
                 force.fastFatigable());
+    }
+
+    private static SimulationEventPayloads.AxonEvents toPayload(AxonEvents e) {
+        return e == null ? null : new SimulationEventPayloads.AxonEvents(e.central(), e.centralTransmitted(),
+                e.fesTransmitted(), e.collisions(), e.fesBlocked(), e.resets());
     }
 
     private static SimulationEventPayloads.Fatigue toPayload(FatigueSnapshot fatigue) {

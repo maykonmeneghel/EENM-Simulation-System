@@ -25,7 +25,11 @@ export type ReferenceId =
   | 'zoughaib2026'
   | 'macefield1996'
   | 'potvinFuglevand2017'
-  | 'changShields2011';
+  | 'changShields2011'
+  | 'gallego2015'
+  | 'dideriksen2017'
+  | 'agapaki2018'
+  | 'formento2018';
 
 export const REFERENCES: Record<ReferenceId, Reference> = {
   booth1997: {
@@ -131,6 +135,41 @@ export const REFERENCES: Record<ReferenceId, Reference> = {
     title: 'Doublet electrical stimulation enhances torque production in people with spinal cord injury',
     venue: 'Neurorehabil Neural Repair 25:423–432',
     doi: '10.1177/1545968310390224',
+  },
+  gallego2015: {
+    id: 'gallego2015',
+    authors: 'Gallego JA, Dideriksen JL, Holobar A, et al.',
+    year: 2015,
+    title:
+      'The Phase Difference Between Neural Drives to Antagonist Muscles in Essential Tremor Is Associated with the Relative Strength of Supraspinal and Afferent Input',
+    venue: 'J Neurosci 35:8925–8937',
+    doi: '10.1523/JNEUROSCI.0106-15.2015',
+  },
+  dideriksen2017: {
+    id: 'dideriksen2017',
+    authors: 'Dideriksen JL, Laine CM, Dosen S, et al.',
+    year: 2017,
+    title: 'Electrical Stimulation of Afferent Pathways for the Suppression of Pathological Tremor',
+    venue: 'Front Neurosci 11:178',
+    doi: '10.3389/fnins.2017.00178',
+  },
+  agapaki2018: {
+    id: 'agapaki2018',
+    authors: 'Agapaki OM, Christakos CN, Anastasopoulos D',
+    year: 2018,
+    title:
+      'Characteristics of Rest and Postural Tremors in Parkinson’s Disease: An Analysis of Motor Unit Firing Synchrony and Patterns',
+    venue: 'Front Hum Neurosci 12:179',
+    doi: '10.3389/fnhum.2018.00179',
+  },
+  formento2018: {
+    id: 'formento2018',
+    authors: 'Formento E, Minassian K, Wagner F, et al.',
+    year: 2018,
+    title:
+      'Electrical spinal cord stimulation must preserve proprioception to enable locomotion in humans with spinal cord injury',
+    venue: 'Nat Neurosci 21:1728–1741',
+    doi: '10.1038/s41593-018-0262-6',
   },
 };
 

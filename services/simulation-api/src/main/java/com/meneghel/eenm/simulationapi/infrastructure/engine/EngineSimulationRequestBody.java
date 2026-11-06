@@ -23,7 +23,8 @@ record EngineSimulationRequestBody(
         String somaGeometry,
         String dendriteGeometry,
         long seed,
-        double outputStepMs) {
+        double outputStepMs,
+        @JsonInclude(JsonInclude.Include.NON_NULL) CentralDrive centralDrive) {
 
     record Stimulus(
             double durationMs,
@@ -41,6 +42,16 @@ record EngineSimulationRequestBody(
     }
 
     record Modulation(String target, String shape, Double peakTimeMs) {
+    }
+
+    /** Unset fields are left out, so the engine applies its defaults. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    record CentralDrive(Boolean enabled, Double backgroundNa, Double voluntaryNa, Double noiseCv, String currentScale,
+            Tremor tremor, Double electrodeFraction) {
+    }
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    record Tremor(Double frequencyHz, Double amplitudeNa) {
     }
 
     record UnitCounts(

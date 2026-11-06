@@ -1,4 +1,4 @@
-import type { SimulationRequest } from '../domain/simulation';
+import type { AxonEvents, SimulationRequest } from '../domain/simulation';
 import type { ApiClient } from '../infrastructure/apiClient';
 import { ApiHttpError, StreamProtocolError } from '../infrastructure/apiClient';
 import { FatigueBuffer } from './fatigue';
@@ -15,6 +15,8 @@ type Listener = () => void;
 export class SimulationController {
   readonly series = new SeriesBuffer();
   readonly fatigue = new FatigueBuffer();
+  /** Latest axon-merge counts of the run (non-invasive mode with a central drive), else null. */
+  axonEvents: AxonEvents | null = null;
   private state: SessionState = initialSessionState;
   private listeners = new Set<Listener>();
   private abortController: AbortController | null = null;
@@ -45,6 +47,7 @@ export class SimulationController {
     this.abortController = abort;
     this.series.reset(estimateSamples(request));
     this.fatigue.reset();
+    this.axonEvents = null;
     this.dispatch({ type: 'start', request });
 
     try {
@@ -58,6 +61,7 @@ export class SimulationController {
           case 'chunk': {
             const samples = this.series.append(event);
             this.fatigue.append(event);
+            this.axonEvents = event.axonEvents ?? null;
             this.dispatch({ type: 'chunk', progress: event.progress, samples });
             break;
           }

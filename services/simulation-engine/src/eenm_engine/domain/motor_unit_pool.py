@@ -164,6 +164,8 @@ class MotorUnitGroup:
     twitch_time_to_peak_ms: NDArray[np.float64]
     pool_rank: NDArray[np.int64] | None = None
     """Rank of each unit by twitch amplitude in the whole muscle pool (S first, then FR, then FF)."""
+    soma_area_cm2: NDArray[np.float64] | None = None
+    """Absolute soma area, to turn a current in nA into the model's current density (µA/cm²)."""
 
     @property
     def size(self) -> int:
@@ -276,6 +278,7 @@ def build_group(
         twitch_peak=spread(r.twitch_peak),
         twitch_time_to_peak_ms=spread(r.twitch_time_to_peak_ms),
         pool_rank=_type_offset(muscle, unit_type) + chosen,
+        soma_area_cm2=soma_area,
     )
 
 

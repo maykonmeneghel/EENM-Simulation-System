@@ -4,6 +4,7 @@ import static com.meneghel.eenm.simulationapi.support.Drafts.variant;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.meneghel.eenm.simulationapi.domain.simulation.CalibrationTarget;
+import com.meneghel.eenm.simulationapi.domain.simulation.CentralDrive;
 import com.meneghel.eenm.simulationapi.domain.simulation.StimulationSite;
 import com.meneghel.eenm.simulationapi.domain.simulation.Condition;
 import com.meneghel.eenm.simulationapi.domain.simulation.CompartmentGeometry;
@@ -40,7 +41,7 @@ class SimulationDefaultsTest {
                 new MotorUnitCounts(5, 2, 2),
                 80, 6.3,
                 InjectionSite.SOMA, CompartmentGeometry.CYLINDRICAL, CompartmentGeometry.CYLINDRICAL,
-                0, 0.1);
+                0, 0.1, null);
 
         assertThat(defaults.resolve(null)).isEqualTo(expected);
         assertThat(defaults.resolve(SimulationDraft.empty())).isEqualTo(expected);
@@ -81,7 +82,8 @@ class SimulationDefaultsTest {
                 List.of("SCI_FAST_TWITCH"),
                 Muscle.TIBIALIS_ANTERIOR,
                 new MotorUnitCountsDraft(null, 7, null),
-                null, 37.0, InjectionSite.DENDRITE, null, CompartmentGeometry.SPHERICAL, 42L, null);
+                null, 37.0, InjectionSite.DENDRITE, null, CompartmentGeometry.SPHERICAL, 42L, null,
+                new CentralDrive(true, null, 5.0, null, null, null, null));
 
         SimulationRequest request = defaults.resolve(draft);
 

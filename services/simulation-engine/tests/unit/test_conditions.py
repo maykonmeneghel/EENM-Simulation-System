@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -55,7 +56,6 @@ def test_force_adjustments_multiply_and_chronaxie_changes_only_tau() -> None:
     ("condition", "ids"),
     [
         (Condition.PARKINSON, ("SCI_ATROPHY",)),  # belongs to another condition
-        (Condition.PARKINSON, ("PD_TREMOR",)),  # needs the central layer
         (Condition.SCI_CHRONIC, ("NOPE",)),
     ],
 )
@@ -91,4 +91,15 @@ def test_catalog_lists_every_condition_and_adjustment_with_its_source() -> None:
     for a in listed.values():
         assert a["source"]["doi"] or a["source"]["pmid"]
         assert a["evidence"] in {"FULL_TEXT", "ABSTRACT"} and a["measuredIn"]
-    assert listed["PD_TREMOR"]["available"] is False
+    assert listed["PD_TREMOR"]["available"] is True and listed["PD_TREMOR"]["default"] is False
+
+
+def test_parkinson_tremor_adds_a_resting_drive_with_the_oscillator() -> None:
+    from eenm_engine.domain.central_drive import CentralDrive, Tremor
+
+    options = apply_condition(LIT, Condition.PARKINSON, ("PD_TREMOR",))
+    assert options.central_drive == CentralDrive(tremor=Tremor())
+    voluntary = apply_condition(
+        replace(LIT, central_drive=CentralDrive(voluntary_na=5.0)), Condition.PARKINSON, ("PD_TREMOR",)
+    )
+    assert voluntary.central_drive == CentralDrive(voluntary_na=5.0, tremor=Tremor())

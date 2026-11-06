@@ -7,6 +7,8 @@ import com.meneghel.eenm.simulationapi.application.port.EngineRejectedRequestExc
 import com.meneghel.eenm.simulationapi.application.port.EngineUnavailableException;
 import com.meneghel.eenm.simulationapi.application.simulation.FieldViolation;
 import com.meneghel.eenm.simulationapi.application.simulation.SimulationDefaults;
+import com.meneghel.eenm.simulationapi.domain.simulation.CentralDrive;
+import com.meneghel.eenm.simulationapi.application.simulation.SimulationDraft;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationStarted;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModelVariant;
 import com.meneghel.eenm.simulationapi.domain.simulation.SimulationRequest;
@@ -84,6 +86,7 @@ class WebClientSimulationEngineTest {
         assertThat(body.path("unitsPerType").path("FR").intValue()).isEqualTo(2);
         assertThat(body.path("somaGeometry").stringValue()).isEqualTo("CYLINDRICAL");
         assertThat(body.path("outputStepMs").doubleValue()).isEqualTo(0.1);
+        assertThat(body.has("centralDrive")).as("none unless asked").isFalse();
     }
 
     @Test
@@ -100,6 +103,28 @@ class WebClientSimulationEngineTest {
         assertThat(body.path("stimulus").path("durationMs").doubleValue()).isEqualTo(60000);
         assertThat(body.path("stimulus").path("trainOnMs").doubleValue()).isEqualTo(330);
         assertThat(body.path("stimulus").path("trainPeriodMs").doubleValue()).isEqualTo(1000);
+    }
+
+    @Test
+    void relaysTheCentralDriveLeavingUnsetFieldsToTheEngine() throws InterruptedException {
+        server.enqueue(ndjson(lines(SampleEvents.startedLine(), SampleEvents.completedLine())));
+        SimulationDraft base = Drafts.draft(null, ModelVariant.LITERATURE, null, null);
+        SimulationDraft withDrive = new SimulationDraft(base.stimulus(), base.modelVariant(), null, null, null, null,
+                null, null, null, null, null, null, null, null, null,
+                new CentralDrive(true, null, 5.0, null, CentralDrive.CurrentScale.RHEOBASE,
+                        new CentralDrive.Tremor(5.9, null), null));
+
+        StepVerifier.create(engine.stream(new SimulationDefaults().resolve(withDrive)))
+                .expectNextCount(2).expectComplete().verify(TIMEOUT);
+
+        JsonNode drive = jsonMapper.readTree(server.takeRequest(1, TimeUnit.SECONDS).getBody().utf8())
+                .path("centralDrive");
+        assertThat(drive.path("enabled").booleanValue()).isTrue();
+        assertThat(drive.path("voluntaryNa").doubleValue()).isEqualTo(5.0);
+        assertThat(drive.path("currentScale").stringValue()).isEqualTo("RHEOBASE");
+        assertThat(drive.path("tremor").path("frequencyHz").doubleValue()).isEqualTo(5.9);
+        assertThat(drive.has("backgroundNa")).as("engine default").isFalse();
+        assertThat(drive.path("tremor").has("amplitudeNa")).as("engine default").isFalse();
     }
 
     @Test

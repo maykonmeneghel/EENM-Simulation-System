@@ -9,8 +9,9 @@ public record SimulationChunk(
         List<Double> stimulus,
         ForceSeries force,
         List<Double> emg,
-        FatigueSnapshot fatigue) implements SimulationEvent {
-    // fatigue: null when the model has no fatigue (ORIGINAL)
+        FatigueSnapshot fatigue,
+        AxonEvents axonEvents) implements SimulationEvent {
+    // fatigue: null when the model has no fatigue (ORIGINAL); axonEvents: null outside the axon merge
 
     public static final String TYPE = "chunk";
 
@@ -19,6 +20,11 @@ public record SimulationChunk(
         stimulus = List.copyOf(stimulus);
         Objects.requireNonNull(force, "force");
         emg = List.copyOf(emg);
+    }
+
+    public SimulationChunk(double progress, List<Double> timeMs, List<Double> stimulus, ForceSeries force,
+            List<Double> emg, FatigueSnapshot fatigue) {
+        this(progress, timeMs, stimulus, force, emg, fatigue, null);
     }
 
     @Override

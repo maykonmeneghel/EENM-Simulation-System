@@ -67,7 +67,7 @@ Same body on the public API and on the engine. Defaults reproduce `Mathematical 
 | `stimulationSite` | enum | `SKIN_SURFACE` | `SKIN_SURFACE`, `MOTONEURON_POOL` | — (new, see below; LITERATURE only) |
 | `condition` | enum | `NORMAL` | `NORMAL`, `PARKINSON`, `SCI_CHRONIC` | — (new, see below; LITERATURE only) |
 | `conditionAdjustments` | string[] \| null | null (= the condition's defaults) | ids of that condition's available adjustments (`GET /api/v1/conditions`); `[]` = none | — (new) |
-| `muscle` | enum | `SOLEUS` | `SOLEUS`, `GASTROCNEMIUS_MEDIAL`, `GASTROCNEMIUS_LATERAL`, `TIBIALIS_ANTERIOR` | `createUMs` `muscleWork` |
+| `muscle` | enum | `SOLEUS` | `SOLEUS`, `GASTROCNEMIUS_MEDIAL`, `GASTROCNEMIUS_LATERAL`, `TIBIALIS_ANTERIOR`, `FLEXOR_CARPI_RADIALIS`, `EXTENSOR_CARPI_RADIALIS` | `createUMs` `muscleWork` |
 | `unitsPerType.S/FR/FF` | int | 5 / 2 / 2 (`ORIGINAL`); 120 units in the pool's proportions (`LITERATURE`, soleus 106 / 7 / 7) | 0 – 200 each, sum ≥ 1, each ≤ the muscle's pool size | `demangeMNs` |
 | `axonLengthPercent` | number | 80 | 1 – 100 | `compAxonal` / `compAxonioMotor` |
 | `temperatureCelsius` | number | 6.3 | 0 – 45 | `temperature` |
@@ -75,6 +75,30 @@ Same body on the public API and on the engine. Defaults reproduce `Mathematical 
 | `somaGeometry`, `dendriteGeometry` | enum | `CYLINDRICAL` | `CYLINDRICAL`, `SPHERICAL` | `'Cilindric'`, `'Espheric'` |
 | `seed` | int | 0 | ≥ 0 | replaces `randi` (MUAP shape choice) |
 | `outputStepMs` | number | 0.1 | ≥ `stepMs`, multiple of it, ≤ 10 | downsampling of the streamed series |
+| `centralDrive` | object | absent (no drive) | see below; `LITERATURE` only | — (central layer, phase 2) |
+
+`centralDrive` — descending drive into the motoneurons (`domain/central_drive.py`, design §3.1). The drive is applied
+when `enabled` is true **or** the condition is `PARKINSON` with the `PD_TREMOR` adjustment; the tremor oscillator is
+added only in the second case.
+
+```json
+"centralDrive": { "enabled": true, "backgroundNa": 3.5, "voluntaryNa": 0, "noiseCv": 0.2,
+                  "currentScale": "PUBLISHED", "tremor": { "frequencyHz": 4.4, "amplitudeNa": 3.0 },
+                  "electrodeFraction": 0.9 }
+```
+
+| Field | Default | Range | Meaning |
+|---|---|---|---|
+| `backgroundNa`, `voluntaryNa` | 3.5, 0 | 0 – 20 nA | Gallego 2015; posture 4.5 – 5.5 nA |
+| `noiseCv` | 0.2 | 0 – 2 | SD of the per-unit noise (< 100 Hz) / mean current |
+| `currentScale` | `PUBLISHED` | `PUBLISHED`, `RHEOBASE` | `RHEOBASE` × 1.81 / 4 (smallest rheobases: ours / Gallego's) |
+| `tremor.frequencyHz`, `tremor.amplitudeNa` | 4.4, 3.0 | 0.1 – 20 Hz, 0 – 20 nA | Dideriksen 2017 (4.4 Hz) or Agapaki 2018 (5.9 Hz) |
+| `electrodeFraction` | 0.9 | 0.01 – 1 | electrode position along the axon from the soma (Decision 4) |
+
+With `stimulationSite = MOTONEURON_POOL` (invasive) the stimulus is added to the drive in the soma. With
+`SKIN_SURFACE` (non-invasive) the motoneurons fire from the drive, the stimulus fires the axons at the electrode and the
+two meet on the axon (collision, refractoriness, antidromic reset; design §3.3). Without a drive, `SKIN_SURFACE` does not
+simulate the motoneurons, as before.
 
 Every field is optional; missing fields take the default. A partial `unitsPerType` (e.g. only `S`) fills the missing types with 5 / 2 / 2 under either variant; omit `unitsPerType` entirely to get the variant default.
 
@@ -148,8 +172,12 @@ units is proportional to the step (tetanus peak / step = 517.54 for the soleus).
   "stimulus": [100.0, 100.0, …],
   "force":    { "total": […], "S": […], "FR": […], "FF": […] },
   "emg":      […],
-  "fatigue":  { "timeMs": 4.99, "muscle": 0.998, "S": 1.0, "FR": 0.999, "FF": 0.991 } }
+  "fatigue":  { "timeMs": 4.99, "muscle": 0.998, "S": 1.0, "FR": 0.999, "FF": 0.991 },
+  "axonEvents": null }
 ```
+
+`axonEvents` — cumulative counts of the axon merge (non-invasive mode with a central drive), else `null`:
+`{ "central", "centralTransmitted", "fesTransmitted", "collisions", "fesBlocked", "resets" }` (integers).
 All arrays in one chunk have the same length. `progress` ∈ (0, 1]. `force.total = S + FR + FF`
 (each the mean over that type's units, as in `Main.m`). `emg` is the mean motor-unit action potential
 (`EENMResults.MFAP`).

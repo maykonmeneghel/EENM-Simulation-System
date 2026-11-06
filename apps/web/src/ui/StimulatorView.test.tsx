@@ -95,8 +95,8 @@ describe('StimulatorView', () => {
 
   it('motoneuron pool site: the Weiss meter gives way to an explanation, and the site reaches the request', async () => {
     const user = setup();
-    expect(screen.getByRole('radio', { name: 'Superfície da pele' })).toHaveAttribute('aria-checked', 'true');
-    await user.click(screen.getByRole('radio', { name: 'Pool de motoneurônios' }));
+    expect(screen.getByRole('radio', { name: 'Não invasivo (pele)' })).toHaveAttribute('aria-checked', 'true');
+    await user.click(screen.getByRole('radio', { name: 'Invasivo (pool)' }));
     expect(screen.queryByRole('meter', { name: 'Unidades recrutadas' })).toBeNull();
     expect(screen.getByText(/não segue a lei de Weiss/)).toBeInTheDocument();
     expect(request().stimulationSite).toBe('MOTONEURON_POOL');

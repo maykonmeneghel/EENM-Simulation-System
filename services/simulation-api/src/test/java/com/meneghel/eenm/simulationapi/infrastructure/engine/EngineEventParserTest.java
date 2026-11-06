@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.meneghel.eenm.simulationapi.application.port.EngineProtocolException;
+import com.meneghel.eenm.simulationapi.domain.event.AxonEvents;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationChunk;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationFailed;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationStarted;
@@ -43,6 +44,24 @@ class EngineEventParserTest {
         String olderEngine = SampleEvents.chunkLine(0.5).replace(",\"fatigue\":null", "");
 
         assertThat(((SimulationChunk) parser.parse(olderEngine).orElseThrow()).fatigue()).isNull();
+    }
+
+    @Test
+    void aChunkCarriesTheAxonMergeCounts() {
+        String merged = SampleEvents.chunkLine(0.5).replace("\"axonEvents\":null", "\"axonEvents\":"
+                + "{\"central\":12,\"centralTransmitted\":9,\"fesTransmitted\":30,\"collisions\":3,"
+                + "\"fesBlocked\":1,\"resets\":27}");
+
+        assertThat(((SimulationChunk) parser.parse(merged).orElseThrow()).axonEvents())
+                .isEqualTo(new AxonEvents(12, 9, 30, 3, 1, 27));
+        assertThat(((SimulationChunk) parser.parse(SampleEvents.chunkLine(0.5)).orElseThrow()).axonEvents()).isNull();
+    }
+
+    @Test
+    void aChunkWithMalformedAxonCountsIsAProtocolError() {
+        String bad = SampleEvents.chunkLine(0.5).replace("\"axonEvents\":null", "\"axonEvents\":{}");
+
+        assertThatThrownBy(() -> parser.parse(bad)).isInstanceOf(EngineProtocolException.class);
     }
 
     @Test

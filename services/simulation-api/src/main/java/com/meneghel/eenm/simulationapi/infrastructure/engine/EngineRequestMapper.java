@@ -1,5 +1,6 @@
 package com.meneghel.eenm.simulationapi.infrastructure.engine;
 
+import com.meneghel.eenm.simulationapi.domain.simulation.CentralDrive;
 import com.meneghel.eenm.simulationapi.domain.simulation.Modulation;
 import com.meneghel.eenm.simulationapi.domain.simulation.MotorUnitCounts;
 import com.meneghel.eenm.simulationapi.domain.simulation.SimulationRequest;
@@ -23,7 +24,19 @@ final class EngineRequestMapper {
                 request.somaGeometry().name(),
                 request.dendriteGeometry().name(),
                 request.seed(),
-                request.outputStepMs());
+                request.outputStepMs(),
+                toBody(request.centralDrive()));
+    }
+
+    private EngineSimulationRequestBody.CentralDrive toBody(CentralDrive drive) {
+        if (drive == null) {
+            return null;
+        }
+        CentralDrive.Tremor t = drive.tremor();
+        return new EngineSimulationRequestBody.CentralDrive(drive.enabled(), drive.backgroundNa(), drive.voluntaryNa(),
+                drive.noiseCv(), drive.currentScale() == null ? null : drive.currentScale().name(),
+                t == null ? null : new EngineSimulationRequestBody.Tremor(t.frequencyHz(), t.amplitudeNa()),
+                drive.electrodeFraction());
     }
 
     private EngineSimulationRequestBody.Stimulus toBody(Stimulus stimulus) {

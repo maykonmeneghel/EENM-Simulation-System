@@ -96,6 +96,7 @@ class MotorUnitSetup:
         shapes = {t: rng.integers(0, 2, size=groups[t].size).astype(np.int64) for t in UNIT_TYPES}
         motoneurons = MotoneuronPool(
             soma_area_fraction=np.concatenate([groups[t].soma_area_fraction for t in UNIT_TYPES]),
+            soma_area_cm2=np.concatenate([np.asarray(groups[t].soma_area_cm2, dtype=np.float64) for t in UNIT_TYPES]),
             temperature_c=config.temperature_c,
             injection_site=config.injection_site,
         )
