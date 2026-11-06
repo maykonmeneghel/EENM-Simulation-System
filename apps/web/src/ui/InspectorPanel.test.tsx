@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import type { FormValues } from '../application/formModel';
 import { defaultFormValues, driveActive, inactiveFields, parseForm, tremorActive } from '../application/formModel';
 import { signalPath } from '../application/signalPath';
-import { ExplainPanel } from './ExplainPanel';
+import { InspectorPanel } from './InspectorPanel';
+import { nextStep, stepOfField } from './steps';
 
 const base = defaultFormValues();
 const parkinsonTremor = (v: FormValues): FormValues => ({ ...v, condition: 'PARKINSON', conditionAdjustments: ['PD_TREMOR'] });
@@ -44,7 +45,7 @@ describe('central drive in the form', () => {
   });
 });
 
-describe('ExplainPanel', () => {
+describe('InspectorPanel', () => {
   it('describes the signal path of each mode', () => {
     expect(signalPath(base).join(' ')).toMatch(/motoneurônio não é simulado/);
     expect(signalPath({ ...base, stimulationSite: 'MOTONEURON_POOL' }).join(' ')).toMatch(/direto no soma/);
@@ -53,17 +54,24 @@ describe('ExplainPanel', () => {
     expect(merged).toMatch(/colide/);
   });
 
-  it('shows the live axon counts, the sources with links and the known limits in the non-invasive drive mode', () => {
+  it('waits for a click: with no topic it only invites one', () => {
+    render(<InspectorPanel topic={null} values={base} axonEvents={null} />);
+    expect(screen.getByText(/Clique num componente/)).toBeInTheDocument();
+    expect(screen.queryAllByRole('link')).toHaveLength(0);
+  });
+
+  it('the force chart shows its stages, the path, the live axon counts, the sources and the limits', () => {
     render(
-      <ExplainPanel
+      <InspectorPanel
+        topic={{ kind: 'chart', chart: 'force' }}
         values={parkinsonTremor(base)}
         axonEvents={{ central: 1200, centralTransmitted: 300, fesTransmitted: 900, collisions: 850, fesBlocked: 4, resets: 40 }}
       />,
     );
-    expect(screen.getByRole('heading', { name: 'Modo não invasivo' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Força muscular' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Caminho do sinal' })).toBeInTheDocument();
     const axon = screen.getByRole('heading', { name: 'Encontro no axônio' }).closest('section')!;
     expect(within(axon).getByText('1.200')).toBeInTheDocument();
-    expect(within(axon).getByText('850')).toBeInTheDocument();
     expect(within(axon).getByRole('link', { name: 'doi:10.1038/s41593-018-0262-6' })).toHaveAttribute(
       'href',
       'https://doi.org/10.1038/s41593-018-0262-6',
@@ -72,10 +80,27 @@ describe('ExplainPanel', () => {
     expect(screen.getAllByRole('link', { name: 'Google Scholar' }).length).toBeGreaterThan(3);
   });
 
-  it('without a drive it shows only the path and the model stages', () => {
-    render(<ExplainPanel values={base} axonEvents={null} />);
-    expect(screen.queryByRole('heading', { name: 'Encontro no axônio' })).toBeNull();
-    expect(screen.queryByRole('heading', { name: 'Limites conhecidos' })).toBeNull();
-    expect(screen.getByRole('heading', { name: 'Etapas do modelo' })).toBeInTheDocument();
+  it('a stage topic explains only that stage and links to its equation', async () => {
+    const shown: string[] = [];
+    render(
+      <InspectorPanel topic={{ kind: 'stage', stage: '2b' }} values={base} axonEvents={null} onShowEquation={(s) => shown.push(s)} />,
+    );
+    expect(screen.getByRole('heading', { name: /Etapa 2b · Axônio motor/ })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Caminho do sinal' })).toBeNull();
+    screen.getByRole('button', { name: 'Ver a equação' }).click();
+    expect(shown).toEqual(['2b']);
+  });
+});
+
+describe('steps', () => {
+  it('every field belongs to the step where it is set', () => {
+    expect(stepOfField('stimulationSite')).toBe('stimulator');
+    expect(stepOfField('stimulus.frequencyHz')).toBe('stimulator');
+    expect(stepOfField('stimulus.durationMs')).toBe('simulation');
+    expect(stepOfField('outputStepMs')).toBe('simulation');
+    expect(stepOfField('centralDrive.voluntaryNa')).toBe('physiology');
+    expect(stepOfField('muscle')).toBe('physiology');
+    expect(nextStep('stimulator')?.id).toBe('physiology');
+    expect(nextStep('results')).toBeNull();
   });
 });

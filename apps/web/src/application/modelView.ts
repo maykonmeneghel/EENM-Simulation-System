@@ -35,6 +35,7 @@ import type {
   Waveform,
 } from '../domain/simulation';
 import type { FormValues } from './formModel';
+import { driveActive } from './formModel';
 
 /**
  * Live view-model of the model for the "Equações" and "Diagrama" views: every number the
@@ -150,7 +151,7 @@ export function buildModelSnapshot({ values, muscles, lastRequest, lastStarted }
     variant,
     calibrationTarget,
     stimulationSite,
-    stages: stagesFor(variant, stimulationSite),
+    stages: stagesFor(variant, stimulationSite, driveActive(values)),
     stimulus: {
       frequencyHz,
       fKHz: frequencyKHz(frequencyHz),

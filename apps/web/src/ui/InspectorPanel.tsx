@@ -1,11 +1,14 @@
+import type { InspectorTopic } from '../application/inspectorTopics';
+import { topicView } from '../application/inspectorTopics';
 import type { FormValues } from '../application/formModel';
 import { driveActive, tremorActive } from '../application/formModel';
+import type { StageId } from '../domain/modelEquations';
 import { stagesFor } from '../domain/modelEquations';
 import type { ReferenceId } from '../domain/references';
 import { REFERENCES, scholarUrl, shortCite, sourceUrl } from '../domain/references';
 import type { AxonEvents, ModelVariant, StimulationSite } from '../domain/simulation';
 import { formatDecimal as fmt, signalPath } from '../application/signalPath';
-import { STAGE_EXPLANATIONS } from './stageExplanations';
+import { STAGE_EXPLANATIONS, STAGE_TITLES } from './stageExplanations';
 
 function Cite({ id, supports }: { id: ReferenceId; supports?: string }) {
   const r = REFERENCES[id];
@@ -24,30 +27,75 @@ function Cite({ id, supports }: { id: ReferenceId; supports?: string }) {
   );
 }
 
-export interface ExplainPanelProps {
+export interface InspectorPanelProps {
+  topic: InspectorTopic | null;
   values: FormValues;
   axonEvents: AxonEvents | null;
+  /** Opens the equations of a stage (step 2). */
+  onShowEquation?(stage: StageId): void;
 }
 
-/** Right sidebar: what is being simulated and why, with the sources and the known limits. */
-export function ExplainPanel({ values, axonEvents }: ExplainPanelProps) {
+/**
+ * Right sidebar: explains the component of the centre column the user clicked — what it shows in plain words, the
+ * sources (Google Scholar + DOI), and, where it matters, the signal path of the current mode, the central drive, the
+ * live axon-merge counts and the known limits.
+ */
+export function InspectorPanel({ topic, values, axonEvents, onShowEquation }: InspectorPanelProps) {
+  if (topic === null) {
+    return (
+      <div className="inspector-empty">
+        <InfoGlyph />
+        <p>Clique num componente da área central — um gráfico, o osciloscópio, uma equação ou um bloco do diagrama — para ver a explicação e as referências.</p>
+      </div>
+    );
+  }
   const invasive = values.stimulationSite === 'MOTONEURON_POOL';
   const drive = driveActive(values);
   const tremor = tremorActive(values);
-  const stages = stagesFor(values.modelVariant as ModelVariant, values.stimulationSite as StimulationSite);
+  const stagesNow = stagesFor(values.modelVariant as ModelVariant, values.stimulationSite as StimulationSite, drive);
+  const forceStages = stagesNow.filter((s) => ['5a', '5b', '6', '8a', '8b'].includes(s));
+  const view = topicView(topic, forceStages, (s) => STAGE_TITLES[s]);
   const sent = axonEvents ? axonEvents.centralTransmitted : 0;
   return (
     <div className="explain">
-      <section className="explain-section" aria-labelledby="explain-mode">
-        <h2 id="explain-mode">{invasive ? 'Modo invasivo' : 'Modo não invasivo'}</h2>
-        <ol className="explain-steps">
-          {signalPath(values).map((s) => (
-            <li key={s}>{s}</li>
-          ))}
-        </ol>
-      </section>
+      <header className="inspector-head">
+        <h2 id="inspector-title">{view.title}</h2>
+        <p className="muted">{invasive ? 'Modo invasivo' : 'Modo não invasivo'}{drive ? ' · drive central' : ''}{tremor ? ' · tremor' : ''}</p>
+      </header>
 
-      {drive ? (
+      {view.stages.map((id) => {
+        const ex = STAGE_EXPLANATIONS[id];
+        return (
+          <section key={id} className="explain-section" aria-label={`Etapa ${id}`}>
+            {view.stages.length > 1 ? <h3>Etapa {id} · {STAGE_TITLES[id]}</h3> : null}
+            <p>{ex.plain}</p>
+            {ex.inherited ? <p className="muted">Herdado do modelo original: {ex.inherited}</p> : null}
+            <ul className="explain-refs">
+              {ex.refs.map((r) => (
+                <Cite key={r.id} id={r.id} supports={r.supports} />
+              ))}
+            </ul>
+            {onShowEquation && stagesNow.includes(id) ? (
+              <button type="button" className="btn btn--small btn--link" onClick={() => onShowEquation(id)}>
+                Ver a equação
+              </button>
+            ) : null}
+          </section>
+        );
+      })}
+
+      {view.path ? (
+        <section className="explain-section" aria-labelledby="explain-mode">
+          <h3 id="explain-mode">Caminho do sinal</h3>
+          <ol className="explain-steps">
+            {signalPath(values).map((s) => (
+              <li key={s}>{s}</li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+
+      {view.drive && drive ? (
         <section className="explain-section" aria-labelledby="explain-drive">
           <h3 id="explain-drive">Drive central{tremor ? ' e tremor' : ''}</h3>
           <p>
@@ -68,7 +116,7 @@ export function ExplainPanel({ values, axonEvents }: ExplainPanelProps) {
         </section>
       ) : null}
 
-      {drive && !invasive ? (
+      {view.axon && drive && !invasive ? (
         <section className="explain-section" aria-labelledby="explain-axon">
           <h3 id="explain-axon">Encontro no axônio</h3>
           {axonEvents ? (
@@ -95,7 +143,7 @@ export function ExplainPanel({ values, axonEvents }: ExplainPanelProps) {
         </section>
       ) : null}
 
-      {drive ? (
+      {view.drive && drive ? (
         <section className="explain-section explain-section--warn" aria-labelledby="explain-limits">
           <h3 id="explain-limits">Limites conhecidos</h3>
           <ul>
@@ -109,25 +157,15 @@ export function ExplainPanel({ values, axonEvents }: ExplainPanelProps) {
           </ul>
         </section>
       ) : null}
-
-      <section className="explain-section" aria-labelledby="explain-stages">
-        <h3 id="explain-stages">Etapas do modelo</h3>
-        {stages.map((id) => {
-          const ex = STAGE_EXPLANATIONS[id];
-          return (
-            <details key={id} className="explain-stage">
-              <summary>Etapa {id}</summary>
-              <p>{ex.plain}</p>
-              {ex.inherited ? <p className="muted">Herdado do modelo original: {ex.inherited}</p> : null}
-              <ul className="explain-refs">
-                {ex.refs.map((r) => (
-                  <Cite key={r.id} id={r.id} supports={r.supports} />
-                ))}
-              </ul>
-            </details>
-          );
-        })}
-      </section>
     </div>
+  );
+}
+
+function InfoGlyph() {
+  return (
+    <svg className="inspector-empty-glyph" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M12 10.5v6M12 7.25v.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
   );
 }

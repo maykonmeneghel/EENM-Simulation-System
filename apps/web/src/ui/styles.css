@@ -104,17 +104,33 @@ html, body, #root { height: 100%; }
 body { overflow: hidden; }
 .window {
   display: grid;
-  /* three columns: settings | views | explanations */
-  grid-template-columns: clamp(300px, 24vw, 360px) minmax(0, 1fr) clamp(280px, 22vw, 360px);
+  /* Xcode-like: navigator (settings of the step) | editor (its visual) | inspector (explanation, on click) */
+  --navigator-w: clamp(300px, 24vw, 360px);
+  --inspector-w: clamp(300px, 24vw, 380px);
+  grid-template-columns: var(--navigator-w) minmax(0, 1fr) var(--inspector-w);
   grid-template-rows: 52px minmax(0, 1fr);
-  grid-template-areas: 'toolbar toolbar toolbar' 'inspector content explainer';
+  grid-template-areas: 'toolbar toolbar toolbar' 'navigator content explainer';
   height: 100vh;
-  min-width: 1180px;
+  min-width: 960px;
+  transition: grid-template-columns 0.32s cubic-bezier(0.32, 0.72, 0, 1);
 }
-.window--explain-hidden {
-  grid-template-columns: clamp(300px, 24vw, 360px) minmax(0, 1fr) 0;
+.window--no-navigator { --navigator-w: 0px; }
+.window--no-inspector { --inspector-w: 0px; }
+@media (prefers-reduced-motion: reduce) { .window { transition: none; } }
+.navigator, .explainer { min-width: 0; overflow-x: hidden; }
+.window--no-navigator .navigator, .window--no-inspector .explainer { border: 0; padding: 0; }
+.navigator-head { padding: 0.9rem 1rem 0.4rem; }
+.navigator-head h2 { margin: 0.1rem 0 0; font-size: var(--fs-lg, 15px); font-weight: 600; }
+.navigator-step { font-size: var(--fs-xs); color: var(--text-2); text-transform: uppercase; letter-spacing: 0.05em; }
+.navigator .stimulator-panel { padding: 0.25rem 1rem 0.5rem; display: flex; flex-direction: column; gap: 0.9rem; }
+.navigator .dial-grid { grid-template-columns: 1fr; }
+.toolbar-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--text-2); cursor: default;
 }
-.window--explain-hidden .explainer { display: none; }
+.toolbar-icon:hover { background: var(--hover, rgba(0, 0, 0, 0.06)); color: var(--text); }
+.toolbar-icon[aria-pressed='true'] { color: var(--accent); }
+.toolbar-title .toolbar-icon { margin-right: 0.25rem; }
 .explainer {
   grid-area: explainer;
   overflow-y: auto;
@@ -126,6 +142,37 @@ body { overflow: hidden; }
   font-size: var(--fs-sm);
   line-height: 1.5;
 }
+.inspector-head h2 { font-size: var(--fs-md); margin: 0; }
+.inspector-head p { margin: 0.15rem 0 0; font-size: var(--fs-xs); }
+.inspector-empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.6rem; color: var(--text-2); padding: 3rem 1rem; }
+.inspector-empty-glyph { color: var(--text-3, var(--text-2)); }
+/* components of the centre column that open their explanation */
+.card--inspectable { cursor: pointer; transition: box-shadow 0.15s ease, transform 0.15s ease; }
+.card--inspectable:hover { box-shadow: 0 0 0 1px var(--accent-soft, rgba(0, 122, 255, 0.35)), 0 4px 14px rgba(0, 0, 0, 0.06); }
+.card--inspectable:focus-visible { box-shadow: var(--focus); }
+.caption-button {
+  display: inline-flex; align-items: center; gap: 0.35rem; border: 0; background: none; padding: 0; margin: 0;
+  font: inherit; color: inherit; cursor: pointer; text-align: left;
+}
+.caption-button .info-icon, .icon-button .info-icon { color: var(--text-2); }
+.caption-button:hover .info-icon, .icon-button:hover .info-icon { color: var(--accent); }
+.icon-button { margin-left: auto; border: 0; background: none; padding: 2px; border-radius: 6px; cursor: pointer; display: inline-flex; }
+.btn.btn--link { background: none; border: 0; color: var(--accent); padding: 0.1rem 0; box-shadow: none; font-weight: 500; }
+.btn.btn--link:hover { text-decoration: underline; }
+.mode-card { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.9rem 1rem; }
+.mode-card-eyebrow { font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-2); }
+.mode-card-title { font-size: var(--fs-md); }
+.mode-card-text { color: var(--text-2); font-size: var(--fs-sm); }
+.recap { display: flex; flex-direction: column; gap: 0.75rem; padding: 0.25rem 1rem; }
+.recap-group { background: var(--grouped, rgba(0, 0, 0, 0.035)); border-radius: 10px; padding: 0.6rem 0.75rem; }
+.recap-head { display: flex; align-items: center; gap: 0.5rem; }
+.recap-head h3 { margin: 0; font-size: var(--fs-sm); font-weight: 600; flex: 1; }
+.recap-number {
+  display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%;
+  background: var(--accent); color: #fff; font-size: var(--fs-2xs); font-weight: 600;
+}
+.recap ul { margin: 0.35rem 0 0; padding-left: 1.6rem; color: var(--text-2); font-size: var(--fs-sm); }
+.inspector-footer { gap: 0.5rem; }
 .explain { display: flex; flex-direction: column; gap: 1rem; }
 .explain h2 { font-size: var(--fs-md); margin: 0 0 0.5rem; }
 .explain h3 { font-size: var(--fs-sm); text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-2); margin: 0 0 0.4rem; }
@@ -157,10 +204,10 @@ body { overflow: hidden; }
 .toolbar-title { display: flex; align-items: baseline; gap: 0.6rem; min-width: 0; }
 .toolbar-title h1 { font-size: var(--fs-md); font-weight: 600; margin: 0; letter-spacing: 0; white-space: nowrap; }
 .toolbar-subtitle { font-size: var(--fs-sm); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.toolbar-center .segmented { width: 440px; }
+.toolbar-center .segmented { width: 520px; }
 .toolbar-actions { display: flex; justify-content: flex-end; align-items: center; gap: 0.5rem; }
-.inspector {
-  grid-area: inspector;
+.inspector, .navigator {
+  grid-area: navigator;
   overflow-y: auto;
   background: var(--sidebar);
   -webkit-backdrop-filter: saturate(180%) blur(24px);

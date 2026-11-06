@@ -94,7 +94,7 @@ export function DiagramView({ snapshot: s, running, onSelectStage }: DiagramView
     <figure className="card diagram">
       <figcaption className="diagram-caption">
         Cadeia neuromusculoesquelética — {lit ? 'modelo corrigido pela literatura' : 'modelo original'}.{' '}
-        <span className="muted">Clique num bloco para ver a equação.</span>
+        <span className="muted">Clique num bloco para ver a explicação e as referências.</span>
       </figcaption>
       <svg
         ref={measureSvg}

@@ -2,10 +2,12 @@ import { useMemo } from 'react';
 import type { FatigueBuffer } from '../application/fatigue';
 import { SHIELDS_PROTOCOL, SHIELDS_REFERENCE, trainPeaks } from '../application/fatigue';
 import type { SeriesBuffer } from '../application/seriesBuffer';
+import type { InspectorTopic } from '../application/inspectorTopics';
 import type { SessionState } from '../application/session';
 import { HelpPopover } from './HelpPopover';
 import { useSvgScale } from './useSvgScale';
 import type { LiveSeriesSpec } from './LiveChart';
+import { InfoIcon } from './InfoIcon';
 import { LiveChart } from './LiveChart';
 import { CHART_THEMES, useColorScheme } from './theme';
 import type { ZoomSync } from './zoomSync';
@@ -70,11 +72,13 @@ export function FatiguePanel({
   fatigue,
   series,
   zoom,
+  onInspect,
 }: {
   state: SessionState;
   fatigue: FatigueBuffer;
   series: SeriesBuffer;
   zoom: ZoomSync;
+  onInspect?(topic: InspectorTopic): void;
 }) {
   const theme = CHART_THEMES[useColorScheme()];
   const request = state.request;
@@ -104,7 +108,16 @@ export function FatiguePanel({
   return (
     <section className="card fatigue" aria-label="Fadiga">
       <header className="fatigue-head">
-        <h2>Fadiga</h2>
+        {onInspect ? (
+          <h2>
+            <button type="button" className="caption-button" onClick={() => onInspect({ kind: 'fatigue' })} aria-label="Fadiga — ver explicação">
+              <span>Fadiga</span>
+              <InfoIcon />
+            </button>
+          </h2>
+        ) : (
+          <h2>Fadiga</h2>
+        )}
         <HelpPopover label="Sobre a fadiga">
           Fadiga periférica de Potvin & Fuglevand 2017: cada disparo consome capacidade de força da unidade, mais nas
           unidades rápidas (FF) que nas lentas (S), e o abalo fica mais lento. Não há recuperação no modelo. O índice de

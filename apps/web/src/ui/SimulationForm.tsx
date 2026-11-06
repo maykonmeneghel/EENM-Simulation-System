@@ -28,6 +28,9 @@ import { CALIBRATION_TARGET_HELP, FIELD_GROUPS, STIMULATOR_WAVEFORMS } from './f
 import { HelpPopover } from './HelpPopover';
 import { MuscleSources } from './MuscleSources';
 import { SegmentedControl } from './SegmentedControl';
+import { StimulatorControls } from './StimulatorView';
+import type { StepId } from './steps';
+import { GROUPS_BY_STEP, nextStep, STEPS } from './steps';
 import { Switch } from './Switch';
 
 /** The toolbar's "Simular" button submits this form via `form={SIM_FORM_ID}`. */
@@ -48,6 +51,10 @@ export interface SimulationFormProps {
   onOpenStimulator?(): void;
   /** Client-side validation errors of the last submit (the Estimulador view shows those of its fields). */
   onClientErrors?(errors: readonly FieldError[]): void;
+  /** Show only this step's settings (all groups when omitted). */
+  step?: StepId;
+  /** Go to another step (the sidebar's "Continuar" button and the summary's "Editar" links). */
+  onGoToStep?(step: StepId): void;
   /** Conditions and their adjustments (engine catalog). */
   conditions?: readonly ConditionInfo[];
   conditionsError?: string | null;
@@ -63,6 +70,8 @@ const HIDDEN_WHEN_INACTIVE: ReadonlySet<FieldPath> = new Set([
 const fmt = (x: number) => x.toLocaleString('pt-BR', { maximumFractionDigits: 4 });
 
 export function SimulationForm({
+  step,
+  onGoToStep,
   values,
   onValuesChange: setValues,
   muscles,
@@ -450,9 +459,15 @@ export function SimulationForm({
     },
   };
 
+  const next = step ? nextStep(step) : null;
+  const allErrors = [...clientErrors, ...serverErrors];
   return (
     <form id={SIM_FORM_ID} className="inspector-form" onSubmit={submit} noValidate aria-label="Parâmetros da simulação">
-      {FIELD_GROUPS.filter(
+      {step === 'stimulator' ? (
+        <StimulatorControls values={values} onValuesChange={setValues} errors={allErrors} running={running} />
+      ) : null}
+      {step === 'results' ? <RunRecap values={values} muscles={muscles} onGoToStep={onGoToStep} /> : null}
+      {(step ? GROUPS_BY_STEP[step].map((id) => FIELD_GROUPS.find((g) => g.id === id)!) : FIELD_GROUPS).filter(
         (g) =>
           (g.id !== 'motoneuron' || values.stimulationSite === 'MOTONEURON_POOL' || driveActive(values)) &&
           (g.id !== 'drive' || isLiterature),
@@ -497,7 +512,71 @@ export function SimulationForm({
         <button type="button" className="btn" onClick={reset} disabled={running}>
           Restaurar padrões
         </button>
+        {step && next && next.id !== 'results' && onGoToStep ? (
+          <button type="button" className="btn btn--primary" onClick={() => onGoToStep(next.id)}>
+            Continuar
+          </button>
+        ) : null}
+        {step === 'simulation' ? (
+          <button type="submit" className="btn btn--primary" disabled={running}>
+            Simular
+          </button>
+        ) : null}
       </div>
     </form>
+  );
+}
+
+/** Results step: what the run uses, step by step, each with a link back to where it is set. */
+function RunRecap({
+  values,
+  muscles,
+  onGoToStep,
+}: {
+  values: FormValues;
+  muscles: readonly MusclePreset[];
+  onGoToStep?: ((step: StepId) => void) | undefined;
+}) {
+  const muscle = muscles.find((m) => m.id === values.muscle)?.label ?? values.muscle;
+  const invasive = values.stimulationSite === 'MOTONEURON_POOL';
+  const conditionLabel: Record<string, string> = {
+    NORMAL: 'Normal',
+    PARKINSON: 'Doença de Parkinson',
+    SCI_CHRONIC: 'Lesão medular crônica',
+  };
+  const rows: Record<Exclude<StepId, 'results'>, string[]> = {
+    stimulator: [
+      invasive ? 'Invasivo (pool de motoneurônios)' : 'Não invasivo (pele)',
+      `${values['stimulus.frequencyHz']} Hz · ${values['stimulus.pulseWidthUs']} µs · amplitude ${values['stimulus.amplitude']}`,
+      values.trainsEnabled ? `trens ${values['stimulus.trainOnMs']} / ${values['stimulus.trainOffMs']} ms` : 'contínuo',
+    ],
+    physiology: [
+      conditionLabel[values.condition] ?? values.condition,
+      muscle,
+      driveActive(values) ? (tremorActive(values) ? `drive central com tremor a ${values['centralDrive.tremor.frequencyHz']} Hz` : 'drive central') : 'sem drive central',
+    ],
+    simulation: [`${values['stimulus.durationMs']} ms · passo ${values['stimulus.stepMs']} ms · saída ${values.outputStepMs} ms`],
+  };
+  return (
+    <div className="recap" aria-label="Resumo da configuração">
+      {STEPS.filter((s): s is (typeof STEPS)[number] & { id: Exclude<StepId, 'results'> } => s.id !== 'results').map((s) => (
+        <section key={s.id} className="recap-group">
+          <header className="recap-head">
+            <span className="recap-number">{s.number}</span>
+            <h3>{s.label}</h3>
+            {onGoToStep ? (
+              <button type="button" className="btn btn--small btn--link" onClick={() => onGoToStep(s.id)}>
+                Editar
+              </button>
+            ) : null}
+          </header>
+          <ul>
+            {rows[s.id].map((r) => (
+              <li key={r}>{r}</li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
   );
 }
