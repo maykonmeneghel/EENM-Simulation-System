@@ -5,7 +5,6 @@ import type { SeriesBuffer } from '../application/seriesBuffer';
 import type { InspectorTopic } from '../application/inspectorTopics';
 import type { SessionState } from '../application/session';
 import { HelpButton } from './HelpButton';
-import { useSvgScale } from './useSvgScale';
 import type { LiveSeriesSpec } from './LiveChart';
 import { InfoIcon } from './InfoIcon';
 import { LiveChart } from './LiveChart';
@@ -23,54 +22,11 @@ const capacity = (): LiveSeriesSpec[] => [
 const pct = (x: number) => `${fmtNumber(x * 100, { maximumFractionDigits: 1 })} %`;
 const num = (x: number, d = 2) => fmtNumber(x, { minimumFractionDigits: d, maximumFractionDigits: d });
 
-const W = 640;
-const H = 170;
-const PAD = { l: 36, r: 10, t: 10, b: 24 };
-
-/** Peak of each train ÷ the first train's peak, on a fixed 0–1 scale, with the published reference band. */
-function TrainBars({ ratios, reference, chronic }: { ratios: number[]; reference: boolean; chronic: boolean }) {
-  const [measureSvg, svgScale] = useSvgScale(W);
-  const n = ratios.length;
-  const bw = (W - PAD.l - PAD.r) / Math.max(n, 1);
-  const y = (v: number) => H - PAD.b - Math.min(1.05, Math.max(0, v)) * ((H - PAD.t - PAD.b) / 1.05);
-  const band = chronic ? SHIELDS_REFERENCE.chronic : SHIELDS_REFERENCE.acute;
-  return (
-    <svg ref={measureSvg} style={svgScale} className="fatigue-bars" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={tr({ 'pt-BR': `Pico de cada trem relativo ao primeiro, ${n} trens`, en: `Peak of each train relative to the first, ${n} trains` })}>
-      {reference ? (
-        <rect
-          className="fatigue-ref"
-          x={PAD.l}
-          width={W - PAD.l - PAD.r}
-          y={y(band.mean + band.sd)}
-          height={y(band.mean - band.sd) - y(band.mean + band.sd)}
-        >
-          <title>
-            {`Chang & Shields 2011: ${num(band.mean)} ± ${num(band.sd)} (${tr({
-              'pt-BR': `sóleo, lesão ${chronic ? 'crônica' : 'aguda'}`,
-              en: `soleus, ${chronic ? 'chronic' : 'acute'} injury`,
-            })})`}
-          </title>
-        </rect>
-      ) : null}
-      {[0, 0.25, 0.5, 0.75, 1].map((v) => (
-        <g key={v} className="fatigue-grid">
-          <line x1={PAD.l} x2={W - PAD.r} y1={y(v)} y2={y(v)} />
-          <text x={PAD.l - 4} y={y(v) + 3} textAnchor="end">
-            {num(v)}
-          </text>
-        </g>
-      ))}
-      {ratios.map((r, i) => (
-        <rect key={i} className="fatigue-bar" x={PAD.l + i * bw + bw * 0.1} width={Math.max(0.5, bw * 0.8)} y={y(r)} height={y(0) - y(r)} />
-      ))}
-      <text x={PAD.l} y={H - 6} className="fatigue-axis">
-        {tr({ 'pt-BR': '1º trem', en: '1st train' })}
-      </text>
-      <text x={W - PAD.r} y={H - 6} textAnchor="end" className="fatigue-axis">
-        {n > 0 ? tr({ 'pt-BR': `${n}º trem`, en: `train ${n}` }) : ''}
-      </text>
-    </svg>
-  );
+/** Peak of each complete train ÷ the first train's peak, one bar per train at its time, sharing the run's zoom. */
+function trainBarsSource(peaks: readonly { startMs: number; ratio: number }[], onMs: number) {
+  const timeMs = Float64Array.from(peaks, (p) => p.startMs + onMs / 2);
+  const ratio = Float64Array.from(peaks, (p) => p.ratio);
+  return { view: () => ({ timeMs, ratio }) };
 }
 
 export function FatiguePanel({
@@ -99,10 +55,14 @@ export function FatiguePanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trains, series, state.samples]);
 
+  const onMs = trains?.trainOnMs ?? 0;
+  const barsSource = useMemo(() => trainBarsSource(peaks, onMs), [peaks, onMs]);
+
   if (!request || request.modelVariant !== 'LITERATURE' || state.status === 'idle') return null;
 
   const fv = fatigue.view();
   const chronic = request.condition === 'SCI_CHRONIC';
+  const band = chronic ? SHIELDS_REFERENCE.chronic : SHIELDS_REFERENCE.acute;
   const lastCapacity = fv.muscle.length ? fv.muscle[fv.muscle.length - 1]! : null;
   const last = peaks.at(-1);
   const shields =
@@ -181,18 +141,29 @@ export function FatiguePanel({
       />
 
       {trains ? (
-        <figure className="chart">
-          <figcaption>
-            {tr({ 'pt-BR': 'Pico de cada trem ÷ pico do 1º trem', en: 'Peak of each train ÷ peak of the 1st train' })}
-            {shields
+        <LiveChart
+          title={
+            tr({ 'pt-BR': 'Pico de cada trem ÷ pico do 1º trem', en: 'Peak of each train ÷ peak of the 1st train' }) +
+            (shields
               ? tr({
                   'pt-BR': ` — faixa: referência ${chronic ? '0,19 ± 0,06 (lesão crônica)' : '0,89 ± 0,08 (lesão aguda)'}`,
                   en: ` — band: reference ${chronic ? '0.19 ± 0.06 (chronic injury)' : '0.89 ± 0.08 (acute injury)'}`,
                 })
-              : ''}
-          </figcaption>
-          <TrainBars ratios={peaks.map((p) => p.ratio)} reference={shields} chronic={chronic} />
-        </figure>
+              : '')
+          }
+          yLabel={tr({ 'pt-BR': 'pico ÷ pico do 1º trem', en: 'peak ÷ 1st train peak' })}
+          series={[{ key: 'ratio', label: tr({ 'pt-BR': 'Pico relativo', en: 'Relative peak' }), color: 'blue' }]}
+          bars={trains.trainOnMs! / trains.trainPeriodMs!} // each bar spans its train's on time
+          height={200}
+          theme={theme}
+          buffer={barsSource}
+          samples={peaks.length}
+          runId={state.runId}
+          xMaxMs={state.run?.durationMs ?? null}
+          yRange={[0, 1.05]}
+          zoom={zoom}
+          {...(shields ? { band: { lo: band.mean - band.sd, hi: band.mean + band.sd } } : {})}
+        />
       ) : null}
     </section>
   );
