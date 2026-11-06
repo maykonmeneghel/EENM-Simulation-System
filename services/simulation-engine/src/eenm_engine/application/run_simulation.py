@@ -19,6 +19,7 @@ from eenm_engine.application.events import (
 )
 from eenm_engine.application.ports import OdeSolver
 from eenm_engine.domain.axon_stimulation import axon_spike_events, spikes_in
+from eenm_engine.domain.max_force import maximal_force
 from eenm_engine.domain.model_options import StimulationSite
 from eenm_engine.domain.motoneuron import MotoneuronPool
 from eenm_engine.domain.simulation import (
@@ -60,6 +61,7 @@ class RunSimulation:
             output_step_ms=config.output_stride * protocol.step_ms,
             motor_units={t: setup.groups[t].size for t in UNIT_TYPES},
             muscle=config.muscle,
+            max_force=maximal_force(config, config.reference_model),
         )
 
         if config.model.stimulation_site is StimulationSite.MOTOR_AXONS:

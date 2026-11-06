@@ -125,6 +125,8 @@ export interface StartedEvent {
   outputStepMs: number;
   motorUnits: UnitsPerType;
   muscle: MuscleId;
+  /** Maximal force of the healthy muscle (fused 100 Hz tetanus, all units, rested); null for ORIGINAL. */
+  maxForce?: number | null;
 }
 
 export interface ForceSeries {

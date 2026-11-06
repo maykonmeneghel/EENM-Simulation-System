@@ -20,7 +20,7 @@ final class SimulationEventSseMapper {
         return switch (event) {
             case SimulationStarted started -> new SimulationEventPayloads.Started(started.type(),
                     started.simulationId(), started.durationMs(), started.outputStepMs(),
-                    MotorUnitCountsPayload.from(started.motorUnits()), started.muscle());
+                    MotorUnitCountsPayload.from(started.motorUnits()), started.muscle(), started.maxForce());
             case SimulationChunk chunk -> new SimulationEventPayloads.Chunk(chunk.type(), chunk.progress(),
                     chunk.timeMs(), chunk.stimulus(), toPayload(chunk.force()), chunk.emg(), toPayload(chunk.fatigue()));
             case SimulationCompleted completed -> new SimulationEventPayloads.Completed(completed.type(),

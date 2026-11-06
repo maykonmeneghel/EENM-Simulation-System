@@ -104,7 +104,8 @@ export const STAGE_EXPLANATIONS: Record<StageId, StageExplanation> = {
   '8b': {
     plain:
       'A força do músculo é a soma das forças de todas as unidades simuladas, cada uma multiplicada pelo número de ' +
-      'unidades reais do músculo que ela representa.',
+      'unidades reais do músculo que ela representa. Nos gráficos ela aparece em % da força máxima do músculo ' +
+      'saudável: o tétano com todas as unidades disparando a 100 Hz, sem fadiga e sem os ajustes da condição.',
     refs: [{ id: 'potvinFuglevand2017', supports: 'força do músculo como soma das forças das unidades' }],
   },
 };

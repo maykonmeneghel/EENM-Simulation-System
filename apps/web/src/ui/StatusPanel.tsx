@@ -1,3 +1,4 @@
+import { maxForceOf, toPercent } from '../application/forcePercent';
 import type { SessionError, SessionState } from '../application/session';
 
 const STATUS_LABEL: Record<SessionState['status'], string> = {
@@ -56,17 +57,24 @@ export function SummaryCard({ state }: { state: SessionState }) {
   const run = state.run;
   const result = state.result;
   if (!run && !result) return null;
+  const max = maxForceOf(run?.maxForce);
+  const force = (x: number) => (max ? `${fmt(toPercent(x, max), 1)} %` : fmt(x));
+  const forceTitle = max ? 'da força máxima do músculo saudável (tétano a 100 Hz, todas as unidades)' : 'unidades do modelo';
   return (
     <section className="summary" aria-label="Resumo">
       {result ? (
         <>
           <div className="stat">
-            <span className="stat-label">Força de pico</span>
-            <span className="stat-value">{fmt(result.summary.peakForce)}</span>
+            <span className="stat-label" title={forceTitle}>
+              Força de pico
+            </span>
+            <span className="stat-value">{force(result.summary.peakForce)}</span>
           </div>
           <div className="stat">
-            <span className="stat-label">Força média</span>
-            <span className="stat-value">{fmt(result.summary.meanForce)}</span>
+            <span className="stat-label" title={forceTitle}>
+              Força média
+            </span>
+            <span className="stat-value">{force(result.summary.meanForce)}</span>
           </div>
           <div className="stat">
             <span className="stat-label">Tempo até o pico</span>

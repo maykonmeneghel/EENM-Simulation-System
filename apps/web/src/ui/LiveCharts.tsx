@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+import { maxForceOf, percentSource } from '../application/forcePercent';
 import type { SeriesBuffer } from '../application/seriesBuffer';
 import type { SessionState } from '../application/session';
 import type { LiveSeriesSpec } from './LiveChart';
@@ -17,6 +19,8 @@ const EMG: LiveSeriesSpec[] = [{ key: 'emg', label: 'MUAP médio', color: 'blue'
 
 export function LiveCharts({ state, buffer, zoom }: { state: SessionState; buffer: SeriesBuffer; zoom: ZoomSync }) {
   const theme = CHART_THEMES[useColorScheme()];
+  const maxForce = maxForceOf(state.run?.maxForce);
+  const forceSource = useMemo(() => (maxForce ? percentSource(buffer, maxForce) : null), [buffer, maxForce]);
   const common = {
     theme,
     buffer,
@@ -27,9 +31,22 @@ export function LiveCharts({ state, buffer, zoom }: { state: SessionState; buffe
   };
   return (
     <div className="charts">
-      <LiveChart title="Força muscular (total e por tipo de unidade motora)" yLabel="força (u.a.)" series={FORCE} height={280} {...common} />
+      <LiveChart
+        key={maxForce ? 'percent' : 'model-units'}
+        title={
+          maxForce
+            ? 'Força muscular — % da força máxima do músculo saudável (total e por tipo de unidade motora)'
+            : 'Força muscular (total e por tipo de unidade motora)'
+        }
+        yLabel={maxForce ? 'força (% da máxima)' : 'força (unidades do modelo)'}
+        series={FORCE}
+        height={280}
+        {...common}
+        {...(forceSource ? { buffer: forceSource } : {})}
+        {...(maxForce ? { yRange: [0, 105] as [number, number] } : {})}
+      />
       <LiveChart title="Corrente de estímulo" yLabel="µA/cm²" series={STIMULUS} stepped {...common} />
-      <LiveChart title="EMG — potencial de ação médio das unidades motoras" yLabel="EMG (u.a.)" series={EMG} {...common} />
+      <LiveChart title="EMG — potencial de ação médio das unidades motoras" yLabel="EMG (unidades do modelo)" series={EMG} {...common} />
     </div>
   );
 }

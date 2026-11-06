@@ -132,8 +132,14 @@ object's `type` as the SSE `event:` name and the whole object as `data:`.
 ### `started` (exactly once, first)
 ```json
 { "type": "started", "simulationId": "6f1c…", "durationMs": 1000, "outputStepMs": 0.1,
-  "motorUnits": { "S": 5, "FR": 2, "FF": 2 }, "muscle": "SOLEUS" }
+  "motorUnits": { "S": 5, "FR": 2, "FF": 2 }, "muscle": "SOLEUS", "maxForce": 5.1754 }
 ```
+
+`maxForce` is the maximal force of the **healthy** muscle in the same units as `force` (`domain/max_force.py`): the
+peak of a fused tetanus with every simulated unit firing at 100 Hz, rested (no fatigue), same muscle, units, axon
+length, twitch calibration and integration step as the run, without the condition's adjustments — so `force /
+maxForce` is the fraction of maximum and a condition shows as a deficit. It uses the run's step because force in model
+units is proportional to the step (tetanus peak / step = 517.54 for the soleus). `null` for `ORIGINAL`.
 
 ### `chunk` (many, in time order, no gaps, no overlap)
 ```json
