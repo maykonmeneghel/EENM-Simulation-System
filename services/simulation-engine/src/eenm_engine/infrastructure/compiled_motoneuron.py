@@ -26,6 +26,7 @@ from eenm_engine.domain.motoneuron import (
     InjectionSite,
     MotoneuronPool,
 )
+from eenm_engine.infrastructure.axon_merge import AxonMerge, electrode_events, soma_events
 
 _PARAMS = (
     "vna", "vk", "vl", "vca", "vrest", "gls", "gld", "cd", "cs", "gc", "p", "kd", "f", "kca", "alpha", "sgna", "sgk",
@@ -146,9 +147,6 @@ def _integrate(
 SPIKE_THRESHOLD_MV = -20.0
 """A soma spike is an upward crossing of this voltage."""
 
-# merge state per unit (``MergeState.counters`` columns)
-CENTRAL, CENTRAL_TRANSMITTED, FES_TRANSMITTED, COLLISIONS, FES_BLOCKED, RESETS = range(6)
-
 
 @njit(cache=True, fastmath=False, parallel=True)
 def _integrate_merged(
@@ -189,7 +187,6 @@ def _integrate_merged(
     ignore-until.
     """
     n_units = s.shape[1]
-    cap = inflight.shape[1]
     for k in prange(n_units):
         a = area[k]
         vs, snah, sn, scam, scah, sca = s[0, k], s[1, k], s[2, k], s[3, k], s[4, k], s[5, k]
@@ -198,31 +195,10 @@ def _integrate_merged(
         last_pass, reset_left, ignore_until = unit_state[k, 0], unit_state[k, 1], unit_state[k, 2]
         for j in range(drive.shape[0]):
             n = base + j
-            # (1) central spikes reaching the electrode
-            while n_inflight[k] > 0 and inflight[k, 0] + to_electrode[k] <= n:
-                for q in range(n_inflight[k] - 1):
-                    inflight[k, q] = inflight[k, q + 1]
-                n_inflight[k] -= 1
-                if n - last_pass >= refractory:
-                    spikes[j, k] = 1.0
-                    last_pass = n
-                    counters[k, CENTRAL_TRANSMITTED] += 1
-            # (2) FES pulse
-            if recruit[j, k]:
-                if n - last_pass < refractory:
-                    counters[k, FES_BLOCKED] += 1
-                else:
-                    spikes[j, k] = 1.0
-                    last_pass = n
-                    counters[k, FES_TRANSMITTED] += 1
-                    if n_inflight[k] > 0:  # meets the central spike nearest the electrode (the oldest)
-                        for q in range(n_inflight[k] - 1):
-                            inflight[k, q] = inflight[k, q + 1]
-                        n_inflight[k] -= 1
-                        counters[k, COLLISIONS] += 1
-                    elif n_antidromic[k] < cap:
-                        antidromic[k, n_antidromic[k]] = n + to_electrode[k]
-                        n_antidromic[k] += 1
+            last_pass = electrode_events(
+                k, n, j, recruit[j, k], last_pass, to_electrode, refractory, inflight, n_inflight, antidromic,
+                n_antidromic, counters, spikes,
+            )  # fmt: skip
             # (3) soma
             i_in = drive[j, k]
             resetting = reset_left > 0
@@ -237,28 +213,10 @@ def _integrate_merged(
                 vs, snah, sn, scam, scah, sca, vd, dcas, dca, mnap, hnap,
                 p, a, dt / n_sub, n_sub, i_in, 0.0, temp,
             )  # fmt: skip
-            # (4) a new soma spike
-            if v_before < SPIKE_THRESHOLD_MV <= vs:
-                if n < ignore_until:
-                    pass  # caused by an antidromic arrival: blocked in the refractory axon
-                else:
-                    counters[k, CENTRAL] += 1
-                    if n_antidromic[k] > 0:  # meets the antidromic spike nearest the soma (the oldest)
-                        for q in range(n_antidromic[k] - 1):
-                            antidromic[k, q] = antidromic[k, q + 1]
-                        n_antidromic[k] -= 1
-                        counters[k, COLLISIONS] += 1
-                    elif n_inflight[k] < cap:
-                        inflight[k, n_inflight[k]] = n
-                        n_inflight[k] += 1
-            # antidromic spikes reaching the soma reset it
-            while n_antidromic[k] > 0 and antidromic[k, 0] <= n:
-                for q in range(n_antidromic[k] - 1):
-                    antidromic[k, q] = antidromic[k, q + 1]
-                n_antidromic[k] -= 1
-                reset_left = reset_samples
-                ignore_until = n + ignore_samples
-                counters[k, RESETS] += 1
+            reset_left, ignore_until = soma_events(
+                k, n, v_before < SPIKE_THRESHOLD_MV <= vs, reset_left, ignore_until, reset_samples, ignore_samples,
+                inflight, n_inflight, antidromic, n_antidromic, counters,
+            )  # fmt: skip
         s[0, k], s[1, k], s[2, k], s[3, k], s[4, k], s[5, k] = vs, snah, sn, scam, scah, sca
         s[6, k], s[7, k], s[8, k], s[9, k], s[10, k] = vd, dcas, dca, mnap, hnap
         previous_vs[k] = previous
@@ -338,52 +296,6 @@ class CompiledPoolIntegration:
         )  # fmt: skip
         merge.next_sample += rows
         return spikes
-
-
-class AxonMerge:
-    """State of the axon merge between calls, and its parameters (design §3.3).
-
-    ``to_electrode``: soma → electrode conduction time per unit, in samples (``electrode_fraction`` of the soma →
-    muscle delay; Decision 4: 0.9). ``refractory``: 1.6 ms (Formento et al. 2018). The antidromic reset is a
-    0.3 ms soma current of ``reset_density`` µA/cm², enough to fire every unit, whose spike is not sent.
-    """
-
-    REFRACTORY_MS = 1.6
-    RESET_DENSITY = 400.0
-    RESET_MS = 0.3
-    IGNORE_MS = 3.0
-    CAPACITY = 64
-
-    def __init__(self, soma_to_muscle_samples: NDArray[np.int64], step_ms: float, electrode_fraction: float = 0.9,
-                 initial_vs: NDArray[np.float64] | None = None) -> None:  # fmt: skip
-        if not 0 < electrode_fraction <= 1:
-            raise ValueError("electrode_fraction must be in (0, 1]")
-        n = soma_to_muscle_samples.size
-        self.to_electrode = np.floor(soma_to_muscle_samples * electrode_fraction + 0.5).astype(np.int64)
-        self.refractory = max(1, round(self.REFRACTORY_MS / step_ms))
-        self.reset_density = self.RESET_DENSITY
-        self.reset_samples = max(1, round(self.RESET_MS / step_ms))
-        self.ignore_samples = max(1, round(self.IGNORE_MS / step_ms))
-        self.next_sample = 1
-        self.inflight = np.zeros((n, self.CAPACITY), dtype=np.int64)
-        self.n_inflight = np.zeros(n, dtype=np.int64)
-        self.antidromic = np.zeros((n, self.CAPACITY), dtype=np.int64)
-        self.n_antidromic = np.zeros(n, dtype=np.int64)
-        self.unit_state = np.zeros((n, 3), dtype=np.int64)
-        self.unit_state[:, 0] = -(10**9)  # no spike has passed the electrode yet
-        self.previous_vs = np.full(n, -1000.0) if initial_vs is None else initial_vs.astype(np.float64).copy()
-        self.counters = np.zeros((n, 6), dtype=np.int64)
-
-    def totals(self) -> dict[str, int]:
-        c = self.counters.sum(axis=0)
-        return {
-            "central": int(c[CENTRAL]),
-            "centralTransmitted": int(c[CENTRAL_TRANSMITTED]),
-            "fesTransmitted": int(c[FES_TRANSMITTED]),
-            "collisions": int(c[COLLISIONS]),
-            "fesBlocked": int(c[FES_BLOCKED]),
-            "resets": int(c[RESETS]),
-        }
 
 
 class CompiledPoolIntegrator:
