@@ -166,6 +166,8 @@ client from `force.total`.
   "summary": { "peakForce": 1.23, "meanForce": 0.45, "timeToPeakMs": 310.0 } }
 ```
 
+`summary` is taken over the streamed samples (the `outputStepMs` grid): `timeToPeakMs` is a multiple of it.
+
 ### `error` (instead of `completed`)
 ```json
 { "type": "error", "message": "human readable", "code": "ENGINE_FAILURE" }

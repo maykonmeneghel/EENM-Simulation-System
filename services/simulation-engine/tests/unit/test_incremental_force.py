@@ -149,13 +149,6 @@ def test_a_plateau_at_the_end_of_the_data_holds_back_release() -> None:
     assert released is None or released.stop <= 50  # nothing at or after the plateau start is final
 
 
-def test_a_zero_plateau_does_not_hold_back_release() -> None:
-    from eenm_engine.domain.force_pipeline import _trailing_run_start
-
-    assert _trailing_run_start(np.array([1.0, 0.0, 0.0, 0.0])) is None  # zero can never be a peak
-    assert _trailing_run_start(np.array([1.0, 2.0, 3.0, 3.0])) == 2
-
-
 def test_long_axon_run_keeps_bounded_memory_and_equals_the_complete_computation() -> None:
     """Thousands of samples beyond the kept history: the dropped samples must not change any force value.
 

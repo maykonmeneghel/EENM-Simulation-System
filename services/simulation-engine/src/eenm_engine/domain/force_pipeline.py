@@ -143,9 +143,10 @@ def spike_train(summed_muap: NDArray[np.float64]) -> NDArray[np.float64]:
 class TypeForce:
     """Force of one unit type, computed incrementally on a growing voltage record.
 
-    One object per type and per simulation: it keeps the twitch filters and rate-gain state between
-    calls. ``compute`` only reprocesses a trailing window — a MUAP reaches at most ``delay + 251`` samples
-    after its peak — so each call costs the same however long the simulation already is.
+    The reference implementation, used on complete records (``type_signals``): one object per type and per record,
+    keeping the twitch filters and rate-gain state between calls. ``compute`` reprocesses a trailing window — a MUAP
+    reaches at most ``delay + 251`` samples after its peak. Streaming uses ``streaming_force.StreamingTypeForce``,
+    which gives the same values processing each sample once.
     """
 
     _WINDOW_SLACK = 8
@@ -212,28 +213,6 @@ class TypeForce:
             filtered[0] = median_filter_3x3(voltage[row - 1 : row + 2])[1]
         return junction_potential(filtered, self._axon)
 
-    def unresolved_from(self, voltage: NDArray[np.float64], offset: int = 0) -> int:
-        """First sample whose force may still change because a peak is not decided yet.
-
-        ``findpeaks`` places a flat-topped peak at the *first* sample of the plateau, but whether it is a
-        peak is only known when the plateau ends; the median filter does produce such plateaus. A plateau
-        still running at the end of the data can therefore become a peak at its start, and its effects begin
-        ``delay`` samples later. The last row is excluded: its median-filter padding is provisional.
-        """
-        known = offset + voltage.shape[0]
-        tail_start = max(_first_usable(offset), known - self.history)
-        junction = self._junction(voltage, tail_start, offset)[:-1]
-        unresolved = known
-        for k in range(self._group.size):
-            run = _trailing_run_start(junction[:, k])
-            if run is not None:
-                unresolved = min(unresolved, tail_start + run + int(self._group.muap_delay_samples[k]))
-        if self._options.twitch_drive is TwitchDrive.SUMMED_MUAP_PEAKS:
-            run = _trailing_run_start(muap_train(junction, self._group, self._shapes).sum(axis=1))
-            if run is not None:
-                unresolved = min(unresolved, tail_start + run)
-        return int(unresolved)
-
     def _arrivals(self, junction: NDArray[np.float64], window_start: int, start: int, stop: int) -> NDArray[np.float64]:
         """1 where a unit's action potential reaches the muscle (junction peak + conduction delay)."""
         out = np.zeros((stop - start, self._group.size))
@@ -249,17 +228,6 @@ def _first_usable(offset: int) -> int:
     """First sample a window may start at when the record starts at ``offset``: the median filter of a window that
     does not start the record needs the sample before it."""
     return offset + 1 if offset > 0 else 0
-
-
-def _trailing_run_start(signal: NDArray[np.float64], min_height: float = 0.0) -> int | None:
-    """Start of the run of equal values that ends the signal, if it could still become a peak.
-
-    Only runs longer than one sample and above ``findpeaks``' height threshold matter.
-    """
-    if signal.size < 2 or signal[-1] != signal[-2] or signal[-1] <= min_height:
-        return None
-    changes = np.flatnonzero(signal[1:] != signal[:-1])
-    return int(changes[-1]) + 1 if changes.size else 0
 
 
 def type_signals(

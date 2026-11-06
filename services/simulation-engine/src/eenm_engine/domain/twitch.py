@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from eenm_engine.domain.fatigue import UnitFatigue
     from eenm_engine.domain.motor_unit_pool import MotorUnitGroup
 
-_KERNEL_CUTOFF = 1e-9
+KERNEL_CUTOFF = 1e-9
 """Relative size below which the tail of a twitch is dropped."""
 
 
@@ -134,7 +134,7 @@ class TwitchFilter:
         peak = float(self._group.twitch_peak[k])
         # (x)^m e^{m(1-x)} decreases monotonically after x = 1; find where it is negligible.
         x_end = 1.0
-        while m * (math.log(x_end) + 1 - x_end) > math.log(_KERNEL_CUTOFF):
+        while m * (math.log(x_end) + 1 - x_end) > math.log(KERNEL_CUTOFF):
             x_end *= 1.25
         x = np.arange(math.ceil(x_end * period / self._step) + 1) * self._step / period
         with np.errstate(divide="ignore"):
