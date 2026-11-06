@@ -20,6 +20,8 @@ export interface StageContent {
   substituted: string[];
   notes: string[];
   status?: StageStatus;
+  /** What the chosen condition changes in this stage (shown highlighted). */
+  condition?: string[];
 }
 
 /** Number for TeX in pt-BR (decimal comma as `{,}`); NaN → em dash. */
@@ -160,10 +162,57 @@ function stage2a(s: ModelSnapshot): StageContent {
   };
 }
 
+/** Cisi & Kohn (2008) motoneuron, which receives the central drive (domain/cisi_kohn.py). */
+function stage2c(s: ModelSnapshot): StageContent {
+  const d = s.drive;
+  const rule2008 = d?.thresholdRule !== 'WATANABE_2013';
+  const factor = d?.scale === 'RHEOBASE' ? (rule2008 ? 3.5 / 4 : 5.63 / 4) : 1;
+  const drive = d
+    ? `I_{drive}(t) = ${texNum(d.backgroundNa * factor, 3)} + ${texNum(d.voluntaryNa * factor, 3)}${
+        d.tremor ? ` + ${texNum(d.tremor.amplitudeNa * factor, 3)}\\,\\sin(2\\pi\\,${texNum(d.tremor.frequencyHz, 2)}\\,t)` : ''
+      } + \\eta_k(t)\\ \\text{nA}`
+    : 'I_{drive} = 0';
+  return {
+    id: '2c',
+    title: 'Motoneurônio de Cisi & Kohn (drive central)',
+    source: 'domain/cisi_kohn.py · infrastructure/compiled_cisi_kohn.py',
+    symbolic: [
+      'C_s \\frac{dV_s}{dt} = -g_{L,s} V_s - g_c (V_s - V_d) - \\bar g_{Na}\\, m^3 h\\,(V_s - E_{Na}) - \\bar g_{Kf}\\, n^4 (V_s - E_K) - \\bar g_{Ks}\\, q^2 (V_s - E_K) + I(t)',
+      'C_d \\frac{dV_d}{dt} = -g_{L,d} V_d - g_c (V_d - V_s), \\qquad g_c = \\frac{2}{\\frac{R_i l_d}{\\pi r_d^2} + \\frac{R_i l_s}{\\pi r_s^2}}',
+      '\\text{pulso de } 0{,}6\\ \\text{ms após } V_s > V_{th}: \\ x \\to 1 + (x_0 - 1)e^{-\\alpha_x t}\\ (m, n, q), \\ h \\to h_0 e^{-\\beta_h t}; \\ \\text{fora do pulso: } x \\to x_0 e^{-\\beta_x t},\\ h \\to 1 + (h_0 - 1) e^{-\\alpha_h t}',
+    ],
+    substituted: [
+      'E_{Na} = 120,\\ E_K = -10,\\ E_L = 0\\ \\text{mV (repouso = 0)},\\quad C_m = 1\\ \\mu F/cm^2,\\quad R_i = 70\\ \\Omega\\,cm',
+      '\\bar g_{Na} = 30,\\quad \\bar g_{Kf} = 4 / 4 / 0{,}5,\\quad \\bar g_{Ks} = 17 / 37{,}5 / 8\\ \\text{mS/cm}^2\\ (S / FR / FF)',
+      rule2008
+        ? 'V_{th} = I_{rh} \\cdot R_{in},\\quad I_{rh} = 3{,}5 \\to 6{,}5\\ (S),\\ 6{,}5 \\to 17{,}5\\ (FR),\\ 17{,}5 \\to 25{,}1\\ (FF)\\ \\text{nA}'
+        : 'V_{th} = 12{,}35 \\to 16{,}45\\ (S),\\ 16{,}45 \\to 19{,}30\\ (FR),\\ 19{,}30 \\to 20{,}90\\ (FF)\\ \\text{mV}',
+      drive,
+      ...(d
+        ? [
+            `\\eta_k:\\ \\text{ruído independente por unidade}, < 100\\ \\text{Hz},\\quad \\sigma = ${texNum(d.noiseCv, 2)} \\times ${texNum((d.backgroundNa + d.voluntaryNa) * factor, 3)}\\ \\text{nA}`,
+          ]
+        : []),
+      ...(d && !d.invasive
+        ? [`\\text{eletrodo a } ${texNum(d.electrodeFraction * 100, 0)}\\,\\%\\ \\text{do caminho soma} \\to \\text{músculo (encontro dos disparos no axônio)}`]
+        : []),
+      d?.invasive ? 'I(t) = I_{drive}(t) + I_{FES}(t) \\cdot C_s \\quad (\\mu A/cm^2 \\to nA)' : 'I(t) = I_{drive}(t)\\quad (\\text{o FES age no axônio})',
+    ],
+    notes: [
+      'Período refratário de 5 ms; um disparo antidrômico que chega ao soma conta como disparo do soma e não desce pelo axônio.',
+      rule2008
+        ? 'Limiares pela regra de 2008: a reobase de cada unidade é a publicada (menor unidade 3,5 nA, perto dos 4 nA de Gallego).'
+        : 'Limiares de Watanabe 2013: as reobases saem ≈ 1,6× maiores (menor unidade 5,6 nA).',
+      'Validado contra a Tabela 5 do artigo: resistência de entrada, constante de tempo, reobases, inclinação f–I e pós-hiperpolarização das unidades S.',
+    ],
+  };
+}
+
 function stage2b(s: ModelSnapshot): StageContent {
   const st = s.stimulus;
   const r = s.recruitment;
-  const sd = 1 + CONSTANTS.tauSdMs / st.pwMs;
+  const tau = s.condition.effects.tauSdMs;
+  const sd = 1 + tau / st.pwMs;
   let status: StageStatus | undefined;
   if (r) {
     const lo = txtNum(r.thresholdMin, 1);
@@ -189,7 +238,12 @@ function stage2b(s: ModelSnapshot): StageContent {
   if (st.modulationTarget !== 'AMPLITUDE') {
     notes.push('Com modulação de frequência ou largura de pulso, PW e o limiar variam ao longo do tempo.');
   }
+  const condition =
+    tau !== CONSTANTS.tauSdMs
+      ? [`Constante intensidade–duração menor (lesão medular, Lin 2007): τ = ${txtNum(tau, 2)} ms em vez de ${txtNum(CONSTANTS.tauSdMs, 3)} ms — muda os limiares acima.`]
+      : undefined;
   return {
+    ...(condition ? { condition } : {}),
     id: '2b',
     title: 'Axônio motor (Weiss)',
     source: 'domain/axon_stimulation.py',
@@ -213,14 +267,14 @@ function stage3(s: ModelSnapshot): StageContent {
   const c = s.conduction;
   const st = s.stimulus;
   const orig = s.variant === 'ORIGINAL';
-  const symbolic = orig
+  const symbolic: string[] = orig
     ? [
         'V_J = V_s \\cdot \\frac{0{,}070\\,\\lambda}{2}\\, e^{-x/\\lambda}, \\qquad \\lambda = \\sqrt{1/0{,}070}, \\qquad x = \\frac{\\text{axonLengthPercent}}{100}',
         '\\Delta_k = \\frac{x}{v_k}\\cdot \\frac{T}{\\delta t}\\ \\text{amostras (ORIGINAL, Q4)}',
       ]
     : ['\\Delta_k = \\frac{x}{v_k}\\cdot\\frac{1000}{\\delta t}\\ \\text{amostras (LITERATURE)}, \\qquad x = \\frac{\\text{axonLengthPercent}}{100}'];
   const scale = orig ? texNum(st.durationMs) : '1000';
-  const substituted = [
+  const substituted: string[] = [
     ...(orig
       ? [`V_J = V_s \\cdot ${texNum(c.junctionGain, 4)} \\quad (\\lambda = ${texNum(Math.sqrt(1 / CONSTANTS.junctionG), 3)},\\ x = ${texNum(c.x)})`]
       : []),
@@ -235,19 +289,44 @@ function stage3(s: ModelSnapshot): StageContent {
       return `v_k = ${texSpan(sp.velocity, 2)}\\ \\text{m/s} \\;\\Rightarrow\\; \\Delta_k = ${texSpan(sp.delayMs, 2)}\\ \\text{ms}`;
     }),
   );
+  // non-invasive mode with a central drive: the electrode splits the axon, and FES and central spikes meet on its
+  // soma side (``domain/central_drive.split_at_electrode``, ``infrastructure/axon_merge.py``)
+  const e = s.drive && !s.drive.invasive ? s.drive.electrodeFraction : null;
+  if (e !== null) {
+    symbolic.push(
+      '\\Delta_k = \\underbrace{f\\,\\Delta_k}_{\\Delta_1:\\ \\text{soma}\\to\\text{eletrodo}} + \\underbrace{(1-f)\\,\\Delta_k}_{\\Delta_2:\\ \\text{eletrodo}\\to\\text{músculo}}',
+      '\\text{colisão: o disparo central sai do soma até } \\Delta_1 \\text{ antes do pulso ou até } \\Delta_1 \\text{ depois} \\;\\Rightarrow\\; \\text{janela} = 2\\,\\Delta_1',
+    );
+    substituted.push(
+      `f = ${texNum(e, 2)}`,
+      ...perType(s, (t) => {
+        const d = s.typeSpans[t].delayMs;
+        if (!d) return null;
+        const part = (k: number) => texSpan({ from: d.from * k, to: d.to * k }, 2);
+        return `\\Delta_1 = ${part(e)},\\quad \\Delta_2 = ${part(1 - e)},\\quad \\text{janela} = ${part(2 * e)}\\ \\text{ms}`;
+      }),
+    );
+  }
+  const electrodeNotes =
+    e !== null
+      ? [
+          'f = posição do eletrodo (fração do caminho soma → músculo). Ela muda onde os disparos se encontram, não o atraso total: sem FES, a força é a mesma em qualquer posição.',
+          'Quanto mais longe do soma, maior a janela e mais disparos centrais o FES anula: consequência da regra de colisão (algoritmo de Formento et al. 2018).',
+        ]
+      : [];
   return {
     id: '3',
     title: 'Condução até o músculo',
-    source: 'domain/force_pipeline.py, domain/motor_unit_pool.py',
+    source: e !== null ? 'domain/force_pipeline.py, domain/central_drive.py, infrastructure/axon_merge.py' : 'domain/force_pipeline.py, domain/motor_unit_pool.py',
     symbolic,
     substituted,
-    notes: orig
+    notes: [...electrodeNotes, ...(orig
       ? [
           'Somente soma; V_J passa por filtro de mediana 3×3.',
           'x em metros (axonLengthPercent/100), v_k (APAT) em m/s, 44–53. No ORIGINAL o atraso em ms é x/v·T, escalando com a duração T (Q4).',
           ...countsNote(s),
         ]
-      : ['x em metros (axonLengthPercent/100), v_k (APAT) em m/s, 44–53; atraso em ms = x/v·1000, independente da duração.', ...countsNote(s)],
+      : ['x em metros (axonLengthPercent/100), v_k (APAT) em m/s, 44–53; atraso em ms = x/v·1000, independente da duração.', ...countsNote(s)])],
   };
 }
 
@@ -290,9 +369,17 @@ function stage5(s: ModelSnapshot): StageContent {
     };
   }
   const fit = twitchCalibration(s.calibrationTarget, s.muscle);
-  const k = fit.timeScale;
+  const fast = s.condition.effects.twitchTimeFactor;
+  const k = fit.timeScale * fast;
   const m = fit.m;
   return {
+    ...(fast !== 1
+      ? {
+          condition: [
+            `Abalo mais rápido (lesão medular, Scott 2006): tempo de contração × ${txtNum(fast, 2)} (T_k ← ${txtNum(fit.timeScale, 4)} × ${txtNum(fast, 2)} = ${txtNum(k, 4)} × MTTP) e meia-relaxação × 0,62 (m recalculado no motor).`,
+          ],
+        }
+      : {}),
     id: '5b',
     title: 'Twitch generalizado',
     source: 'domain/twitch.py',
@@ -332,6 +419,13 @@ function stage6(s: ModelSnapshot): StageContent {
 
 function stage7(s: ModelSnapshot): StageContent {
   return {
+    ...(s.condition.effects.fastShift
+      ? {
+          condition: [
+            `Fadigabilidade lenta → rápida (lesão medular, Chang & Shields 2011): o expoente de cada unidade anda ${txtNum(s.condition.effects.fastShift * 100, 1)} % do caminho até o da unidade mais fatigável — f_k ← f_k + ${txtNum(s.condition.effects.fastShift, 3)}·(1 − f_k).`,
+          ],
+        }
+      : {}),
     id: '7',
     title: 'Fadiga periférica',
     source: 'domain/fatigue.py (Potvin & Fuglevand 2017, Eqs 9–11, 14)',
@@ -340,6 +434,9 @@ function stage7(s: ModelSnapshot): StageContent {
     ],
     substituted: [
       `FAT_k = 0{,}0125\\cdot 180^{\\frac{\\ln(P_k/${texNum(s.poolMt.min, 3)})}{\\ln(${texNum(s.poolMt.max, 3)}/${texNum(s.poolMt.min, 3)})}}\\ \\%/\\text{s}`,
+      ...(s.condition.effects.fastShift
+        ? [`FAT_k = 0{,}0125\\cdot 180^{\\,f_k + ${texNum(s.condition.effects.fastShift, 3)}(1 - f_k)}, \\quad f_k = \\frac{\\ln(P_k/P_{\\min})}{\\ln(P_{\\max}/P_{\\min})}`]
+        : []),
       ...perType(s, (t) => `P_k = ${texSpan(s.typeSpans[t].mt, 4)} \\;\\Rightarrow\\; FAT_k = ${texSpan(s.typeSpans[t].fatigue, 3)}\\ \\%/\\text{s}`),
       `t \\in [0,\\ ${texNum(s.stimulus.durationMs / 1000, 3)}]\\ \\text{s}, \\qquad NR < 0{,}25 \\iff T_k < ${texNum(s.rate.pauseTkMs, 2)}\\ \\text{ms}\\ \\text{(pausa)}`,
     ],
@@ -388,7 +485,25 @@ function stage8(s: ModelSnapshot): StageContent {
     );
     notes.push('Automático: 120 unidades na proporção do músculo; os pesos aparecem após a primeira simulação.');
   }
+  const eff = s.condition.effects;
+  if (eff.forceFactors.length) {
+    substituted.push(
+      `F(t) \\leftarrow s\\,F(t), \\qquad s = ${eff.forceFactors.map((f) => f.tex).join(' \\cdot ')} = ${texNum(eff.forceScale, 3)}`,
+    );
+  }
+  const FORCE_LABELS: Record<string, string> = {
+    SCI_ATROPHY: 'atrofia (Modlesky 2004)',
+    PD_MOTOR_UNIT_LOSS: 'perda de unidades motoras (Krenovsky 2020)',
+    PD_NEUROPATHY: 'polineuropatia (Kwon 2024)',
+  };
   return {
+    ...(eff.forceFactors.length
+      ? {
+          condition: [
+            `Força do músculo × ${txtNum(eff.forceScale, 3)}: ${eff.forceFactors.map((f) => `${FORCE_LABELS[f.id] ?? f.id} × ${txtNum(f.factor, 3)}`).join(', ')}.`,
+          ],
+        }
+      : {}),
     id: '8b',
     title: 'Força muscular (ponderada pelo pool)',
     source: 'domain/simulation.py',
@@ -401,6 +516,7 @@ function stage8(s: ModelSnapshot): StageContent {
 const BUILDERS: Record<StageId, (s: ModelSnapshot) => StageContent> = {
   '1': stage1,
   '2a': stage2a,
+  '2c': stage2c,
   '2b': stage2b,
   '3': stage3,
   '4': stage4,

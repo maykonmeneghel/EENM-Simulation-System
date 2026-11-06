@@ -1,7 +1,7 @@
 import type { FormValues } from '../application/formModel';
 import { changeCondition, toggleAdjustment } from '../application/formModel';
 import type { ConditionAdjustment, ConditionId, ConditionInfo } from '../domain/simulation';
-import { HelpPopover } from './HelpPopover';
+import { HelpButton } from './HelpButton';
 import { Switch } from './Switch';
 
 const scholar = (title: string) => `https://scholar.google.com/scholar?q=${encodeURIComponent(`"${title}"`)}`;
@@ -32,11 +32,11 @@ export function ConditionPanel({ values, onChange, conditions, error, disabled }
         <div className="row-main">
           <span className="row-label">
             <label htmlFor="f-condition">Condição</label>
-            <HelpPopover label="Condição">
+            <HelpButton label="Condição">
               Cada condição traz ajustes tirados de artigos, um por achado, que você liga ou desliga. Os selos dizem se o
               valor foi lido no texto completo ou só no resumo e se foi medido em outro músculo que não o simulado. Os
               ajustes que se sobrepõem ficam separados para você escolher.
-            </HelpPopover>
+            </HelpButton>
           </span>
           <span className="row-control">
             <span className="popup">
@@ -74,9 +74,9 @@ export function ConditionPanel({ values, onChange, conditions, error, disabled }
                 <p className="adjustment-effect">{a.effect}</p>
                 <p className="adjustment-finding">
                   <span className={`badge badge--${a.evidence === 'FULL_TEXT' ? 'good' : 'warn'}`}>
-                    {a.evidence === 'FULL_TEXT' ? 'texto completo' : 'só resumo'}
+                    {a.evidence === 'FULL_TEXT' ? 'Texto completo' : 'Só resumo'}
                   </span>
-                  {otherMuscle(a) ? <span className="badge badge--warn">outro músculo</span> : null}{' '}
+                  {otherMuscle(a) ? <span className="badge badge--warn">Outro músculo</span> : null}{' '}
                   {a.finding} <span className="muted">({a.measuredIn})</span>
                 </p>
                 <p className="adjustment-source">

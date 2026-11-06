@@ -4,6 +4,7 @@ import type { StimulatorSettings } from './stimulator';
 import {
   envelope,
   envelopeOutline,
+  stepped,
   envelopeWindowMs,
   pulseOutline,
   pulseRecruitment,
@@ -76,6 +77,23 @@ describe('stimulator scopes', () => {
       const inside = Math.min(envelope(Math.max(0, t - 1e-6), s), envelope(t, s) || envelope(t - 1e-6, s));
       expect(y === 0 || Math.abs(y - s.amplitude * inside) < 1e-3).toBe(true);
     }
+  });
+
+  it('without ramps every train is a step: vertical rise from zero and vertical drop (no line between trains)', () => {
+    const s = { ...base, durationMs: 1000, trainOnMs: 105, trainPeriodMs: 775, rampUpMs: 0, rampDownMs: 0 };
+    const pts = envelopeOutline(s);
+    expect(pts).toEqual([
+      [0, 0],
+      [0, 120],
+      [105, 120],
+      [105, 0],
+      [775, 0],
+      [775, 120],
+      [880, 120],
+      [880, 0],
+    ]);
+    const steps = stepped([[0, 0], [25, 1], [50, 1], [75, 0]]);
+    expect(steps).toEqual([[0, 0], [25, 0], [25, 1], [50, 1], [75, 1], [75, 0]]); // edges are vertical
   });
 
   it('scope scales are fixed: the span does not follow the pulse width or the train times', () => {

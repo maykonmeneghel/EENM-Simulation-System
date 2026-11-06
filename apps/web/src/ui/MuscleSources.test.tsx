@@ -42,8 +42,8 @@ describe('MuscleSources', () => {
     const list = screen.getByRole('list', { name: /Origem dos valores de Flexor Carpi Radialis/ });
     const items = within(list).getAllByRole('listitem');
     expect(items).toHaveLength(2);
-    expect(within(items[0]!).getByText('medido')).toBeInTheDocument();
-    expect(within(items[1]!).getByText('ajustado')).toBeInTheDocument();
+    expect(within(items[0]!).getByText('Medido')).toBeInTheDocument();
+    expect(within(items[1]!).getByText('Ajustado')).toBeInTheDocument();
     expect(within(items[1]!).getByRole('link', { name: 'doi:10.3389/fbioe.2019.00181' })).toHaveAttribute(
       'href',
       'https://doi.org/10.3389/fbioe.2019.00181',
@@ -58,7 +58,7 @@ describe('MuscleSources', () => {
     render(<MuscleSources preset={FCR} calibrationTarget="SINGLE_UNIT" />);
     const items = within(screen.getByRole('list')).getAllByRole('listitem');
     const inherited = items[1]!;
-    expect(within(inherited).getByText('herdado')).toBeInTheDocument();
+    expect(within(inherited).getByText('Herdado')).toBeInTheDocument();
     expect(within(inherited).queryByRole('link')).toBeNull();
   });
 

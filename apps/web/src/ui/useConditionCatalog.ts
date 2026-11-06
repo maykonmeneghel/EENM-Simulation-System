@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ConditionInfo } from '../domain/simulation';
 import type { ApiClient } from '../infrastructure/apiClient';
+import { withRetry } from '../application/retry';
 
 export interface ConditionCatalog {
   conditions: ConditionInfo[];
@@ -12,7 +13,7 @@ export function useConditionCatalog(api: ApiClient): ConditionCatalog {
   const [state, setState] = useState<ConditionCatalog>({ conditions: [], error: null });
   useEffect(() => {
     const abort = new AbortController();
-    api.getConditions(abort.signal).then(
+    withRetry((signal) => api.getConditions(signal), abort.signal).then(
       (conditions) => setState({ conditions, error: null }),
       (err: unknown) => {
         if (abort.signal.aborted) return;

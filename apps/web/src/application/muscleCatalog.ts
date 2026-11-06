@@ -1,6 +1,7 @@
 import type { MusclePreset } from '../domain/simulation';
 import { MUSCLES } from '../domain/simulation';
 import type { ApiClient } from '../infrastructure/apiClient';
+import { withRetry } from './retry';
 
 export interface MuscleCatalog {
   muscles: MusclePreset[];
@@ -11,7 +12,7 @@ export interface MuscleCatalog {
 /** Loads presets from GET /api/v1/muscles; falls back to the contract enum (no pool sizes). */
 export async function loadMuscleCatalog(api: ApiClient, signal?: AbortSignal): Promise<MuscleCatalog> {
   try {
-    const muscles = await api.getMuscles(signal);
+    const muscles = signal ? await withRetry((sig) => api.getMuscles(sig), signal) : await api.getMuscles(signal);
     return { muscles, error: null };
   } catch (err) {
     if (signal?.aborted) throw err;

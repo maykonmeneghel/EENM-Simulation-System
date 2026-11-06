@@ -1,5 +1,6 @@
-import type { AxonRecruitment, ConductionDelay, StageId, TypeParameterSpans } from '../domain/modelEquations';
+import type { AxonRecruitment, ConditionEffects, ConductionDelay, StageId, TypeParameterSpans } from '../domain/modelEquations';
 import {
+  conditionEffects,
   axonLength,
   axonRecruitment,
   conductionDelays,
@@ -35,7 +36,7 @@ import type {
   Waveform,
 } from '../domain/simulation';
 import type { FormValues } from './formModel';
-import { driveActive } from './formModel';
+import { driveActive, tremorActive } from './formModel';
 
 /**
  * Live view-model of the model for the "Equações" and "Diagrama" views: every number the
@@ -46,6 +47,19 @@ export interface ModelSnapshot {
   variant: ModelVariant;
   calibrationTarget: CalibrationTarget;
   muscle: MuscleId;
+  /** Condition and the effects of its adjustments on the equations. */
+  condition: { id: string; effects: ConditionEffects };
+  /** Central drive into Cisi & Kohn motoneurons; null without a drive. */
+  drive: {
+    backgroundNa: number;
+    voluntaryNa: number;
+    noiseCv: number;
+    scale: 'PUBLISHED' | 'RHEOBASE';
+    thresholdRule: 'CISI_KOHN_2008' | 'WATANABE_2013';
+    tremor: { frequencyHz: number; amplitudeNa: number } | null;
+    invasive: boolean;
+    electrodeFraction: number;
+  } | null;
   stimulationSite: StimulationSite;
   stages: readonly StageId[];
   stimulus: {
@@ -124,6 +138,7 @@ export function buildModelSnapshot({ values, muscles, lastRequest, lastStarted }
   const pulseWidthUs = stimulatorMode ? num(values['stimulus.pulseWidthUs']) : null;
   const pwMs = pulseWidthUs !== null ? pulseWidthUs / 1000 : pulseWidthMs(frequencyHz, dutyCyclePercent);
   const isiMs = interPulseIntervalMs(frequencyHz);
+  const effects = conditionEffects(variant === 'LITERATURE' && values.condition !== 'NORMAL' ? (values.conditionAdjustments ?? []) : []);
   const preset = muscles.find((m) => m.id === values.muscle);
   // Pool sizes: from the API presets, else the table in model-equations.md.
   const pool = preset?.poolSize ?? POOL_SIZES[values.muscle as keyof typeof POOL_SIZES] ?? null;
@@ -181,7 +196,7 @@ export function buildModelSnapshot({ values, muscles, lastRequest, lastStarted }
       temperatureCelsius,
       phi: temperatureFactor(temperatureCelsius),
     },
-    recruitment: axonRecruitment(amplitude, pwMs),
+    recruitment: axonRecruitment(amplitude, pwMs, effects.tauSdMs),
     conduction: {
       axonLengthPercent,
       x: axonLength(axonLengthPercent),
@@ -192,6 +207,21 @@ export function buildModelSnapshot({ values, muscles, lastRequest, lastStarted }
     rate: { isiMs, ...rateRegimeLimits(isiMs) },
     units,
     muscle: values.muscle as MuscleId,
+    condition: { id: values.condition, effects },
+    drive: driveActive(values)
+      ? {
+          backgroundNa: num(values['centralDrive.backgroundNa']),
+          voluntaryNa: num(values['centralDrive.voluntaryNa']),
+          noiseCv: num(values['centralDrive.noiseCv']),
+          scale: values['centralDrive.currentScale'] === 'RHEOBASE' ? 'RHEOBASE' : 'PUBLISHED',
+          thresholdRule: values['centralDrive.thresholdRule'] === 'WATANABE_2013' ? 'WATANABE_2013' : 'CISI_KOHN_2008',
+          tremor: tremorActive(values)
+            ? { frequencyHz: num(values['centralDrive.tremor.frequencyHz']), amplitudeNa: num(values['centralDrive.tremor.amplitudeNa']) }
+            : null,
+          invasive: stimulationSite === 'MOTONEURON_POOL',
+          electrodeFraction: num(values['centralDrive.electrodeFraction']),
+        }
+      : null,
     muscleLabel: preset?.label ?? values.muscle,
     pool,
     weights: pool && units.counts ? forceWeights(pool, units.counts) : null,
@@ -203,6 +233,7 @@ export function buildModelSnapshot({ values, muscles, lastRequest, lastStarted }
       durationMs,
       calibrationTarget,
       values.muscle as MuscleId,
+      effects,
     ),
     poolMt: { min: POOL_MT_MIN, max: POOL_MT_MAX },
     twitchShape: twitchShape(variant, calibrationTarget, values.muscle as MuscleId),

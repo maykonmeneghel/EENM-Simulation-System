@@ -29,7 +29,8 @@ export type ReferenceId =
   | 'gallego2015'
   | 'dideriksen2017'
   | 'agapaki2018'
-  | 'formento2018';
+  | 'formento2018'
+  | 'watanabe2013';
 
 export const REFERENCES: Record<ReferenceId, Reference> = {
   booth1997: {
@@ -170,6 +171,15 @@ export const REFERENCES: Record<ReferenceId, Reference> = {
       'Electrical spinal cord stimulation must preserve proprioception to enable locomotion in humans with spinal cord injury',
     venue: 'Nat Neurosci 21:1728–1741',
     doi: '10.1038/s41593-018-0262-6',
+  },
+  watanabe2013: {
+    id: 'watanabe2013',
+    authors: 'Watanabe RN, Magalhães FH, Elias LA, et al.',
+    year: 2013,
+    title:
+      'Influences of premotoneuronal command statistics on the scaling of motor output variability during isometric plantar flexion',
+    venue: 'J Neurophysiol 110:2592–2606',
+    doi: '10.1152/jn.00073.2013',
   },
 };
 

@@ -70,8 +70,8 @@ describe('ConditionPanel', () => {
     const list = screen.getByRole('list', { name: 'Ajustes de Lesão medular crônica' });
     expect(within(list).getByRole('switch', { name: /SCI_FATIGABILITY/ })).toBeChecked();
     expect(within(list).getByRole('switch', { name: /SCI_ATROPHY/ })).not.toBeChecked();
-    expect(within(list).getByText('só resumo')).toBeInTheDocument();
-    expect(within(list).getByText('outro músculo')).toBeInTheDocument();
+    expect(within(list).getByText('Só resumo')).toBeInTheDocument();
+    expect(within(list).getByText('Outro músculo')).toBeInTheDocument();
     const links = within(list).getAllByRole('link').map((a) => a.getAttribute('href'));
     expect(links).toContain('https://doi.org/10.1/SCI_ATROPHY');
     expect(links).toContain(`https://scholar.google.com/scholar?q=${encodeURIComponent('"Title SCI_ATROPHY"')}`);

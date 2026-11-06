@@ -1,12 +1,12 @@
 import type { CalibrationTarget, MusclePreset, PresetFieldSource } from '../domain/simulation';
-import { HelpPopover } from './HelpPopover';
+import { HelpButton } from './HelpButton';
 
 const scholar = (title: string) => `https://scholar.google.com/scholar?q=${encodeURIComponent(`"${title}"`)}`;
 
 const BADGE: Record<PresetFieldSource['provenance'], { text: string; tone: string }> = {
-  MEASURED: { text: 'medido', tone: 'good' },
-  FITTED: { text: 'ajustado', tone: 'good' },
-  INHERITED: { text: 'herdado', tone: 'warn' },
+  MEASURED: { text: 'Medido', tone: 'good' },
+  FITTED: { text: 'Ajustado', tone: 'good' },
+  INHERITED: { text: 'Herdado', tone: 'warn' },
 };
 
 export interface MuscleSourcesProps {
@@ -24,11 +24,11 @@ export function MuscleSources({ preset, calibrationTarget }: MuscleSourcesProps)
     <div className="row muscle-sources">
       <div className="row-label">
         <span>Origem dos valores</span>
-        <HelpPopover label="Origem dos valores do músculo">
+        <HelpButton label="Origem dos valores do músculo">
           Medido: lido num estudo humano deste músculo. Ajustado: o modelo foi calibrado para reproduzir um valor
           medido neste músculo. Herdado: não há dado verificado, e o valor é o do sóleo. Os itens de tempo do abalo
           mudam com a calibração escolhida.
-        </HelpPopover>
+        </HelpButton>
       </div>
       <ul className="adjustments" aria-label={`Origem dos valores de ${preset?.label ?? ''}`}>
         {fields.map((f) => {

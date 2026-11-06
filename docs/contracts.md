@@ -83,7 +83,7 @@ added only in the second case.
 
 ```json
 "centralDrive": { "enabled": true, "backgroundNa": 3.5, "voluntaryNa": 0, "noiseCv": 0.2,
-                  "currentScale": "PUBLISHED", "tremor": { "frequencyHz": 4.4, "amplitudeNa": 3.0 },
+                  "currentScale": "PUBLISHED", "thresholdRule": "CISI_KOHN_2008", "tremor": { "frequencyHz": 4.4, "amplitudeNa": 3.0 },
                   "electrodeFraction": 0.9 }
 ```
 
@@ -91,11 +91,13 @@ added only in the second case.
 |---|---|---|---|
 | `backgroundNa`, `voluntaryNa` | 3.5, 0 | 0 – 20 nA | Gallego 2015; posture 4.5 – 5.5 nA |
 | `noiseCv` | 0.2 | 0 – 2 | SD of the per-unit noise (< 100 Hz) / mean current |
-| `currentScale` | `PUBLISHED` | `PUBLISHED`, `RHEOBASE` | `RHEOBASE` × 1.81 / 4 (smallest rheobases: ours / Gallego's) |
+| `currentScale` | `PUBLISHED` | `PUBLISHED`, `RHEOBASE` | `RHEOBASE`: × our smallest rheobase / Gallego's 4 nA (3.5/4 or 5.6/4) |
+| `thresholdRule` | `CISI_KOHN_2008` | `CISI_KOHN_2008`, `WATANABE_2013` | thresholds of the drive's Cisi & Kohn motoneurons |
 | `tremor.frequencyHz`, `tremor.amplitudeNa` | 4.4, 3.0 | 0.1 – 20 Hz, 0 – 20 nA | Dideriksen 2017 (4.4 Hz) or Agapaki 2018 (5.9 Hz) |
 | `electrodeFraction` | 0.9 | 0.01 – 1 | electrode position along the axon from the soma (Decision 4) |
 
-With `stimulationSite = MOTONEURON_POOL` (invasive) the stimulus is added to the drive in the soma. With
+The drive goes into Cisi & Kohn (2008) motoneurons (in nA, as published). With `stimulationSite = MOTONEURON_POOL`
+(invasive) the stimulus density is converted to nA through each soma area and added to the drive in the soma. With
 `SKIN_SURFACE` (non-invasive) the motoneurons fire from the drive, the stimulus fires the axons at the electrode and the
 two meet on the axon (collision, refractoriness, antidromic reset; design §3.3). Without a drive, `SKIN_SURFACE` does not
 simulate the motoneurons, as before.

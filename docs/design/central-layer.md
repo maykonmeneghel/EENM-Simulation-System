@@ -215,14 +215,12 @@ two-channel Estimulador and a joint panel; the `PD_TREMOR` condition adjustment 
 1. **Per-unit motoneuron input + compiled HH.** Gate: firing of the existing pool unchanged with a constant input
    (regression to the Octave-checked behaviour), one 4-s two-pool trial ≤ 10 s.
 2. **Descending drive** (3.1). Gate: motor unit rate, ISI CV 10–30 %, doublets within the Agapaki ranges.
-   **Implemented 2026-11-06** (`domain/central_drive.py`; `validation/central_drive.py`,
-   `validation/results/central-drive.json`, 120-unit FCR, 4 s): ISI CV 0.22–0.30 ✓; force peak 4.33 Hz for a 4.4 Hz
-   tremor ✓; **rate 50–95 Hz ✗** (10.9 ± 2.9 Hz) and short ISIs ≈ 17 ms ✗ (doublets 41.6 ± 5.1 ms). Cause: the
-   inherited motoneuron (Booth, Rinzel & Kiehn 1997, built for Ca²⁺ plateaus) has no low-rate regime — its smallest
-   unit goes from silence to ≈ 46 Hz — and is bistable (keeps firing after the current ends). Our smallest rheobase is
-   1.81 nA (Gallego's 4 nA): currents offered as published (default) or rescaled by 0.45 (then the resting tremor
-   fires no unit). **Open decision:** keep, retune (e.g. KCa ×3 gives 19–39 Hz, not yet fitted) or replace the
-   motoneuron for the central drive.
+   **Implemented 2026-11-06; gate passed with the Cisi & Kohn (2008) motoneuron** (author's choice, Decision 3c:
+   a different motoneuron for the drive; `domain/cisi_kohn.py`, `docs/research/cisi-kohn-motoneuron.md`):
+   rest tremor → units at 7.0 Hz (2.9–10.8; target 10.9 ± 2.9, range 6–18.5) ✓, short ISIs 49.7 ms (doublets
+   41.6 ± 5.1, range 30–50) ✓, tonic ISI CV 0.15 ✓, force at 4.33 Hz for a 4.4 Hz drive ✓. The inherited Booth 1997
+   motoneuron (50–95 Hz, bistable) stays only for the invasive mode without a drive
+   (`validation/results/central-drive-booth1997.json`).
 3. **FCR/ECR muscles** (step 3 research) and **joint** (3.4–3.5), open loop. Gate: tremor frequency inside the
    Section 4 targets with a phase-free common drive (antagonists in phase at this stage — expected).
 4. **Ia loop** (3.6: spindles, Ia interneurons, reciprocal inhibition). Gate: FCR–ECR burst delay 32.8 ± 12.8 %,

@@ -83,7 +83,7 @@ class SimulationDefaultsTest {
                 Muscle.TIBIALIS_ANTERIOR,
                 new MotorUnitCountsDraft(null, 7, null),
                 null, 37.0, InjectionSite.DENDRITE, null, CompartmentGeometry.SPHERICAL, 42L, null,
-                new CentralDrive(true, null, 5.0, null, null, null, null));
+                new CentralDrive(true, null, 5.0, null, null, null, null, null));
 
         SimulationRequest request = defaults.resolve(draft);
 

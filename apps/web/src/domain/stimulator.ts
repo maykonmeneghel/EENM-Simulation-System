@@ -113,6 +113,7 @@ export function envelopeOutline(s: StimulatorSettings, windowMs = envelopeWindow
   const pts: Point[] = [];
   for (let start = 0; start < windowMs; start += cycle) {
     const end = Math.min(start + on, windowMs);
+    pts.push([start, 0]); // the train starts from zero: a vertical edge without a ramp-up (not a line from the last train)
     const corners = [start, start + s.rampUpMs, start + on - s.rampDownMs, start + on];
     for (const c of corners) if (c >= start && c <= end) pts.push([c, s.amplitude * ramp(c - start)]);
     if (end < start + on) pts.push([end, s.amplitude * ramp(end - start)]);
@@ -121,6 +122,17 @@ export function envelopeOutline(s: StimulatorSettings, windowMs = envelopeWindow
   }
   // coinciding corners (a zero-length ramp) give repeated points
   return pts.filter((p, i) => i === 0 || p[0] !== pts[i - 1]![0] || p[1] !== pts[i - 1]![1]);
+}
+
+/** A step trace through the points: each value holds until the next point (recruitment changes pulse by pulse). */
+export function stepped(points: readonly Point[]): Point[] {
+  const out: Point[] = [];
+  points.forEach((p, i) => {
+    const previous = points[i - 1];
+    if (previous && previous[1] !== p[1]) out.push([p[0], previous[1]]); // hold, then a vertical edge
+    out.push(p);
+  });
+  return out;
 }
 
 export interface PulseRecruitment {

@@ -31,6 +31,7 @@ from eenm_engine.domain.force_pipeline import MUAP_TIME, junction_potential, mua
 from eenm_engine.domain.model_options import ModelOptions, StimulationSite, TwitchDrive
 from eenm_engine.domain.motor_unit_pool import MotorUnitGroup
 from eenm_engine.domain.twitch import KERNEL_CUTOFF, TwitchFilter
+from eenm_engine.parallel import NUMBA_PARALLEL_LOCK
 
 # -- compiled stages -------------------------------------------------------------------------------------------
 
@@ -239,20 +240,21 @@ class _PeakScanner:
             return
         self.queue.reserve(signal.shape[0] // 2 + 1)
         q = self.queue
-        _scan_peaks(
-            np.ascontiguousarray(signal),
-            self.seen,
-            scale,
-            self.started,
-            self.run_value,
-            self.run_start,
-            self.rising,
-            self.delay,
-            q.start,
-            q.height,
-            q.head,
-            q.count,
-        )
+        with NUMBA_PARALLEL_LOCK:
+            _scan_peaks(
+                np.ascontiguousarray(signal),
+                self.seen,
+                scale,
+                self.started,
+                self.run_value,
+                self.run_start,
+                self.rising,
+                self.delay,
+                q.start,
+                q.height,
+                q.head,
+                q.count,
+            )
         self.seen += signal.shape[0]
 
     def decided(self) -> NDArray[np.int64]:
@@ -284,7 +286,8 @@ class StreamingTypeForce:
         self._units = group.size
         self._step = step_ms
         self._options = options
-        self._axons = options.stimulation_site is StimulationSite.MOTOR_AXONS
+        # spike trains instead of soma voltages: axon stimulation, or Cisi & Kohn motoneurons under a central drive
+        self._axons = options.stimulation_site is StimulationSite.MOTOR_AXONS or options.central_drive is not None
         self._own_spikes = options.twitch_drive is TwitchDrive.OWN_SPIKES
         self._scale = 1.0 if self._axons else float(junction_potential(np.ones(1), axon_length_percent)[0])
         delay = np.asarray(group.muap_delay_samples, dtype=np.int64)
@@ -375,10 +378,11 @@ class StreamingTypeForce:
             force = self._iir_force(start, stop)[indices - start].sum(axis=1)
         else:
             force = np.empty(indices.size)
-            _twitch_sum(
-                indices, self._sp_unit, self._sp_index, self._sp_weight, self._sp_period, self._sp_length,
-                self._peak, self._step, self._m, force,
-            )  # fmt: skip
+            with NUMBA_PARALLEL_LOCK:
+                _twitch_sum(
+                    indices, self._sp_unit, self._sp_index, self._sp_weight, self._sp_period, self._sp_length,
+                    self._peak, self._step, self._m, force,
+                )  # fmt: skip
             alive = self._sp_index + self._sp_length > stop
             self._sp_unit, self._sp_index, self._sp_weight = (
                 self._sp_unit[alive], self._sp_index[alive], self._sp_weight[alive],
@@ -402,7 +406,8 @@ class StreamingTypeForce:
             stack = np.vstack((stack, np.zeros((1, self._units))))  # zero padding below the last row
         out = np.empty((max(0, stack.shape[0] - 2), self._units))
         if out.shape[0]:
-            _median_3x3(np.ascontiguousarray(stack), out)
+            with NUMBA_PARALLEL_LOCK:
+                _median_3x3(np.ascontiguousarray(stack), out)
             self._above = stack[-2:-1].copy()
             self._pending = stack[-1:].copy()
         else:

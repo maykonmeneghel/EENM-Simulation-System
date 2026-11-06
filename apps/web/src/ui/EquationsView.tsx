@@ -14,6 +14,8 @@ export interface StageFocus {
   nonce: number;
   /** Move the keyboard focus to the stage (default); false when the change came from a sidebar control. */
   takeFocus?: boolean;
+  /** What was just changed in the sidebar (shown on the stage, e.g. "Calibração do twitch: Unidade isolada"). */
+  change?: string;
 }
 
 const stageElementId = (id: StageId) => `stage-${id}`;
@@ -67,6 +69,11 @@ export function EquationsView({
             <span className="stage-badge">{st.id}</span>
             <h3 id={`${stageElementId(st.id)}-title`}>{st.title}</h3>
             <code className="stage-source">{st.source}</code>
+            {focus?.change && focus.stage === st.id ? (
+              <span key={focus.nonce} className="stage-change" role="status">
+                {focus.change}
+              </span>
+            ) : null}
             {onInspect ? (
               <button
                 type="button"
@@ -93,6 +100,14 @@ export function EquationsView({
               <Tex key={i} tex={t} display />
             ))}
           </div>
+          {st.condition ? (
+            <div className="stage-condition" role="note">
+              <span className="stage-label">Efeito da condição</span>
+              {st.condition.map((t) => (
+                <p key={t}>{t}</p>
+              ))}
+            </div>
+          ) : null}
           {st.status ? (
             <p className={`stage-status stage-status--${st.status.tone}`} role="status">
               {st.status.text}

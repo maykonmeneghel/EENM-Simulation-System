@@ -156,7 +156,7 @@ export function DiagramView({ snapshot: s, running, onSelectStage }: DiagramView
             </text>
           </Block>
         ) : (
-          <Block stage="2a" label="Motoneurônio" onSelect={onSelectStage}>
+          <Block stage={s.drive ? '2c' : '2a'} label="Motoneurônio" onSelect={onSelectStage}>
             <rect x="196" y="60" width="190" height="150" rx="18" className="dg-box" />
             <text x="291" y="52" className="dg-title">Motoneurônio</text>
             {/* dendrite */}

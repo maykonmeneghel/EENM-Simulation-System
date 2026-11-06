@@ -35,6 +35,7 @@ final class EngineRequestMapper {
         CentralDrive.Tremor t = drive.tremor();
         return new EngineSimulationRequestBody.CentralDrive(drive.enabled(), drive.backgroundNa(), drive.voluntaryNa(),
                 drive.noiseCv(), drive.currentScale() == null ? null : drive.currentScale().name(),
+                drive.thresholdRule() == null ? null : drive.thresholdRule().name(),
                 t == null ? null : new EngineSimulationRequestBody.Tremor(t.frequencyHz(), t.amplitudeNa()),
                 drive.electrodeFraction());
     }

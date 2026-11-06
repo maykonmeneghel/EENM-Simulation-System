@@ -5,6 +5,7 @@ import type {
   ConditionInfo,
   CurrentScale,
   FieldError,
+  ThresholdRule,
   Geometry,
   InjectionSite,
   ModelVariant,
@@ -58,6 +59,7 @@ export const FIELD_PATHS = [
   'centralDrive.voluntaryNa',
   'centralDrive.noiseCv',
   'centralDrive.currentScale',
+  'centralDrive.thresholdRule',
   'centralDrive.tremor.frequencyHz',
   'centralDrive.tremor.amplitudeNa',
   'centralDrive.electrodeFraction',
@@ -90,6 +92,7 @@ export const DRIVE_FIELDS: readonly FieldPath[] = [
   'centralDrive.voluntaryNa',
   'centralDrive.noiseCv',
   'centralDrive.currentScale',
+  'centralDrive.thresholdRule',
   'centralDrive.electrodeFraction',
 ];
 export const TREMOR_FIELDS: readonly FieldPath[] = ['centralDrive.tremor.frequencyHz', 'centralDrive.tremor.amplitudeNa'];
@@ -100,6 +103,7 @@ export const DRIVE_DEFAULTS = {
   voluntaryNa: 0,
   noiseCv: 0.2,
   currentScale: 'PUBLISHED',
+  thresholdRule: 'CISI_KOHN_2008',
   tremorFrequencyHz: 4.4,
   tremorAmplitudeNa: 3,
   electrodeFraction: 0.9,
@@ -165,6 +169,7 @@ export function toFormValues(r: SimulationRequest = defaultRequest()): FormValue
     'centralDrive.voluntaryNa': String(r.centralDrive?.voluntaryNa ?? DRIVE_DEFAULTS.voluntaryNa),
     'centralDrive.noiseCv': String(r.centralDrive?.noiseCv ?? DRIVE_DEFAULTS.noiseCv),
     'centralDrive.currentScale': r.centralDrive?.currentScale ?? DRIVE_DEFAULTS.currentScale,
+    'centralDrive.thresholdRule': r.centralDrive?.thresholdRule ?? DRIVE_DEFAULTS.thresholdRule,
     'centralDrive.tremor.frequencyHz': String(r.centralDrive?.tremor.frequencyHz ?? DRIVE_DEFAULTS.tremorFrequencyHz),
     'centralDrive.tremor.amplitudeNa': String(r.centralDrive?.tremor.amplitudeNa ?? DRIVE_DEFAULTS.tremorAmplitudeNa),
     'centralDrive.electrodeFraction': String(r.centralDrive?.electrodeFraction ?? DRIVE_DEFAULTS.electrodeFraction),
@@ -172,6 +177,11 @@ export function toFormValues(r: SimulationRequest = defaultRequest()): FormValue
 }
 
 /** Defaults of the app (the corrected model, automatic units, stimulator pulses). */
+/** A new seed for the "sortear" button: a whole number from 0 to 999 999 (short enough to note and type back). */
+export function randomSeed(random: () => number = Math.random): string {
+  return String(Math.floor(random() * 1_000_000));
+}
+
 export function defaultFormValues(variant: ModelVariant = 'LITERATURE'): FormValues {
   return toFormValues(defaultRequest(variant));
 }
@@ -185,12 +195,11 @@ export function inactiveFields(values: FormValues): ReadonlySet<FieldPath> {
     out.add('stimulus.trainOffMs');
   }
   if (values.modelVariant === 'LITERATURE') {
-    // the motoneuron compartments are simulated with the stimulus in the pool or with a central drive
-    if (values.stimulationSite !== 'MOTONEURON_POOL' && !driveActive(values)) for (const f of MOTONEURON_FIELDS) out.add(f);
+    // the Booth motoneuron's settings apply only with the stimulus in the pool and no drive (the drive goes into Cisi &
+    // Kohn motoneurons, whose geometry is that of their paper)
+    if (values.stimulationSite !== 'MOTONEURON_POOL' || driveActive(values)) for (const f of MOTONEURON_FIELDS) out.add(f);
     if (!driveActive(values)) for (const f of DRIVE_FIELDS) out.add(f);
     if (values.stimulationSite === 'MOTONEURON_POOL') out.add('centralDrive.electrodeFraction');
-    // in the non-invasive mode the drive always enters the soma (the stimulus acts on the axon)
-    if (values.stimulationSite !== 'MOTONEURON_POOL') out.add('injectionSite');
     if (!tremorActive(values)) for (const f of TREMOR_FIELDS) out.add(f);
     if (!values.manualUnits) {
       out.add('unitsPerType.S');
@@ -324,6 +333,7 @@ export function parseForm(values: FormValues, muscles: readonly MusclePreset[] =
             voluntaryNa: num('centralDrive.voluntaryNa'),
             noiseCv: num('centralDrive.noiseCv'),
             currentScale: values['centralDrive.currentScale'] as CurrentScale,
+            thresholdRule: values['centralDrive.thresholdRule'] as ThresholdRule,
             tremor: {
               frequencyHz: num('centralDrive.tremor.frequencyHz'),
               amplitudeNa: num('centralDrive.tremor.amplitudeNa'),

@@ -3,16 +3,20 @@ import type { FormValues } from '../application/formModel';
 import { defaultFormValues } from '../application/formModel';
 import type { InspectorTopic } from '../application/inspectorTopics';
 import { changedStage } from '../application/physiologyStages';
+import { driveActive } from '../application/formModel';
+import { stagesFor } from '../domain/modelEquations';
 import { buildModelSnapshot } from '../application/modelView';
 import type { SimulationController } from '../application/simulationController';
 import type { StageId } from '../domain/modelEquations';
-import type { FieldError, SimulationRequest } from '../domain/simulation';
+import type { FieldError, ModelVariant, SimulationRequest, StimulationSite } from '../domain/simulation';
 import type { ApiClient } from '../infrastructure/apiClient';
 import { DiagramView } from './DiagramView';
 import type { StageFocus } from './EquationsView';
 import { EquationsView } from './EquationsView';
 import { FatiguePanel } from './FatiguePanel';
 import { InspectorPanel } from './InspectorPanel';
+import { HelpContext } from './helpContext';
+import type { ShowHelp } from './helpContext';
 import { LiveCharts } from './LiveCharts';
 import { SegmentedControl } from './SegmentedControl';
 import { SIM_FORM_ID, SimulationForm } from './SimulationForm';
@@ -88,8 +92,17 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
   const [seenValues, setSeenValues] = useState(values);
   if (values !== seenValues) {
     setSeenValues(values);
-    const stage = step === 'physiology' ? changedStage(seenValues, values) : null;
-    if (stage) setFocus((f) => ({ stage, nonce: (f?.nonce ?? 0) + 1, takeFocus: false }));
+    const label = (id: string) =>
+      conditionCatalog.conditions.flatMap((c) => c.adjustments).find((a) => a.id === id)?.label ?? id;
+    const found = step === 'physiology' ? changedStage(seenValues, values, label) : null;
+    if (found) {
+      // a stage that the change removes (e.g. the drive switched off) points at the stage that takes its place
+      const shown = stagesFor(values.modelVariant as ModelVariant, values.stimulationSite as StimulationSite, driveActive(values));
+      const stage = shown.includes(found.stage)
+        ? found.stage
+        : (['2c', '2a', '2b'] as const).find((s) => shown.includes(s)) ?? shown[0]!;
+      setFocus((f) => ({ stage, nonce: (f?.nonce ?? 0) + 1, takeFocus: false, change: found.change }));
+    }
   }
 
   const snapshot = useMemo(
@@ -107,6 +120,7 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
   );
   const stop = useCallback(() => controller.stop(), [controller]);
   const inspect = useCallback((topic: InspectorTopic) => setInspector({ open: true, topic }), []);
+  const showHelp = useCallback<ShowHelp>((label, content) => inspect({ kind: 'help', label, content }), [inspect]);
   const inspectStage = useCallback((stage: StageId) => inspect({ kind: 'stage', stage }), [inspect]);
   const showEquation = useCallback((stage: StageId) => {
     setStep('physiology');
@@ -138,114 +152,116 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
     .join(' ');
 
   return (
-    <div className={classes}>
-      <header className="toolbar">
-        <div className="toolbar-title">
-          <button
-            type="button"
-            className="toolbar-icon"
-            aria-pressed={navigatorOpen}
-            aria-controls="navigator"
-            aria-label={navigatorOpen ? 'Ocultar barra lateral' : 'Mostrar barra lateral'}
-            title={navigatorOpen ? 'Ocultar barra lateral' : 'Mostrar barra lateral'}
-            onClick={() => setNavigatorOpen((o) => !o)}
-          >
-            <SidebarIcon side="left" />
-          </button>
-          <h1>Simulador EENM</h1>
-        </div>
-        <div className="toolbar-center">
-          <SegmentedControl<StepId>
-            options={STEP_OPTIONS}
-            value={step}
-            onChange={setStep}
-            label="Etapa"
-            mode="tabs"
-            panelId={panelId}
-            tabId={tabId}
-            titles={(s) => shortcutLabel(`view-${STEPS.findIndex((x) => x.id === s) + 1}` as 'view-1', mac)}
-          />
-        </div>
-        <div className="toolbar-actions">
-          {running ? (
-            <span className="live-pill" role="status" title="Progresso">
-              <span className="live-dot" aria-hidden="true" /> {Math.round(state.progress * 100)} %
-            </span>
-          ) : null}
-          <button type="button" className="btn" onClick={stop} disabled={!running} title={`Parar (${shortcutLabel('stop', mac)})`}>
-            Parar
-          </button>
-          <button
-            type="submit"
-            form={SIM_FORM_ID}
-            className="btn btn--primary"
-            disabled={running}
-            title={`Simular (${shortcutLabel('simulate', mac)})`}
-          >
-            Simular
-          </button>
-          <button
-            type="button"
-            className="toolbar-icon"
-            aria-pressed={inspector.open}
-            aria-controls="inspector"
-            aria-label={inspector.open ? 'Ocultar explicação' : 'Mostrar explicação'}
-            title={inspector.open ? 'Ocultar explicação' : 'Mostrar explicação'}
-            onClick={() => setInspector((i) => ({ ...i, open: !i.open }))}
-          >
-            <SidebarIcon side="right" />
-          </button>
-        </div>
-      </header>
-
-      <aside id="navigator" className="navigator" aria-label={`Ajustes — ${current.label}`} inert={!navigatorOpen}>
-        <header className="navigator-head">
-          <span className="navigator-step">Etapa {current.number} de {STEPS.length}</span>
-          <h2>{current.label}</h2>
+    <HelpContext.Provider value={showHelp}>
+      <div className={classes}>
+        <header className="toolbar">
+          <div className="toolbar-title">
+            <button
+              type="button"
+              className="toolbar-icon"
+              aria-pressed={navigatorOpen}
+              aria-controls="navigator"
+              aria-label={navigatorOpen ? 'Ocultar barra lateral' : 'Mostrar barra lateral'}
+              title={navigatorOpen ? 'Ocultar barra lateral' : 'Mostrar barra lateral'}
+              onClick={() => setNavigatorOpen((o) => !o)}
+            >
+              <SidebarIcon side="left" />
+            </button>
+            <h1>Simulador EENM</h1>
+          </div>
+          <div className="toolbar-center">
+            <SegmentedControl<StepId>
+              options={STEP_OPTIONS}
+              value={step}
+              onChange={setStep}
+              label="Etapa"
+              mode="tabs"
+              panelId={panelId}
+              tabId={tabId}
+              titles={(s) => shortcutLabel(`view-${STEPS.findIndex((x) => x.id === s) + 1}` as 'view-1', mac)}
+            />
+          </div>
+          <div className="toolbar-actions">
+            {running ? (
+              <span className="live-pill" role="status" title="Progresso">
+                <span className="live-dot" aria-hidden="true" /> {Math.round(state.progress * 100)} %
+              </span>
+            ) : null}
+            <button type="button" className="btn" onClick={stop} disabled={!running} title={`Parar (${shortcutLabel('stop', mac)})`}>
+              Parar
+            </button>
+            <button
+              type="submit"
+              form={SIM_FORM_ID}
+              className="btn btn--primary"
+              disabled={running}
+              title={`Simular (${shortcutLabel('simulate', mac)})`}
+            >
+              Simular
+            </button>
+            <button
+              type="button"
+              className="toolbar-icon"
+              aria-pressed={inspector.open}
+              aria-controls="inspector"
+              aria-label={inspector.open ? 'Ocultar explicação' : 'Mostrar explicação'}
+              title={inspector.open ? 'Ocultar explicação' : 'Mostrar explicação'}
+              onClick={() => setInspector((i) => ({ ...i, open: !i.open }))}
+            >
+              <SidebarIcon side="right" />
+            </button>
+          </div>
         </header>
-        {catalog.error ? <div className="banner banner--warn">{catalog.error}</div> : null}
-        <SimulationForm
-          step={step}
-          onGoToStep={setStep}
-          values={values}
-          onValuesChange={setValues}
-          muscles={catalog.muscles}
-          serverErrors={serverErrors}
-          running={running}
-          onSubmit={start}
-          autoUnitCounts={snapshot.units.source === 'started' ? snapshot.units.counts : null}
-          conditions={conditionCatalog.conditions}
-          conditionsError={conditionCatalog.error}
-          onClientErrors={onClientErrors}
-        />
-      </aside>
 
-      <main className="content">
-        <section id={panelId(step)} role="tabpanel" aria-labelledby={tabId(step)} className="panel" tabIndex={-1}>
-          {step === 'stimulator' ? (
-            <StimulatorScopes values={values} errors={stimulatorErrors} onInspect={inspect} />
-          ) : step === 'physiology' ? (
-            <EquationsView snapshot={snapshot} focus={focus} onInspect={inspect} />
-          ) : step === 'simulation' ? (
-            <DiagramView snapshot={snapshot} running={running} onSelectStage={inspectStage} />
-          ) : (
-            <>
-              <div className="card status-card">
-                <ProgressBar state={state} />
-              </div>
-              <ErrorBanner error={state.error} />
-              <SummaryCard state={state} />
-              <ZoomBar zoom={zoom} durationMs={state.run?.durationMs ?? state.request?.stimulus.durationMs ?? null} />
-              <LiveCharts state={state} buffer={controller.series} zoom={zoom} onInspect={inspect} />
-              <FatiguePanel state={state} fatigue={controller.fatigue} series={controller.series} zoom={zoom} onInspect={inspect} />
-            </>
-          )}
-        </section>
-      </main>
+        <aside id="navigator" className="navigator" aria-label={`Ajustes — ${current.label}`} inert={!navigatorOpen}>
+          <header className="navigator-head">
+            <span className="navigator-step">Etapa {current.number} de {STEPS.length}</span>
+            <h2>{current.label}</h2>
+          </header>
+          {catalog.error ? <div className="banner banner--warn">{catalog.error}</div> : null}
+          <SimulationForm
+            step={step}
+            onGoToStep={setStep}
+            values={values}
+            onValuesChange={setValues}
+            muscles={catalog.muscles}
+            serverErrors={serverErrors}
+            running={running}
+            onSubmit={start}
+            autoUnitCounts={snapshot.units.source === 'started' ? snapshot.units.counts : null}
+            conditions={conditionCatalog.conditions}
+            conditionsError={conditionCatalog.error}
+            onClientErrors={onClientErrors}
+          />
+        </aside>
 
-      <aside id="inspector" className="explainer" aria-label="Explicação" inert={!inspector.open}>
-        <InspectorPanel topic={inspector.topic} values={values} axonEvents={controller.axonEvents} onShowEquation={showEquation} />
-      </aside>
-    </div>
+        <main className="content">
+          <section id={panelId(step)} role="tabpanel" aria-labelledby={tabId(step)} className="panel" tabIndex={-1}>
+            {step === 'stimulator' ? (
+              <StimulatorScopes values={values} errors={stimulatorErrors} onInspect={inspect} />
+            ) : step === 'physiology' ? (
+              <EquationsView snapshot={snapshot} focus={focus} onInspect={inspect} />
+            ) : step === 'simulation' ? (
+              <DiagramView snapshot={snapshot} running={running} onSelectStage={inspectStage} />
+            ) : (
+              <>
+                <div className="card status-card">
+                  <ProgressBar state={state} />
+                </div>
+                <ErrorBanner error={state.error} />
+                <SummaryCard state={state} />
+                <ZoomBar zoom={zoom} durationMs={state.run?.durationMs ?? state.request?.stimulus.durationMs ?? null} />
+                <LiveCharts state={state} buffer={controller.series} zoom={zoom} onInspect={inspect} />
+                <FatiguePanel state={state} fatigue={controller.fatigue} series={controller.series} zoom={zoom} onInspect={inspect} />
+              </>
+            )}
+          </section>
+        </main>
+
+        <aside id="inspector" className="explainer" aria-label="Explicação" inert={!inspector.open}>
+          <InspectorPanel topic={inspector.topic} values={values} axonEvents={controller.axonEvents} onShowEquation={showEquation} />
+        </aside>
+      </div>
+    </HelpContext.Provider>
   );
 }

@@ -13,7 +13,40 @@ import type {
 } from './simulation';
 import { MOTOR_UNIT_TYPES } from './simulation';
 
-export type StageId = '1' | '2a' | '2b' | '3' | '4' | '5a' | '5b' | '6' | '7' | '8a' | '8b';
+export type StageId = '1' | '2a' | '2b' | '2c' | '3' | '4' | '5a' | '5b' | '6' | '7' | '8a' | '8b';
+
+/**
+ * Effects of the condition adjustments on the equations (domain/conditions.py): Weiss's τ (SCI_CHRONAXIE), the twitch
+ * time (SCI_FAST_TWITCH), the fatigability shift (SCI_FATIGABILITY) and the muscle force factor (atrophy, loss of
+ * motor units, neuropathy).
+ */
+export interface ConditionEffects {
+  /** Adjustments in force (ids). */
+  active: readonly string[];
+  tauSdMs: number;
+  twitchTimeFactor: number;
+  fastShift: number;
+  forceScale: number;
+  forceFactors: readonly { id: string; factor: number; tex: string }[];
+}
+
+const FORCE_FACTORS: Readonly<Record<string, { factor: number; tex: string }>> = {
+  SCI_ATROPHY: { factor: 1.36 / 2.44, tex: '\\tfrac{1{,}36}{2{,}44}' },
+  PD_MOTOR_UNIT_LOSS: { factor: 109 / 129, tex: '\\tfrac{109}{129}' },
+  PD_NEUROPATHY: { factor: 5.35 / 10.9, tex: '\\tfrac{5{,}35}{10{,}90}' },
+};
+
+export function conditionEffects(active: readonly string[]): ConditionEffects {
+  const forceFactors = active.filter((id) => id in FORCE_FACTORS).map((id) => ({ id, ...FORCE_FACTORS[id]! }));
+  return {
+    active,
+    tauSdMs: active.includes('SCI_CHRONAXIE') ? 0.13 : CONSTANTS.tauSdMs,
+    twitchTimeFactor: active.includes('SCI_FAST_TWITCH') ? 0.86 : 1,
+    fastShift: active.includes('SCI_FATIGABILITY') ? 0.997 : 0,
+    forceScale: forceFactors.reduce((p, f) => p * f.factor, 1),
+    forceFactors,
+  };
+}
 
 /** Stages used by each variant (model-equations.md, header). */
 export const STAGES_BY_VARIANT: Record<ModelVariant, readonly StageId[]> = {
@@ -22,8 +55,9 @@ export const STAGES_BY_VARIANT: Record<ModelVariant, readonly StageId[]> = {
 };
 
 /** LITERATURE with the stimulus in the motoneuron pool uses the motoneuron compartments (2a), not the axon layer. */
-/** Stages of the current model: the motoneuron (2a) replaces the axon layer (2b) in the invasive mode, and joins it in
- * the non-invasive mode with a central drive (the motoneurons fire from the drive, the stimulus fires the axons). */
+/** Stages of the current model: the motoneuron replaces the axon layer (2b) in the invasive mode — the inherited one
+ * (2a) without a drive, Cisi & Kohn's (2c) with one — and Cisi & Kohn's joins the axon layer in the non-invasive mode
+ * with a central drive (the motoneurons fire from the drive, the stimulus fires the axons). */
 export function stagesFor(
   variant: ModelVariant,
   site: StimulationSite = 'SKIN_SURFACE',
@@ -31,8 +65,8 @@ export function stagesFor(
 ): readonly StageId[] {
   const stages = STAGES_BY_VARIANT[variant];
   if (variant !== 'LITERATURE') return stages;
-  if (site === 'MOTONEURON_POOL') return stages.map((s) => (s === '2b' ? '2a' : s));
-  return centralDrive ? stages.flatMap((s) => (s === '2b' ? (['2a', '2b'] as const) : [s])) : stages;
+  if (site === 'MOTONEURON_POOL') return stages.map((s) => (s === '2b' ? (centralDrive ? '2c' : '2a') : s));
+  return centralDrive ? stages.flatMap((s) => (s === '2b' ? (['2c', '2b'] as const) : [s])) : stages;
 }
 
 // ---- constants (model-equations.md) ----
@@ -94,9 +128,9 @@ export interface AxonRecruitment {
   fraction: number;
 }
 
-export function axonRecruitment(amplitude: number, pwMs: number): AxonRecruitment | null {
+export function axonRecruitment(amplitude: number, pwMs: number, tauMs: number = CONSTANTS.tauSdMs): AxonRecruitment | null {
   if (!finite(amplitude) || !finite(pwMs) || pwMs <= 0) return null;
-  const sd = 1 + CONSTANTS.tauSdMs / pwMs;
+  const sd = 1 + tauMs / pwMs;
   const thresholdMin = CONSTANTS.rheobaseMin * sd;
   const thresholdMax = CONSTANTS.rheobaseSpread * CONSTANTS.rheobaseMin * sd;
 
@@ -343,8 +377,9 @@ export function simulatedSpan(
 }
 
 /** FAT_k = 0.0125·180^(ln(P_k/P_min)/ln(P_max/P_min)) in %/s. */
-export function fatigueRate(pk: number, pMin = POOL_MT_MIN, pMax = POOL_MT_MAX): number {
-  return CONSTANTS.fatigueBase * Math.pow(CONSTANTS.fatigueRange, Math.log(pk / pMin) / Math.log(pMax / pMin));
+export function fatigueRate(pk: number, pMin = POOL_MT_MIN, pMax = POOL_MT_MAX, fastShift = 0): number {
+  const f = Math.log(pk / pMin) / Math.log(pMax / pMin);
+  return CONSTANTS.fatigueBase * Math.pow(CONSTANTS.fatigueRange, f + fastShift * (1 - f));
 }
 
 export interface TypeParameterSpans {
@@ -376,8 +411,9 @@ export function typeParameterSpans(
   durationMs: number,
   target: CalibrationTarget = 'WHOLE_MUSCLE',
   muscle?: MuscleId,
+  effects?: { twitchTimeFactor: number; fastShift: number },
 ): Record<MotorUnitType, TypeParameterSpans> {
-  const tScale = twitchShape(variant, target, muscle).timeScale;
+  const tScale = twitchShape(variant, target, muscle).timeScale * (effects?.twitchTimeFactor ?? 1);
   const x = axonLength(axonLengthPercent);
   const scale = variant === 'ORIGINAL' ? durationMs : 1000;
   const out = {} as Record<MotorUnitType, TypeParameterSpans>;
@@ -395,7 +431,7 @@ export function typeParameterSpans(
       delayMs: mapSpan(velocity, (v) => (x / v) * scale),
       apsf: span(r.apsf),
       aptf: span(r.aptf),
-      fatigue: mapSpan(mt, (p) => fatigueRate(p)),
+      fatigue: mapSpan(mt, (p) => fatigueRate(p, POOL_MT_MIN, POOL_MT_MAX, effects?.fastShift ?? 0)),
     };
   }
   return out;

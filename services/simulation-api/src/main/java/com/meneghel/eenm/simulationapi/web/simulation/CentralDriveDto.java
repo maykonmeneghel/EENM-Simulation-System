@@ -11,6 +11,7 @@ public record CentralDriveDto(
         @Between(min = "0", max = "20") Double voluntaryNa,
         @Between(min = "0", max = "2") Double noiseCv,
         CentralDrive.CurrentScale currentScale,
+        CentralDrive.ThresholdRule thresholdRule,
         @Valid TremorDto tremor,
         @Between(min = "0.01", max = "1") Double electrodeFraction) {
 
@@ -21,6 +22,7 @@ public record CentralDriveDto(
 
     CentralDrive toDomain() {
         CentralDrive.Tremor t = tremor == null ? null : new CentralDrive.Tremor(tremor.frequencyHz(), tremor.amplitudeNa());
-        return new CentralDrive(enabled, backgroundNa, voluntaryNa, noiseCv, currentScale, t, electrodeFraction);
+        return new CentralDrive(enabled, backgroundNa, voluntaryNa, noiseCv, currentScale, thresholdRule, t,
+                electrodeFraction);
     }
 }

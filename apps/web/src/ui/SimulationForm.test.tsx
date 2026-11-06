@@ -6,6 +6,8 @@ import type { FormValues } from '../application/formModel';
 import { defaultFormValues } from '../application/formModel';
 import { defaultRequest } from '../domain/defaults';
 import type { MusclePreset, SimulationRequest } from '../domain/simulation';
+import { randomSeed } from '../application/formModel';
+import { HelpContext } from './helpContext';
 import { SIM_FORM_ID, SimulationForm } from './SimulationForm';
 
 const muscles: MusclePreset[] = [
@@ -125,11 +127,53 @@ describe('SimulationForm', () => {
     expect(axon).toHaveValue('79');
   });
 
-  it('help popover opens and closes with Escape', async () => {
-    const { user } = setup();
-    await user.click(screen.getByRole('button', { name: 'Ajuda: Calibração do twitch' }));
-    expect(screen.getByRole('dialog', { name: 'Calibração do twitch' })).toHaveTextContent('Macefield');
-    await user.keyboard('{Escape}');
-    expect(screen.queryByRole('dialog', { name: 'Calibração do twitch' })).not.toBeInTheDocument();
+  it('the "?" help opens its text in the right sidebar, not a popover', async () => {
+    const show = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <HelpContext.Provider value={show}>
+        <Controlled muscles={muscles} serverErrors={[]} running={false} onSubmit={vi.fn()} />
+      </HelpContext.Provider>,
+    );
+    const help = screen.getByRole('button', { name: 'Ajuda: Calibração do twitch' });
+    expect(help).toHaveAttribute('aria-controls', 'inspector');
+    await user.click(help);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(show).toHaveBeenCalledTimes(1);
+    const [label, content] = show.mock.calls[0]!;
+    expect(label).toBe('Calibração do twitch');
+    render(<>{content}</>);
+    expect(screen.getByText(/Macefield/)).toBeInTheDocument();
+  });
+
+  it('the simulation step has no sub-heading repeating its name', () => {
+    setup({ step: 'simulation' });
+    expect(screen.getByRole('group', { name: 'Simulação' })).toBeInTheDocument();
+    expect(screen.queryByText('Simulação', { selector: 'summary' })).toBeNull();
+  });
+
+  it('the seed has a default, can be typed, drawn at random, and goes back to the default when emptied', async () => {
+    const { user, onSubmit } = setup({ step: 'simulation' });
+    const seed = screen.getByLabelText(/Semente/);
+    expect(seed).toHaveValue('0');
+    await user.clear(seed);
+    await user.type(seed, '42');
+    expect(seed).toHaveValue('42');
+    await user.clear(seed);
+    await user.tab();
+    expect(seed).toHaveValue('0');
+    const before = (seed as HTMLInputElement).value;
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0.123456789);
+    await user.click(screen.getByRole('button', { name: 'Sortear outra semente' }));
+    spy.mockRestore();
+    expect(seed).toHaveValue('123456');
+    expect(seed).not.toHaveValue(before);
+    await user.click(screen.getAllByRole('button', { name: 'Simular' })[0]!);
+    expect(onSubmit.mock.calls[0]![0].seed).toBe(123456);
+  });
+
+  it('randomSeed gives whole numbers from 0 to 999 999', () => {
+    expect(randomSeed(() => 0)).toBe('0');
+    expect(randomSeed(() => 0.9999999)).toBe('999999');
   });
 });

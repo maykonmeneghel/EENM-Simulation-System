@@ -12,16 +12,11 @@ Tremor frequency in Parkinson's disease: 4.4 ± 1.0 Hz at the wrist (Dideriksen 
 at rest (Agapaki et al. 2018, full text) — both offered. One oscillator for every unit (no phase between pools: the
 antagonist phase is to emerge from the Ia loop, phase 4).
 
-Currents in nA become the model's current density (µA/cm²) through each unit's absolute soma area (Decision 1). Our
-smallest motoneuron's rheobase is 1.81 nA, not 4 nA, so the published currents mean something else here (3.5 nA
-already makes many units fire); ``CurrentScale.RHEOBASE`` multiplies them by 1.81 / 4 so the background stays below
-threshold as in the paper. Both are offered; the published values are the default, because rescaled the resting
-tremor fires no unit at all.
-
-Phase-2 gate (``validation/central_drive.py``): ISI CV 0.22–0.30 ✓ (10–30 %); force peak 4.33 Hz for a 4.4 Hz drive ✓;
-**firing rate 50–95 Hz ✗** (PD motor units 10.9 ± 2.9 Hz, Agapaki 2018) and short ISIs ≈ 17 ms ✗ (doublets 41.6 ms):
-the inherited two-compartment motoneuron has no low-rate regime (its smallest unit jumps from silence to ≈ 46 Hz) and is
-bistable (it keeps firing after the current stops) — a property of its conductances, not of the drive.
+The drive goes into Cisi & Kohn (2008) motoneurons (``cisi_kohn``) — those of Gallego's model — whose currents are in
+nA, so the published values apply as they are. Their smallest rheobase is 3.5 nA with the 2008 thresholds (5.6 nA
+with Watanabe 2013's); ``CurrentScale.RHEOBASE`` rescales the currents by it / 4 nA. The inherited Booth 1997
+motoneuron had no low-rate firing regime (``validation/results/central-drive-booth1997.json``) and is no longer used
+for the drive.
 """
 
 from __future__ import annotations
@@ -35,10 +30,6 @@ from numpy.typing import NDArray
 from scipy.signal import lfilter
 
 GALLEGO_SMALLEST_RHEOBASE_NA = 4.0
-MODEL_SMALLEST_RHEOBASE_NA = 1.81
-"""Smallest constant soma current (nA) that fires the smallest unit of the pool within 8 s, from rest
-(``tests/unit/test_central_drive.py``); it is still lower for longer currents (slow inward currents), by < 2 %."""
-
 NOISE_CUTOFF_HZ = 100.0
 
 
@@ -46,11 +37,18 @@ class CurrentScale(Enum):
     PUBLISHED = "PUBLISHED"
     """Currents in nA as published (Gallego 2015)."""
     RHEOBASE = "RHEOBASE"
-    """Currents × (our smallest rheobase / Gallego's), so they keep their meaning relative to threshold."""
+    """Currents × (our smallest rheobase / Gallego's 4 nA), so they keep their meaning relative to threshold."""
 
-    @property
-    def factor(self) -> float:
-        return MODEL_SMALLEST_RHEOBASE_NA / GALLEGO_SMALLEST_RHEOBASE_NA if self is CurrentScale.RHEOBASE else 1.0
+
+class ThresholdRule(Enum):
+    """How each unit's firing threshold is set: the two published rules give different rheobases."""
+
+    CISI_KOHN_2008 = "CISI_KOHN_2008"
+    """Threshold = rheobase × input resistance, with the rheobases of Cisi & Kohn 2008 Table 2 (S 3.5–6.5, FR 6.5–17.5,
+    FF 17.5–25.1 nA): each unit's rheobase is then the published one (the smallest, 3.5 nA, near Gallego's 4 nA)."""
+    WATANABE_2013 = "WATANABE_2013"
+    """Threshold given directly in mV (Watanabe et al. 2013 Table 1, projectPR): S 12.35–16.45, FR 16.45–19.30, FF
+    19.30–20.90 mV re rest; with these, the rheobases come out about 1.6× higher (smallest unit 5.6 nA)."""
 
 
 @dataclass(frozen=True)
@@ -73,8 +71,8 @@ class CentralDrive:
     noise_cv: float = 0.2
     """SD of the noise current as a fraction of the mean current (background + voluntary)."""
     scale: CurrentScale = CurrentScale.PUBLISHED
-    """Default: as published. With ``RHEOBASE`` the resting tremor of 3 nA fires no unit of our pool (phase-2 gate,
-    ``validation/results/central-drive.json``), so it would be invisible."""
+    threshold_rule: ThresholdRule = ThresholdRule.CISI_KOHN_2008
+    """Thresholds of the Cisi & Kohn motoneurons that receive the drive."""
 
     def __post_init__(self) -> None:
         if self.background_na < 0 or self.voluntary_na < 0 or not 0 <= self.noise_cv <= 2:
@@ -82,14 +80,15 @@ class CentralDrive:
 
 
 class DriveGenerator:
-    """Per-unit drive current density (µA/cm²), sample by sample, reproducible for a seed."""
+    """Per-unit drive current (nA), sample by sample, reproducible for a seed; ``factor`` multiplies every current
+    (``cisi_kohn.current_factor``)."""
 
-    def __init__(self, drive: CentralDrive, soma_area_cm2: NDArray[np.float64], step_ms: float, seed: int) -> None:
+    def __init__(self, drive: CentralDrive, units: int, step_ms: float, seed: int, factor: float = 1.0) -> None:
         self._drive = drive
-        self._to_density = drive.scale.factor * 1e-3 / soma_area_cm2  # nA → µA/cm²
+        self._factor = factor
         self._step = step_ms
         self._rng = np.random.default_rng(seed)
-        self._noise = np.zeros(soma_area_cm2.size)
+        self._noise = np.zeros(units)
         tau = 1000.0 / (2 * math.pi * NOISE_CUTOFF_HZ)
         self._alpha = step_ms / (tau + step_ms)  # first-order low-pass below 100 Hz
         mean = drive.background_na + drive.voluntary_na
@@ -98,7 +97,7 @@ class DriveGenerator:
         self._next = 0
 
     def next(self, rows: int) -> NDArray[np.float64]:
-        """Drive of the next ``rows`` samples, ``(rows, units)``."""
+        """Drive of the next ``rows`` samples, ``(rows, units)``, in nA."""
         d = self._drive
         t_ms = (self._next + np.arange(rows)) * self._step
         self._next += rows
@@ -113,5 +112,20 @@ class DriveGenerator:
             self._noise = noise[-1].copy()
         else:
             noise = np.zeros((rows, units))
-        out: NDArray[np.float64] = (noise + common[:, None]) * self._to_density
+        out: NDArray[np.float64] = (noise + common[:, None]) * self._factor
         return out
+
+
+def split_at_electrode(
+    soma_to_muscle_samples: NDArray[np.int64], electrode_fraction: float
+) -> tuple[NDArray[np.int64], NDArray[np.int64]]:
+    """Soma → electrode and electrode → muscle conduction times per unit, in samples (design §3.3).
+
+    The two parts add up to the soma → muscle delay, so moving the electrode changes where FES and central spikes
+    meet, not when an uncollided central spike reaches the muscle.
+    """
+    if not 0 < electrode_fraction <= 1:
+        raise ValueError("electrode_fraction must be in (0, 1]")
+    total = np.asarray(soma_to_muscle_samples, dtype=np.int64)
+    to_electrode = np.floor(total * electrode_fraction + 0.5).astype(np.int64)
+    return to_electrode, total - to_electrode
