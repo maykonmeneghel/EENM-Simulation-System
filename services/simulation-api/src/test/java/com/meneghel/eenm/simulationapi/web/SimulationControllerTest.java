@@ -11,6 +11,7 @@ import com.meneghel.eenm.simulationapi.application.port.SimulationEngine;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationEvent;
 import com.meneghel.eenm.simulationapi.domain.muscle.MusclePreset;
 import com.meneghel.eenm.simulationapi.domain.simulation.CalibrationTarget;
+import com.meneghel.eenm.simulationapi.domain.simulation.Condition;
 import com.meneghel.eenm.simulationapi.domain.simulation.StimulationSite;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModelVariant;
 import com.meneghel.eenm.simulationapi.domain.simulation.MotorUnitCounts;
@@ -134,6 +135,20 @@ class SimulationControllerTest {
         ArgumentCaptor<SimulationRequest> request = ArgumentCaptor.forClass(SimulationRequest.class);
         verify(engine).stream(request.capture());
         assertThat(request.getValue().calibrationTarget()).isEqualTo(CalibrationTarget.SINGLE_UNIT);
+    }
+
+    @Test
+    void conditionAndChosenAdjustmentsArePassedToTheEngine() {
+        when(engine.stream(any())).thenReturn(Flux.just(SampleEvents.started(), SampleEvents.completed()));
+
+        post("{\"modelVariant\":\"LITERATURE\",\"condition\":\"SCI_CHRONIC\","
+                + "\"conditionAdjustments\":[\"SCI_FATIGABILITY\",\"SCI_ATROPHY\"]}")
+                .expectStatus().isOk().returnResult(SSE).getResponseBody().blockLast();
+
+        ArgumentCaptor<SimulationRequest> request = ArgumentCaptor.forClass(SimulationRequest.class);
+        verify(engine).stream(request.capture());
+        assertThat(request.getValue().condition()).isEqualTo(Condition.SCI_CHRONIC);
+        assertThat(request.getValue().conditionAdjustments()).containsExactly("SCI_FATIGABILITY", "SCI_ATROPHY");
     }
 
     @Test

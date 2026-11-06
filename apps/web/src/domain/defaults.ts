@@ -21,6 +21,7 @@ export function defaultRequest(variant: ModelVariant = 'LITERATURE'): Simulation
     modelVariant: variant,
     calibrationTarget: 'WHOLE_MUSCLE',
     stimulationSite: 'SKIN_SURFACE',
+    condition: 'NORMAL',
     muscle: 'SOLEUS',
     unitsPerType: { S: 5, FR: 2, FF: 2 },
     axonLengthPercent: 80,

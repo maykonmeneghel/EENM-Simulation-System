@@ -21,6 +21,28 @@ export type CalibrationTarget = (typeof CALIBRATION_TARGETS)[number];
 /** Where the LITERATURE stimulus acts: motor axons through the skin, or injected into the motoneurons. */
 export const STIMULATION_SITES = ['SKIN_SURFACE', 'MOTONEURON_POOL'] as const;
 export type StimulationSite = (typeof STIMULATION_SITES)[number];
+/** Clinical condition of the LITERATURE model; adjustments come from GET /api/v1/conditions. */
+export const CONDITIONS = ['NORMAL', 'PARKINSON', 'SCI_CHRONIC'] as const;
+export type ConditionId = (typeof CONDITIONS)[number];
+
+/** One per-article adjustment of a condition, as defined by the engine. */
+export interface ConditionAdjustment {
+  id: string;
+  label: string;
+  effect: string;
+  finding: string;
+  source: { citation: string; title: string; doi: string | null; pmid: string | null };
+  evidence: 'FULL_TEXT' | 'ABSTRACT';
+  measuredIn: string;
+  default: boolean;
+  available: boolean;
+}
+
+export interface ConditionInfo {
+  id: ConditionId;
+  label: string;
+  adjustments: ConditionAdjustment[];
+}
 
 export const MUSCLES = [
   'SOLEUS',
@@ -70,6 +92,9 @@ export interface SimulationRequest {
   modelVariant: ModelVariant;
   calibrationTarget: CalibrationTarget;
   stimulationSite: StimulationSite;
+  condition: ConditionId;
+  /** Ids of the condition's adjustments; omitted = the condition's defaults (decided by the engine). */
+  conditionAdjustments?: string[];
   muscle: MuscleId;
   /**
    * Omitted = variant default (ORIGINAL 5/2/2; LITERATURE 120 units in the pool's proportions,

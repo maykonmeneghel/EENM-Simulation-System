@@ -34,6 +34,8 @@ Same body on the public API and on the engine. Defaults reproduce `Mathematical 
   "modelVariant": "ORIGINAL",
   "calibrationTarget": "WHOLE_MUSCLE",
   "stimulationSite": "SKIN_SURFACE",
+  "condition": "NORMAL",
+  "conditionAdjustments": null,
   "muscle": "SOLEUS",
   "unitsPerType": { "S": 5, "FR": 2, "FF": 2 },
   "axonLengthPercent": 80,
@@ -63,6 +65,8 @@ Same body on the public API and on the engine. Defaults reproduce `Mathematical 
 | `modelVariant` | enum | `ORIGINAL` | `ORIGINAL`, `LITERATURE` | — (new, see below) |
 | `calibrationTarget` | enum | `WHOLE_MUSCLE` | `WHOLE_MUSCLE`, `SINGLE_UNIT` | — (new, see below; LITERATURE only) |
 | `stimulationSite` | enum | `SKIN_SURFACE` | `SKIN_SURFACE`, `MOTONEURON_POOL` | — (new, see below; LITERATURE only) |
+| `condition` | enum | `NORMAL` | `NORMAL`, `PARKINSON`, `SCI_CHRONIC` | — (new, see below; LITERATURE only) |
+| `conditionAdjustments` | string[] \| null | null (= the condition's defaults) | ids of that condition's available adjustments (`GET /api/v1/conditions`); `[]` = none | — (new) |
 | `muscle` | enum | `SOLEUS` | `SOLEUS`, `GASTROCNEMIUS_MEDIAL`, `GASTROCNEMIUS_LATERAL`, `TIBIALIS_ANTERIOR` | `createUMs` `muscleWork` |
 | `unitsPerType.S/FR/FF` | int | 5 / 2 / 2 (`ORIGINAL`); 120 units in the pool's proportions (`LITERATURE`, soleus 106 / 7 / 7) | 0 – 200 each, sum ≥ 1, each ≤ the muscle's pool size | `demangeMNs` |
 | `axonLengthPercent` | number | 80 | 1 – 100 | `compAxonal` / `compAxonioMotor` |
@@ -84,6 +88,15 @@ Every field is optional; missing fields take the default. A partial `unitsPerTyp
   recovery). With this variant `injectionSite`, `somaGeometry`, `dendriteGeometry` and `temperatureCelsius`
   have no effect (the motoneuron compartments are not simulated), and `amplitude` is a current in the same
   units, whose recruitment range (≈ 57–102 with 0.3 ms pulses) is inherited from the original model.
+
+### `condition` and `conditionAdjustments`
+
+A condition is a set of per-article adjustments of the LITERATURE model, each switchable (overlapping findings are
+separate adjustments). The engine owns the catalog — `GET /v1/conditions`, relayed verbatim by the API as
+`GET /api/v1/conditions` — with, for every adjustment: `id`, `label`, `effect`, `finding`, `source` (`citation`,
+`title`, `doi`, `pmid`), `evidence` (`FULL_TEXT` | `ABSTRACT`), `measuredIn`, `default`, `available`. An id of another
+condition, an unknown id or an unavailable adjustment is a validation error. Sources and values:
+`docs/research/disease-literature.md`; effects: `docs/validation/literature-comparison.md`, "Conditions".
 
 ### `stimulationSite`
 

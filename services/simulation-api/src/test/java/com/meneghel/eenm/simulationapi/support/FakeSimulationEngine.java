@@ -42,4 +42,9 @@ public final class FakeSimulationEngine implements SimulationEngine {
     public Mono<List<MusclePreset>> listMuscles() {
         return presets;
     }
+
+    @Override
+    public Mono<String> conditionCatalogJson() {
+        return Mono.just("[{\"id\":\"NORMAL\",\"label\":\"Normal\",\"adjustments\":[]}]");
+    }
 }

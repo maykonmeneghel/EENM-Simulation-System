@@ -25,12 +25,12 @@ const H = 170;
 const PAD = { l: 36, r: 10, t: 10, b: 24 };
 
 /** Peak of each train ÷ the first train's peak, on a fixed 0–1 scale, with the published reference band. */
-function TrainBars({ ratios, reference }: { ratios: number[]; reference: boolean }) {
+function TrainBars({ ratios, reference, chronic }: { ratios: number[]; reference: boolean; chronic: boolean }) {
   const [measureSvg, svgScale] = useSvgScale(W);
   const n = ratios.length;
   const bw = (W - PAD.l - PAD.r) / Math.max(n, 1);
   const y = (v: number) => H - PAD.b - Math.min(1.05, Math.max(0, v)) * ((H - PAD.t - PAD.b) / 1.05);
-  const acute = SHIELDS_REFERENCE.acute;
+  const band = chronic ? SHIELDS_REFERENCE.chronic : SHIELDS_REFERENCE.acute;
   return (
     <svg ref={measureSvg} style={svgScale} className="fatigue-bars" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Pico de cada trem relativo ao primeiro, ${n} trens`}>
       {reference ? (
@@ -38,10 +38,10 @@ function TrainBars({ ratios, reference }: { ratios: number[]; reference: boolean
           className="fatigue-ref"
           x={PAD.l}
           width={W - PAD.l - PAD.r}
-          y={y(acute.mean + acute.sd)}
-          height={y(acute.mean - acute.sd) - y(acute.mean + acute.sd)}
+          y={y(band.mean + band.sd)}
+          height={y(band.mean - band.sd) - y(band.mean + band.sd)}
         >
-          <title>Chang & Shields 2011: 0,89 ± 0,08 (sóleo, lesão aguda)</title>
+          <title>{`Chang & Shields 2011: ${num(band.mean)} ± ${num(band.sd)} (sóleo, lesão ${chronic ? 'crônica' : 'aguda'})`}</title>
         </rect>
       ) : null}
       {[0, 0.25, 0.5, 0.75, 1].map((v) => (
@@ -92,6 +92,7 @@ export function FatiguePanel({
   if (!request || request.modelVariant !== 'LITERATURE' || state.status === 'idle') return null;
 
   const fv = fatigue.view();
+  const chronic = request.condition === 'SCI_CHRONIC';
   const lastCapacity = fv.muscle.length ? fv.muscle[fv.muscle.length - 1]! : null;
   const last = peaks.at(-1);
   const shields =
@@ -152,8 +153,11 @@ export function FatiguePanel({
 
       {trains ? (
         <figure className="chart">
-          <figcaption>Pico de cada trem ÷ pico do 1º trem{shields ? ' — faixa: referência 0,89 ± 0,08' : ''}</figcaption>
-          <TrainBars ratios={peaks.map((p) => p.ratio)} reference={shields} />
+          <figcaption>
+            Pico de cada trem ÷ pico do 1º trem
+            {shields ? ` — faixa: referência ${chronic ? '0,19 ± 0,06 (lesão crônica)' : '0,89 ± 0,08 (lesão aguda)'}` : ''}
+          </figcaption>
+          <TrainBars ratios={peaks.map((p) => p.ratio)} reference={shields} chronic={chronic} />
         </figure>
       ) : null}
     </section>

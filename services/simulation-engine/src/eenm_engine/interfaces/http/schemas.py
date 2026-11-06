@@ -14,6 +14,7 @@ from eenm_engine.application.events import (
     SimulationEvent,
     SimulationStarted,
 )
+from eenm_engine.domain.conditions import ADJUSTMENTS, Adjustment, Condition, apply_condition
 from eenm_engine.domain.model_options import LITERATURE_UNITS, CalibrationTarget, ModelOptions, StimulationSite
 from eenm_engine.domain.motoneuron import InjectionSite
 from eenm_engine.domain.motor_unit_pool import Geometry, MotorUnitType, Muscle, MusclePreset, proportional_units
@@ -83,6 +84,10 @@ class SimulationRequest(_CamelModel):
     """Twitch calibration of the LITERATURE variant; no effect on ORIGINAL."""
     stimulation_site: StimulationSiteDto = StimulationSiteDto.SKIN_SURFACE
     """Where the LITERATURE stimulus acts; ORIGINAL always injects into the motoneurons."""
+    condition: Condition = Condition.NORMAL
+    """Clinical condition (LITERATURE only; ORIGINAL ignores it)."""
+    condition_adjustments: list[str] | None = None
+    """Ids of the condition's adjustments to apply (``GET /v1/conditions``); ``None`` = the condition's defaults."""
     muscle: Muscle = Muscle.SOLEUS
     units_per_type: UnitsPerTypeDto | None = None
     """``None``: 5/2/2 (ORIGINAL) or 120 units in the pool's proportions (LITERATURE)."""
@@ -120,11 +125,7 @@ class SimulationRequest(_CamelModel):
             ),
             muscle=self.muscle,
             units_per_type=self._units(),
-            model=(
-                ModelOptions.literature(self.calibration_target, _SITES[self.stimulation_site])
-                if self.model_variant is ModelVariant.LITERATURE
-                else ModelOptions()
-            ),
+            model=self._model(),
             axon_length_percent=self.axon_length_percent,
             temperature_c=self.temperature_celsius,
             injection_site=self.injection_site,
@@ -134,6 +135,13 @@ class SimulationRequest(_CamelModel):
             output_step_ms=self.output_step_ms,
         )
 
+    def _model(self) -> ModelOptions:
+        if self.model_variant is not ModelVariant.LITERATURE:
+            return ModelOptions()
+        options = ModelOptions.literature(self.calibration_target, _SITES[self.stimulation_site])
+        chosen = None if self.condition_adjustments is None else tuple(self.condition_adjustments)
+        return apply_condition(options, self.condition, chosen)
+
     def _units(self) -> dict[MotorUnitType, int]:
         if self.units_per_type is not None:
             u = self.units_per_type
@@ -142,6 +150,64 @@ class SimulationRequest(_CamelModel):
             return proportional_units(self.muscle, LITERATURE_UNITS)
         u = UnitsPerTypeDto()
         return {MotorUnitType.S: u.S, MotorUnitType.FR: u.FR, MotorUnitType.FF: u.FF}
+
+
+class ConditionSourceDto(_CamelModel):
+    citation: str
+    title: str
+    doi: str | None
+    pmid: str | None
+
+
+class ConditionAdjustmentDto(_CamelModel):
+    id: str
+    label: str
+    effect: str
+    finding: str
+    source: ConditionSourceDto
+    evidence: Literal["FULL_TEXT", "ABSTRACT"]
+    measured_in: str
+    default: bool
+    available: bool
+
+    @classmethod
+    def of(cls, a: Adjustment) -> ConditionAdjustmentDto:
+        s = a.source
+        return cls(
+            id=a.id,
+            label=a.label,
+            effect=a.effect,
+            finding=a.finding,
+            source=ConditionSourceDto(citation=s.citation, title=s.title, doi=s.doi, pmid=s.pmid),
+            evidence=a.evidence.value,
+            measured_in=a.measured_in,
+            default=a.default,
+            available=a.available,
+        )
+
+
+class ConditionDto(_CamelModel):
+    id: Condition
+    label: str
+    adjustments: list[ConditionAdjustmentDto]
+
+
+_CONDITION_LABELS = {
+    Condition.NORMAL: "Normal",
+    Condition.PARKINSON: "Doença de Parkinson",
+    Condition.SCI_CHRONIC: "Lesão medular crônica",
+}
+
+
+def condition_catalog() -> list[ConditionDto]:
+    return [
+        ConditionDto(
+            id=c,
+            label=_CONDITION_LABELS[c],
+            adjustments=[ConditionAdjustmentDto.of(a) for a in ADJUSTMENTS if a.condition is c],
+        )
+        for c in Condition
+    ]
 
 
 class MusclePresetDto(_CamelModel):

@@ -259,6 +259,32 @@ for the gap between the two datasets (tendon/series elasticity) is still **not v
 Results: `validation/results/axons-single-unit/`, `validation/results/fatigue-axons-single-unit/`,
 `validation/results/calibration-axons-single-unit.json`.
 
+### Conditions — per-article adjustments
+
+`domain/conditions.py` turns the verified findings of `docs/research/disease-literature.md` into switchable
+adjustments of the LITERATURE model. Only one is fitted; the others copy a published ratio.
+
+| Condition | Adjustment (default) | Model change | Source (read) | Measured in |
+|---|---|---|---|---|
+| Chronic SCI | **Fatigability slow → fast** (on) | `fatigue.fast_shift = 0.997`: each unit's log-fatigability moved 99.7 % toward the most fatigable unit's; twitch force kept (fibre force preserved, Malisoux 2007) | Chang & Shields 2011, full text: soleus FI 0.19 ± 0.06 chronic vs 0.89 ± 0.08 acute | soleus, ASIA A ≥ 3 y |
+| Chronic SCI | Faster twitch | CT × 0.86, HRT × 0.62 | Scott et al. 2006, abstract | quadriceps |
+| Chronic SCI | Atrophy | force × 0.56 (1.36 / 2.44 kg) | Modlesky et al. 2004, abstract | thigh |
+| Chronic SCI | Smaller τSD | Weiss τ 0.459 → 0.13 ms, rheobases kept — alone this *lowers* short-pulse thresholds, while the paper reports higher ones (no value in the abstract) | Lin et al. 2007, abstract (full text not accessible) | median/peroneal, nerve of the value not stated |
+| Parkinson | **Motor unit loss** (on) | force × 0.845 (MUNIX 109 / 129); reinnervation not modelled | Krenovsky et al. 2020, abstract | hypothenar; group includes atypical parkinsonism |
+| Parkinson | Polyneuropathy | force × 0.49 (tibial CMAP 5.35 / 10.90 mV, read as excitable axons) | Kwon et al. 2024, full text | tibial, PD with polyneuropathy only |
+| Parkinson | Rest tremor 4–6 Hz | needs the central layer — not available | Zach et al. 2015 (review) | — |
+
+**Fit of the SCI fatigability** (`validation/conditions.py`, `results/condition-sci-fatigability.json`): in Chang &
+Shields's protocol (20 Hz, 330 ms every 1 s, FI = peak of train 120 / train 1) the unmodified model gives 0.916;
+`fast_shift` 0.997 gives **0.192** (target 0.19). A uniform multiplier of every unit's fatigability was rejected:
+reaching 0.19 needs ≈ ×100, which would make the fast units ~100× more fatigable than the published maximum, while the
+shift leaves the most fatigable units where they are. Converting S units into FF units was also rejected: FF twitches
+are 3–4× stronger, so the muscle force would rise, contrary to the preserved fibre force.
+
+Not representable in this model (central): spasticity, rigidity, bradykinesia, tremor generation — see the central
+layer design. Parkinson's peripheral data for leg muscles are weak: these adjustments are options, not a verified
+Parkinsonian muscle.
+
 ## What this means for the next steps
 
 The end-to-end system can be used now, but its force output should be read as **qualitative**.

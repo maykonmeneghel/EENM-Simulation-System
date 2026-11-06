@@ -2,12 +2,14 @@ package com.meneghel.eenm.simulationapi.web.simulation;
 
 import com.meneghel.eenm.simulationapi.domain.simulation.CalibrationTarget;
 import com.meneghel.eenm.simulationapi.domain.simulation.StimulationSite;
+import com.meneghel.eenm.simulationapi.domain.simulation.Condition;
 import com.meneghel.eenm.simulationapi.domain.simulation.CompartmentGeometry;
 import com.meneghel.eenm.simulationapi.domain.simulation.InjectionSite;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModelVariant;
 import com.meneghel.eenm.simulationapi.domain.simulation.Muscle;
 import com.meneghel.eenm.simulationapi.web.validation.Between;
 import jakarta.validation.Valid;
+import java.util.List;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.PositiveOrZero;
 
@@ -20,6 +22,8 @@ public record SimulationRequestDto(
         ModelVariant modelVariant,
         CalibrationTarget calibrationTarget,
         StimulationSite stimulationSite,
+        Condition condition,
+        List<String> conditionAdjustments,
         Muscle muscle,
         @Valid UnitsPerTypeDto unitsPerType,
         @Between(min = "1", max = "100") Double axonLengthPercent,

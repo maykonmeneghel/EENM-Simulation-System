@@ -17,6 +17,7 @@ import { SIM_FORM_ID, SimulationForm } from './SimulationForm';
 import { StimulatorView } from './StimulatorView';
 import { isMacPlatform, matchShortcut, shortcutLabel } from './shortcuts';
 import { ErrorBanner, ProgressBar, SummaryCard } from './StatusPanel';
+import { useConditionCatalog } from './useConditionCatalog';
 import { useMuscleCatalog } from './useMuscleCatalog';
 import { ZoomBar } from './ZoomBar';
 import { ZoomSync } from './zoomSync';
@@ -39,6 +40,7 @@ const tabId = (v: MainView) => `tab-${v}`;
 export function App({ api, controller }: { api: ApiClient; controller: SimulationController }) {
   const state = useSimulation(controller);
   const catalog = useMuscleCatalog(api);
+  const conditionCatalog = useConditionCatalog(api);
   const [values, setValues] = useState<FormValues>(() => defaultFormValues());
   const [view, setView] = useState<MainView>('simulation');
   const [focus, setFocus] = useState<StageFocus | null>(null);
@@ -143,6 +145,8 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
           onSubmit={start}
           autoUnitCounts={snapshot.units.source === 'started' ? snapshot.units.counts : null}
           onOpenStimulator={() => setView('stimulator')}
+          conditions={conditionCatalog.conditions}
+          conditionsError={conditionCatalog.error}
           onClientErrors={onClientErrors}
         />
       </aside>

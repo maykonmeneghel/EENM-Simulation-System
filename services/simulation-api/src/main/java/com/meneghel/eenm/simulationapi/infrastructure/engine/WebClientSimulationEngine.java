@@ -28,6 +28,7 @@ public class WebClientSimulationEngine implements SimulationEngine {
 
     private static final String STREAM_PATH = "/v1/simulations/stream";
     private static final String MUSCLES_PATH = "/v1/muscles";
+    private static final String CONDITIONS_PATH = "/v1/conditions";
     private static final ParameterizedTypeReference<List<EngineMusclePresetBody>> PRESET_LIST =
             new ParameterizedTypeReference<>() {
             };
@@ -61,6 +62,17 @@ public class WebClientSimulationEngine implements SimulationEngine {
                 .uri(MUSCLES_PATH)
                 .accept(MediaType.APPLICATION_JSON)
                 .exchangeToMono(this::readPresets)
+                .onErrorMap(WebClientSimulationEngine::isTransportFailure, WebClientSimulationEngine::toEngineFailure);
+    }
+
+    @Override
+    public Mono<String> conditionCatalogJson() {
+        return webClient.get()
+                .uri(CONDITIONS_PATH)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchangeToMono(response -> response.statusCode().is2xxSuccessful()
+                        ? response.bodyToMono(String.class)
+                        : response.releaseBody().then(Mono.error(unexpectedStatus(response))))
                 .onErrorMap(WebClientSimulationEngine::isTransportFailure, WebClientSimulationEngine::toEngineFailure);
     }
 
