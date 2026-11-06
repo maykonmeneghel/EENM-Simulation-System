@@ -57,9 +57,10 @@ current density (µA/cm²) that the stimulus also uses. Proposal: convert with e
 nA values above apply as published. `build_group` computes that area but keeps only the soma/total area fraction
 (`MotorUnitGroup.soma_area_fraction`), so the absolute area has to be stored as well.
 
-**DECISION 2 — antagonist phase.** (a) an explicit phase `φ` per pool (simple, directly matches the 32.8 % target);
-or (b) let it emerge from Ia reciprocal inhibition as in Gallego 2015 (needs spindles, Ia interneurons and the
-afferent loop — 60 interneurons, Ia delay 7.5 ms). Proposal: (a) first; (b) as a later refinement.
+**DECIDED (2026-11-06) — antagonist phase emerges from the Ia loop from the first version.** No phase parameter:
+both pools receive the same central oscillator (`φ_p = 0`), and the alternation must arise from Ia reciprocal
+inhibition, as Gallego 2015 shows (Ia afferents alone can carry tremor to an antagonist without supraspinal tremor
+input). The 32.8 ± 12.8 % burst delay becomes a validation target instead of an input. This adds Section 3.6.
 
 Not modelled: basal ganglia–thalamo–cortical loop (the proposal's Section 5.1 represents the pathology by its
 peripheral consequence, the oscillatory descending drive).
@@ -75,10 +76,10 @@ fibre-type %, twitch times for FCR/ECR). Gallego 2015 uses 180 motoneurons per m
 **Cost (measured 2026-11-05):** 9.2 s of computation per simulated second with 120 HH units; two pools ≈ 18 s/s.
 The virtual population (OE3) × 3 controllers × repetitions makes this the main risk the proposal already lists.
 
-**DECISION 3 — speed.** In order: (a) representative units weighted by the pool they stand for (already used for
-the corrected model: 120 units); (b) a compiled right-hand side (Numba) — target ≥ 10×; (c) only if still too slow,
-a reduced motoneuron validated against the HH pool on firing rate vs current and ISI variability. Gate: one
-4-s trial of both pools in ≤ 10 s.
+**DECIDED (2026-11-06) — speed: compiled Hodgkin–Huxley.** Keep the master's-thesis motoneuron; (a) representative
+units weighted by the pool they stand for (already used: 120 units); (b) a compiled right-hand side (Numba), target
+≥ 10×; (c) only if still too slow, a reduced motoneuron validated against the HH pool (firing rate vs current, ISI
+variability). Gate: one 4-s trial of both pools in ≤ 10 s.
 
 ### 3.3 Axon merge: FES-evoked and central spikes on the same axon
 
@@ -137,8 +138,28 @@ $$ I\,\ddot\theta + B\,\dot\theta + K\,\theta = r_{FCR}\,F_{FCR} - r_{ECR}\,F_{E
 Derived (ours): natural frequency √(K/I)/2π ≈ 2.9 Hz, damping ratio B / (2√(KI)) ≈ 0.26 — inside the 0.15–0.68 range
 reported for the multi-DOF model (Davidson & Charles 2017). Tremor at 4–6 Hz is above the joint's natural frequency.
 
-Outputs: θ, ω and the tangential acceleration at a sensor distance `d` from the wrist (needed to compare with
-accelerometer data; **DECISION 5**: `d`, e.g. hand dorsum), plus the EMG of each muscle (existing MUAP pipeline).
+Outputs: θ, ω and the tangential acceleration at a sensor distance `d` from the wrist, plus the EMG of each muscle
+(existing MUAP pipeline). **DECIDED (2026-11-06):** `d` = 8 cm (hand dorsum, where Agapaki 2018 placed the
+accelerometer); the exact distance is not in the text read, so it is configurable and labelled as an assumption.
+
+### 3.6 Ia afferent loop (spindles and reciprocal inhibition)
+
+Needed from the first version because the antagonist phase must emerge from it (Section 3.1). Following Gallego
+2015 (FT), which builds it on the same motoneurons:
+
+| Element | Value and source |
+|---|---|
+| Spindles per muscle | 54, Mileusnic et al. 2006 spindle model; static/dynamic γ drive 6 × the α rate — Gallego 2015 |
+| Ia afferent velocity, delay | 100 ± 10 m/s; Ia conduction delay 7.5 ms (75 cm) — Gallego 2015 |
+| Ia inhibitory interneurons | 60 per muscle, each projecting to 20 % of the antagonist motoneurons; noise SD 0.15 nA (< 100 Hz); rate < 2 pps without Ia input — Gallego 2015 |
+| Synapses | EPSC τ 0.5 ms, IPSC τ 1 ms; mean +1 nA / −2 nA; lognormal strengths (mean 1, variance 1); Ia EPSC twice as large in high-threshold motoneurons — Gallego 2015 |
+| Loop delay (check) | efferent–afferent loop 198.7 ms at 4.5 nA voluntary drive (257.0 ms at 3.5 nA) — Gallego 2015, Table 1 |
+
+Consequences: the spindles read **muscle length and velocity**, so the joint (3.5) closes the loop and muscle length
+must be computed from θ with the moment arms (fibre length = optimal length − r·θ; tendon rigid in v1). The spindle
+model (Mileusnic 2006) must be read in full before implementation; it is not yet in the verified extraction. FES
+also excites Ia afferents (the afferent volley of 3.3) — once the loop exists, adding the stimulator's effect on the
+afferents becomes possible and should be reconsidered.
 
 ## 4. Validation targets (per layer, against published data)
 
@@ -179,19 +200,22 @@ two-channel Estimulador and a joint panel; the `PD_TREMOR` condition adjustment 
 
 ## 6. Phases and gates
 
-1. **Per-unit motoneuron input + speed** (Decision 3). Gate: firing of the existing pool unchanged with a constant
-   input (regression), one 4-s two-pool trial ≤ 10 s.
+1. **Per-unit motoneuron input + compiled HH.** Gate: firing of the existing pool unchanged with a constant input
+   (regression to the Octave-checked behaviour), one 4-s two-pool trial ≤ 10 s.
 2. **Descending drive** (3.1). Gate: motor unit rate, ISI CV 10–30 %, doublets within the Agapaki ranges.
-3. **Axon merge with collision** (3.3). Gate: unit tests of the event rules; collision vs rank qualitatively as
-   Herbert & Gandevia.
-4. **FCR/ECR muscles** (step 3 research) and **joint** (3.4–3.5). Gate: tremor frequency, acceleration and burst delay
-   inside the targets of Section 4 without FES.
-5. **FES on the wrist** (two channels) — open-loop suppression in the published range. Then the controllers (OE4).
+3. **FCR/ECR muscles** (step 3 research) and **joint** (3.4–3.5), open loop. Gate: tremor frequency inside the
+   Section 4 targets with a phase-free common drive (antagonists in phase at this stage — expected).
+4. **Ia loop** (3.6: spindles, Ia interneurons, reciprocal inhibition). Gate: FCR–ECR burst delay 32.8 ± 12.8 %,
+   coherence and acceleration inside the targets, without FES.
+5. **Axon merge with collision** (3.3). Gate: unit tests of the event rules; collision vs rank as Herbert & Gandevia.
+6. **FES on the wrist** (two channels) — open-loop suppression in the published range. Then the controllers (OE4).
 
-## 7. Decisions for the author
+## 7. Decisions
 
-1. Units of the drive: convert nA via soma area (proposed).
-2. Antagonist phase: explicit parameter first, Ia loop later (proposed).
-3. Speed path: weights → Numba → reduced model if needed (proposed), with the 10 s gate.
-4. Electrode position along the axon: 90 % of the length, configurable (proposed).
-5. Accelerometer distance from the wrist for comparison with Agapaki 2018.
+| # | Decision | Status |
+|---|---|---|
+| 1 | Drive units: nA converted through each unit's absolute soma area | default (technical) |
+| 2 | Antagonist phase emerges from the Ia loop from the first version | **decided by the author, 2026-11-06** |
+| 3 | Speed: compiled HH (Numba), reduced model only if the 10-s gate fails | **decided by the author, 2026-11-06** |
+| 4 | Electrode at 90 % of the axon length, configurable | default (technical) |
+| 5 | Sensor 8 cm from the wrist (hand dorsum), configurable, labelled an assumption | **decided by the author, 2026-11-06** |
