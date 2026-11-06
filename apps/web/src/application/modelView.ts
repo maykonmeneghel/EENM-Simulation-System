@@ -27,6 +27,7 @@ import type {
   ModulationShape,
   ModulationTarget,
   MotorUnitType,
+  MuscleId,
   MusclePreset,
   SimulationRequest,
   StartedEvent,
@@ -43,6 +44,7 @@ import type { FormValues } from './formModel';
 export interface ModelSnapshot {
   variant: ModelVariant;
   calibrationTarget: CalibrationTarget;
+  muscle: MuscleId;
   stimulationSite: StimulationSite;
   stages: readonly StageId[];
   stimulus: {
@@ -188,6 +190,7 @@ export function buildModelSnapshot({ values, muscles, lastRequest, lastStarted }
     seed: num(values.seed),
     rate: { isiMs, ...rateRegimeLimits(isiMs) },
     units,
+    muscle: values.muscle as MuscleId,
     muscleLabel: preset?.label ?? values.muscle,
     pool,
     weights: pool && units.counts ? forceWeights(pool, units.counts) : null,
@@ -198,9 +201,10 @@ export function buildModelSnapshot({ values, muscles, lastRequest, lastStarted }
       axonLengthPercent,
       durationMs,
       calibrationTarget,
+      values.muscle as MuscleId,
     ),
     poolMt: { min: POOL_MT_MIN, max: POOL_MT_MAX },
-    twitchShape: twitchShape(variant, calibrationTarget),
+    twitchShape: twitchShape(variant, calibrationTarget, values.muscle as MuscleId),
   };
 }
 
@@ -210,8 +214,9 @@ export function twitchCurve(
   points = 48,
   xMax = 5,
   target: CalibrationTarget = 'WHOLE_MUSCLE',
+  muscle?: MuscleId,
 ): Array<[number, number]> {
-  const { m, timeScale } = twitchShape(variant, target);
+  const { m, timeScale } = twitchShape(variant, target, muscle);
   const out: Array<[number, number]> = [];
   for (let i = 0; i <= points; i++) {
     const x = (i / points) * xMax;

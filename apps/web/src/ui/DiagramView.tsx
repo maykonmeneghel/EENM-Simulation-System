@@ -77,7 +77,7 @@ export function DiagramView({ snapshot: s, running, onSelectStage }: DiagramView
       ? `Δ ≈ ${txtNum(Math.min(...delays), 1)}–${txtNum(Math.max(...delays), 1)} ms`
       : 'Δ = —';
 
-  const curve = twitchCurve(s.variant, 40, 5, s.calibrationTarget);
+  const curve = twitchCurve(s.variant, 40, 5, s.calibrationTarget, s.muscle);
   const tw = { x: 790, y: 120, w: 110, h: 70 };
   const twitchPath = curve
     .map(([x, y], i) => `${i === 0 ? 'M' : 'L'} ${tw.x + (x / 5) * tw.w} ${tw.y + tw.h - y * tw.h}`)

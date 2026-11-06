@@ -18,6 +18,7 @@ from eenm_engine.domain.conditions import ADJUSTMENTS, Adjustment, Condition, ap
 from eenm_engine.domain.model_options import LITERATURE_UNITS, CalibrationTarget, ModelOptions, StimulationSite
 from eenm_engine.domain.motoneuron import InjectionSite
 from eenm_engine.domain.motor_unit_pool import Geometry, MotorUnitType, Muscle, MusclePreset, proportional_units
+from eenm_engine.domain.muscle_profiles import FieldSource, literature_options, profile
 from eenm_engine.domain.simulation import SimulationConfig
 from eenm_engine.domain.stimulus import ModulationShape, ModulationTarget, StimulusProtocol, Waveform
 
@@ -127,7 +128,7 @@ class SimulationRequest(_CamelModel):
             units_per_type=self._units(),
             model=self._model(),
             reference_model=(
-                ModelOptions.literature(self.calibration_target, _SITES[self.stimulation_site])
+                literature_options(self.muscle, self.calibration_target, _SITES[self.stimulation_site])
                 if self.model_variant is ModelVariant.LITERATURE
                 else None
             ),
@@ -143,7 +144,7 @@ class SimulationRequest(_CamelModel):
     def _model(self) -> ModelOptions:
         if self.model_variant is not ModelVariant.LITERATURE:
             return ModelOptions()
-        options = ModelOptions.literature(self.calibration_target, _SITES[self.stimulation_site])
+        options = literature_options(self.muscle, self.calibration_target, _SITES[self.stimulation_site])
         chosen = None if self.condition_adjustments is None else tuple(self.condition_adjustments)
         return apply_condition(options, self.condition, chosen)
 
@@ -215,10 +216,34 @@ def condition_catalog() -> list[ConditionDto]:
     ]
 
 
+class FieldSourceDto(_CamelModel):
+    field: str
+    provenance: Literal["MEASURED", "FITTED", "INHERITED"]
+    value: str
+    source: ConditionSourceDto | None
+    evidence: Literal["FULL_TEXT", "ABSTRACT"] | None
+    calibration_target: CalibrationTarget | None
+    """Only for this calibration target; ``None`` = always."""
+
+    @classmethod
+    def of(cls, f: FieldSource) -> FieldSourceDto:
+        s = f.source
+        return cls(
+            field=f.field,
+            provenance=f.provenance.value,
+            value=f.value,
+            source=ConditionSourceDto(citation=s.citation, title=s.title, doi=s.doi, pmid=s.pmid) if s else None,
+            evidence=f.evidence.value if f.evidence else None,
+            calibration_target=f.target,
+        )
+
+
 class MusclePresetDto(_CamelModel):
     id: Muscle
     label: str
     pool_size: dict[Literal["S", "FR", "FF"], int]
+    provenance: list[FieldSourceDto]
+    """Where each value of the preset comes from (empty for the original model's leg presets)."""
 
     @classmethod
     def of(cls, preset: MusclePreset) -> MusclePresetDto:
@@ -230,6 +255,7 @@ class MusclePresetDto(_CamelModel):
                 "FR": preset.pool_size[MotorUnitType.FR],
                 "FF": preset.pool_size[MotorUnitType.FF],
             },
+            provenance=[FieldSourceDto.of(f) for f in profile(preset.muscle)],
         )
 
 

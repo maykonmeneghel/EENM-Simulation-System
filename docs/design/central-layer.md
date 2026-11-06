@@ -131,7 +131,8 @@ median-innervated wrist-flexor twitch timing (CT 67.3 ± 5.3 ms, HRT 57.6 ± 7.7
 single-unit contraction time (51.0 ± 21.7 ms, slow 63.7 ± 11.1, fast 25.6 ± 3.7 ms, Aimonetti 2000, FT, 25 units) and
 the forces above. **No verified data** for motor-unit numbers, single-unit twitch force or HRT, f50, twitch/tetanus
 ratio, healthy fatigue index under stimulation, muscle-specific conduction velocity, or anything in Parkinson's
-disease. Those fields stay inherited (leg presets) or fitted — see Decision 6. Force–length/velocity (Hill, Millard 2013 in the proposal) are left out in v1:
+disease. Those fields are inherited from the soleus preset and labelled so (Decision 6, implemented in
+`domain/muscle_profiles.py`; fits in `validation/results/calibration-*-fcr.json`). Force–length/velocity (Hill, Millard 2013 in the proposal) are left out in v1:
 tremor amplitudes are small around a fixed posture. Corie & Charles's second-order excitation–contraction filter
 (30/40 ms) is **not** added: the twitch model already provides the activation dynamics.
 
@@ -230,4 +231,4 @@ two-channel Estimulador and a joint panel; the `PD_TREMOR` condition adjustment 
 | 3 | Speed: compiled HH (Numba), reduced model only if the 10-s gate fails | **decided by the author, 2026-11-06** |
 | 4 | Electrode at 90 % of the axon length, configurable | default (technical) |
 | 5 | Sensor 8 cm from the wrist (hand dorsum), configurable, labelled an assumption | **decided by the author, 2026-11-06** |
-| 6 | FCR/ECR presets: how to fill the fields without verified human data | **open** |
+| 6 | FCR/ECR presets: verified values where they exist (FCR fibre types → unit proportions, FCR twitch fitted to Behrens 2019, ECR unit CT to Aimonetti 2000); every other field inherited from the soleus and labelled so in the app (`domain/muscle_profiles.py`) | **decided by the author, 2026-11-06** |

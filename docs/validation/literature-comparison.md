@@ -285,6 +285,23 @@ Not representable in this model (central): spasticity, rigidity, bradykinesia, t
 layer design. Parkinson's peripheral data for leg muscles are weak: these adjustments are options, not a verified
 Parkinsonian muscle.
 
+## Wrist presets (FCR, ECR) — 2026-11-06
+
+Built from `docs/research/wrist-muscles-literature.md` under Decision 6 of `docs/design/central-layer.md`: verified
+human values where they exist, everything else inherited from the soleus preset and labelled `INHERITED` in
+`GET /v1/muscles` and in the app.
+
+| Field | FCR | ECR |
+|---|---|---|
+| Pool S / FR / FF | 368 / 267 / 265 — Mizuno 1994 fibre types (40.9 / 29.7 / 29.4 %, FT, n = 7) taken as unit proportions (assumption: fast units have more fibres, so this overstates their number) | 800 / 50 / 50, inherited |
+| Total units | 900, inherited (no human MUNE) | 900, inherited |
+| Twitch, `WHOLE_MUSCLE` | fitted to Behrens 2019 (median-innervated wrist flexors, neutral, unpotentiated; FT): CT 67.31, HRT 57.63 ms, both achieved; scale 0.9524, m 3.6741 (axons) / 3.6733 (pool) | inherited (soleus fit) |
+| Twitch, `SINGLE_UNIT` | inherited (soleus fit) | CT: scale 0.50605 gives a mean of 51.0 ms over the 120 simulated units (Aimonetti 2000, FT, 25 units); HRT/CT inherited (m 2.0862) |
+| Motoneuron, MUAP, conduction, twitch amplitudes, fatigability | inherited | inherited |
+
+Not used yet: peak forces (Saul 2015: FCR 407.9 N, ECRL + ECRB 589.8 N) — force is shown as % of each muscle's own
+maximum until the joint (central layer, 3.5) needs newtons. Guarded by `tests/unit/test_muscle_profiles.py`.
+
 ## What this means for the next steps
 
 The end-to-end system can be used now, but its force output should be read as **qualitative**.

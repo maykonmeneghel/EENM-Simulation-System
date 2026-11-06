@@ -18,10 +18,19 @@ def test_health() -> None:
     assert client.get("/health").json() == {"status": "ok"}
 
 
-def test_muscles_lists_the_four_presets_in_camel_case() -> None:
+def test_muscles_lists_the_presets_in_camel_case() -> None:
     body = client.get("/v1/muscles").json()
-    assert [m["id"] for m in body] == ["SOLEUS", "GASTROCNEMIUS_MEDIAL", "GASTROCNEMIUS_LATERAL", "TIBIALIS_ANTERIOR"]
-    assert body[0]["poolSize"] == {"S": 800, "FR": 50, "FF": 50}
+    assert [m["id"] for m in body] == [
+        "SOLEUS",
+        "GASTROCNEMIUS_MEDIAL",
+        "GASTROCNEMIUS_LATERAL",
+        "TIBIALIS_ANTERIOR",
+        "FLEXOR_CARPI_RADIALIS",
+        "EXTENSOR_CARPI_RADIALIS",
+    ]
+    assert body[0]["poolSize"] == {"S": 800, "FR": 50, "FF": 50} and body[0]["provenance"] == []
+    fcr = body[4]["provenance"][0]
+    assert set(fcr) == {"field", "provenance", "value", "source", "evidence", "calibrationTarget"}
 
 
 def test_stream_is_ndjson_started_chunks_completed() -> None:

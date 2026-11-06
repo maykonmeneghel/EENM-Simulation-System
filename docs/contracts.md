@@ -185,8 +185,23 @@ client from `force.total`.
 
 Muscle preset:
 ```json
-{ "id": "SOLEUS", "label": "Soleus", "poolSize": { "S": 800, "FR": 50, "FF": 50 } }
+{ "id": "SOLEUS", "label": "Soleus", "poolSize": { "S": 800, "FR": 50, "FF": 50 }, "provenance": [] }
 ```
+
+`muscle` ∈ `SOLEUS`, `GASTROCNEMIUS_MEDIAL`, `GASTROCNEMIUS_LATERAL`, `TIBIALIS_ANTERIOR`, `FLEXOR_CARPI_RADIALIS`,
+`EXTENSOR_CARPI_RADIALIS`. `provenance` says where each value of a preset comes from; it is empty for the leg presets
+(the original model's table) and filled for the wrist presets (`domain/muscle_profiles.py`):
+
+```json
+{ "field": "Tempo do abalo", "provenance": "FITTED", "value": "…",
+  "source": { "citation": "Behrens et al. 2019", "title": "…", "doi": "10.3389/fbioe.2019.00181", "pmid": null },
+  "evidence": "FULL_TEXT", "calibrationTarget": "WHOLE_MUSCLE" }
+```
+
+`provenance` ∈ `MEASURED` (read in a human study of this muscle), `FITTED` (calibrated to reproduce one),
+`INHERITED` (no verified data: the soleus value; `source` null). `calibrationTarget` non-null = the entry applies only
+to that twitch calibration. With `LITERATURE`, the muscle also selects its own twitch calibration where one exists
+(FCR whole muscle, ECR single unit); otherwise the soleus fit is used.
 
 ## 4. Simulation API (Java) — public, port 8080
 

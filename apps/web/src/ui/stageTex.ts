@@ -3,7 +3,7 @@
  * same form with the current values. Pure presentation — every number comes from ModelSnapshot.
  */
 import type { ModelSnapshot } from '../application/modelView';
-import { CONSTANTS, TWITCH_CALIBRATION } from '../domain/modelEquations';
+import { CONSTANTS, twitchCalibration } from '../domain/modelEquations';
 import type { SpanValue, StageId } from '../domain/modelEquations';
 import { MOTOR_UNIT_TYPES } from '../domain/simulation';
 
@@ -289,7 +289,7 @@ function stage5(s: ModelSnapshot): StageContent {
       ],
     };
   }
-  const fit = TWITCH_CALIBRATION[s.calibrationTarget];
+  const fit = twitchCalibration(s.calibrationTarget, s.muscle);
   const k = fit.timeScale;
   const m = fit.m;
   return {

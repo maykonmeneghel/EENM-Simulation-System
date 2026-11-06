@@ -256,6 +256,47 @@ class WebClientSimulationEngineTest {
     }
 
     @Test
+    void musclePresetsCarryWhereEachValueComesFrom() {
+        server.enqueue(new MockResponse.Builder()
+                .addHeader("Content-Type", "application/json")
+                .body("""
+                        [{"id":"FLEXOR_CARPI_RADIALIS","label":"Flexor Carpi Radialis (FCR)",
+                          "poolSize":{"S":368,"FR":267,"FF":265},
+                          "provenance":[
+                            {"field":"Tempo do abalo","provenance":"FITTED","value":"CT 67,3 ms",
+                             "source":{"citation":"Behrens et al. 2019","title":"T","doi":"10.3389/fbioe.2019.00181",
+                                       "pmid":null},
+                             "evidence":"FULL_TEXT","calibrationTarget":"WHOLE_MUSCLE"},
+                            {"field":"Fadigabilidade","provenance":"INHERITED","value":"do sóleo","source":null,
+                             "evidence":null,"calibrationTarget":null}]}]
+                        """)
+                .build());
+
+        StepVerifier.create(engine.listMuscles())
+                .assertNext(presets -> {
+                    var provenance = presets.getFirst().provenance();
+                    assertThat(provenance).hasSize(2);
+                    assertThat(provenance.getFirst().source().doi()).isEqualTo("10.3389/fbioe.2019.00181");
+                    assertThat(provenance.getFirst().calibrationTarget()).isEqualTo("WHOLE_MUSCLE");
+                    assertThat(provenance.get(1).provenance()).isEqualTo("INHERITED");
+                    assertThat(provenance.get(1).source()).isNull();
+                })
+                .expectComplete()
+                .verify(TIMEOUT);
+    }
+
+    @Test
+    void incompletePresetSourceIsAProtocolError() {
+        server.enqueue(new MockResponse.Builder()
+                .addHeader("Content-Type", "application/json")
+                .body("[{\"id\":\"SOLEUS\",\"label\":\"Soleus\",\"poolSize\":{\"S\":800,\"FR\":50,\"FF\":50},"
+                        + "\"provenance\":[{\"field\":\"x\"}]}]")
+                .build());
+
+        StepVerifier.create(engine.listMuscles()).expectError(EngineProtocolException.class).verify(TIMEOUT);
+    }
+
+    @Test
     void incompleteMusclePresetIsAProtocolError() {
         server.enqueue(new MockResponse.Builder()
                 .addHeader("Content-Type", "application/json")
