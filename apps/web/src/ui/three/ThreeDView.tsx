@@ -9,6 +9,7 @@ import type { LevelId } from '../../application/anatomy3d';
 import { LEVELS, buildLayout, hasForearm } from '../../application/anatomy3d';
 import { buildReplay } from '../../application/replay';
 import type { SeriesBuffer } from '../../application/seriesBuffer';
+import type { JointBuffer } from '../../application/jointBuffer';
 import type { UnitEventLog } from '../../application/unitEventLog';
 import type { MuscleId, StartedEvent } from '../../domain/simulation';
 import { MAX_UNIT_EVENTS_DURATION_MS } from '../../domain/simulation';
@@ -30,6 +31,7 @@ export interface ThreeDViewProps {
   onUseMuscle: (id: MuscleId) => void;
   series?: SeriesBuffer;
   unitEvents?: UnitEventLog;
+  joint?: JointBuffer;
 }
 
 const LEVEL_LABEL: Record<LevelId, () => string> = {
@@ -46,7 +48,7 @@ const CREDIT = 'BodyParts3D, © The Database Center for Life Science licensed un
 
 const fmt = (v: number, digits = 1) => fmtNumber(v, { maximumFractionDigits: digits, minimumFractionDigits: digits });
 
-export default function ThreeDView({ run, running = false, axonLengthPercent, muscleLabel, onUseMuscle, series, unitEvents }: ThreeDViewProps) {
+export default function ThreeDView({ run, running = false, axonLengthPercent, muscleLabel, onUseMuscle, series, unitEvents, joint }: ThreeDViewProps) {
   const scheme = useColorScheme();
   const palette = CHART_THEMES[scheme].series;
   const colors = useMemo(() => ({ S: palette.orange, FR: palette.aqua, FF: palette.yellow }), [palette]);
@@ -107,6 +109,11 @@ export default function ThreeDView({ run, running = false, axonLengthPercent, mu
       return v.total[i]! / run.maxForce;
     },
     [series, run],
+  );
+
+  const angleAt = useCallback(
+    (t: number): number | null => (run?.joint && joint ? joint.at(t / run.outputStepMs) : null),
+    [joint, run],
   );
 
   const setPlaying = (playing: boolean) => {
@@ -232,6 +239,7 @@ export default function ThreeDView({ run, running = false, axonLengthPercent, mu
               replay={replay}
               clock={clock}
               forceAt={forceAt}
+              angleAt={angleAt}
               commands={commands}
               labels={labels}
             />
@@ -246,6 +254,7 @@ export default function ThreeDView({ run, running = false, axonLengthPercent, mu
         <div className="three-label" ref={(n) => { labelNodes.current.spinal = n; }} aria-hidden="true">
           {tr({ 'pt-BR': 'Motoneurônios (medula)', en: 'Motoneurons (spinal cord)' })}
         </div>
+        {run.joint ? <WristReadout angle={angleAt(shown.t)} model={run.joint} /> : null}
         {bar ? (
           <div className="three-scale" aria-label={tr({ 'pt-BR': 'Escala', en: 'Scale' })}>
             <span style={{ width: `${bar.pixels}px` }} />
@@ -347,11 +356,35 @@ export default function ThreeDView({ run, running = false, axonLengthPercent, mu
       )}
       <p className="three-notes muted">
         {tr({
-          'pt-BR': `Pele, ossos e músculos: atlas (malhas em escala real). Unidades, tamanhos do soma e do dendrito, tempos de condução e disparos: modelo (${layout.motoneuron === 'CISI_KOHN_2008' ? 'Cisi & Kohn 2008' : 'Booth 1997'}). Posição das unidades, territórios, trajeto do nervo e tamanho do eletrodo: ilustrativos. Axônio de ${fmt(layout.axonLength, 2)} m; ponto motor ${fmt(layout.motorPoint.x * 100, 1)} cm abaixo do cotovelo (${TAG_LABEL[layout.motorPoint.tag]()}). Um disparo some no trecho omitido e reaparece do outro lado no tempo real de condução. O músculo brilha com a força (% da máxima) e não encurta: o modelo é isométrico.`,
-          en: `Skin, bones and muscles: atlas (meshes at real scale). Units, soma and dendrite sizes, conduction times and spikes: model (${layout.motoneuron === 'CISI_KOHN_2008' ? 'Cisi & Kohn 2008' : 'Booth 1997'}). Unit positions, territories, nerve path and electrode size: illustrative. Axon ${fmt(layout.axonLength, 2)} m; motor point ${fmt(layout.motorPoint.x * 100, 1)} cm below the elbow (${TAG_LABEL[layout.motorPoint.tag]()}). A spike disappears into the omitted stretch and comes back on the other side at its real conduction time. The muscle glows with the force (% of maximum) and does not shorten: the model is isometric.`,
+          'pt-BR': `Pele, ossos e músculos: atlas (malhas em escala real). Unidades, tamanhos do soma e do dendrito, tempos de condução e disparos: modelo (${layout.motoneuron === 'CISI_KOHN_2008' ? 'Cisi & Kohn 2008' : 'Booth 1997'}). Posição das unidades, territórios, trajeto do nervo e tamanho do eletrodo: ilustrativos. Axônio de ${fmt(layout.axonLength, 2)} m; ponto motor ${fmt(layout.motorPoint.x * 100, 1)} cm abaixo do cotovelo (${TAG_LABEL[layout.motorPoint.tag]()}). Um disparo some no trecho omitido e reaparece do outro lado no tempo real de condução. O músculo brilha com a força (% da máxima). A mão gira no punho com o torque dele (1 grau de liberdade: inércia, amortecimento e rigidez de Davidson & Charles 2017, braço de momento de Corie & Charles 2019, força máxima de Saul 2015); a força é a isométrica do modelo (sem força–comprimento–velocidade), só o músculo estimulado age, e o ângulo para nos limites de Ryu 1991 (amplitude das tarefas diárias, não o máximo anatômico).`,
+          en: `Skin, bones and muscles: atlas (meshes at real scale). Units, soma and dendrite sizes, conduction times and spikes: model (${layout.motoneuron === 'CISI_KOHN_2008' ? 'Cisi & Kohn 2008' : 'Booth 1997'}). Unit positions, territories, nerve path and electrode size: illustrative. Axon ${fmt(layout.axonLength, 2)} m; motor point ${fmt(layout.motorPoint.x * 100, 1)} cm below the elbow (${TAG_LABEL[layout.motorPoint.tag]()}). A spike disappears into the omitted stretch and comes back on the other side at its real conduction time. The muscle glows with the force (% of maximum). The hand turns at the wrist with its torque (1 degree of freedom: inertia, damping and stiffness from Davidson & Charles 2017, moment arm from Corie & Charles 2019, peak force from Saul 2015); the force is the model's isometric one (no force–length–velocity), only the stimulated muscle acts, and the angle stops at Ryu 1991's limits (the range daily tasks need, not the anatomical maximum).`,
         })}
       </p>
       <p className="three-credit muted">{CREDIT}</p>
+    </div>
+  );
+}
+
+/** Wrist angle now, and its limits (the stop the joint model uses). */
+function WristReadout({ angle, model }: { angle: number | null; model: NonNullable<StartedEvent['joint']> }) {
+  if (angle === null) return null;
+  const side =
+    Math.abs(angle) < 0.05
+      ? tr({ 'pt-BR': 'neutro', en: 'neutral' })
+      : angle > 0
+        ? tr({ 'pt-BR': 'flexão', en: 'flexion' })
+        : tr({ 'pt-BR': 'extensão', en: 'extension' });
+  return (
+    <div className="three-angle" role="status" aria-live="off">
+      <strong>
+        {tr({ 'pt-BR': 'Punho', en: 'Wrist' })}: {fmt(Math.abs(angle), 1)}° {side}
+      </strong>
+      <span>
+        {tr({
+          'pt-BR': `limites ${fmt(model.flexionLimitDeg, 0)}° flexão / ${fmt(model.extensionLimitDeg, 0)}° extensão (Ryu 1991)`,
+          en: `limits ${fmt(model.flexionLimitDeg, 0)}° flexion / ${fmt(model.extensionLimitDeg, 0)}° extension (Ryu 1991)`,
+        })}
+      </span>
     </div>
   );
 }

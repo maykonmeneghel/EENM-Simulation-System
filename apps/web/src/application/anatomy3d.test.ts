@@ -136,3 +136,22 @@ describe('axon paths', () => {
     expect(path.sA * layout.axonLength).toBeCloseTo(path.soma.length, 9);
   });
 });
+
+describe('wrist bend', () => {
+  it('keeps the forearm still, turns the hand fully and blends in between', async () => {
+    const { WRIST_CENTRE, wristWeight, bendAtWrist } = await import('./anatomy3d');
+    const [cx, cy] = WRIST_CENTRE;
+    expect(cx).toBeGreaterThan(FOREARM.forearmLength); // the capitate is past the end of the radius
+    expect(cx - FOREARM.forearmLength).toBeLessThan(0.03);
+    expect(wristWeight(0.1)).toBe(0);
+    expect(wristWeight(cx + 0.05)).toBe(1);
+    const mid = wristWeight(cx - 0.01);
+    expect(mid).toBeGreaterThan(0);
+    expect(mid).toBeLessThan(1);
+    // a fingertip 10 cm distal to the centre, flexed 90°, moves 10 cm toward the palm (+y)
+    const out: [number, number] = [0, 0];
+    bendAtWrist(cx + 0.1, cy, Math.PI / 2, 1, out);
+    expect(out[0]).toBeCloseTo(cx, 9);
+    expect(out[1]).toBeCloseTo(cy + 0.1, 9);
+  });
+});

@@ -33,6 +33,20 @@ class EngineEventParserTest {
     }
 
     @Test
+    void parsesTheWristOfAForearmRun() {
+        assertThat(parser.parse(SampleEvents.startedWithJointLine())).contains(SampleEvents.startedWithJoint());
+        assertThat(parser.parse(SampleEvents.chunkWithJointLine())).contains(SampleEvents.chunkWithJoint());
+    }
+
+    @Test
+    void jointSeriesOfDifferentLengthsAreAProtocolError() {
+        String broken = SampleEvents.chunkWithJointLine().replace("\"torqueNm\":[0.0,0.5]", "\"torqueNm\":[0.0]");
+
+        assertThatThrownBy(() -> parser.parse(broken))
+                .isInstanceOf(EngineProtocolException.class).hasMessageContaining("joint");
+    }
+
+    @Test
     void parsesTheUnitEventsOfAChunk() {
         assertThat(parser.parse(SampleEvents.chunkWithUnitEventsLine())).contains(SampleEvents.chunkWithUnitEvents());
     }
@@ -80,7 +94,7 @@ class EngineEventParserTest {
 
     @Test
     void aStartedEventFromAnOlderEngineHasNoUnits() {
-        String older = SampleEvents.startedLine().replace(",\"electrodeFraction\":null,\"units\":null,\"stepMs\":null", "");
+        String older = SampleEvents.startedLine().replace(",\"electrodeFraction\":null,\"units\":null,\"stepMs\":null,\"joint\":null", "");
 
         SimulationStarted started = (SimulationStarted) parser.parse(older).orElseThrow();
 

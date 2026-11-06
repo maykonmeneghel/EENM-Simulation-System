@@ -17,6 +17,8 @@ import {
   FOREARM,
   SPINAL_X,
   axonPath,
+  bendAtWrist,
+  wristWeight,
   levelFor,
   nerveCurvePoints,
   pointOnAxon,
@@ -87,6 +89,8 @@ interface SceneProps {
   clock: MutableRefObject<ReplayClock>;
   /** Force at a time as a fraction of the healthy maximum, or null when unknown. */
   forceAt: (tMs: number) => number | null;
+  /** Wrist angle at a time (°, + flexion), or null when the run has no joint. */
+  angleAt: (tMs: number) => number | null;
   commands: MutableRefObject<SceneCommands | null>;
   /** Screen positions of the labels, written every frame for the view's overlay. */
   labels: MutableRefObject<LabelPositions>;
@@ -104,7 +108,13 @@ interface AtlasMaterials {
   other: THREE.MeshStandardMaterial;
 }
 
-function Atlas({ layout, level, clock, forceAt }: { layout: Layout; level: LevelId; clock: RefObject<ReplayClock>; forceAt: SceneProps['forceAt'] }) {
+function Atlas({ layout, level, clock, forceAt, angleAt }: {
+  layout: Layout;
+  level: LevelId;
+  clock: RefObject<ReplayClock>;
+  forceAt: SceneProps['forceAt'];
+  angleAt: SceneProps['angleAt'];
+}) {
   const gltf = useGLTF(FOREARM_URL);
   const clip = useMemo(() => new THREE.Plane(new THREE.Vector3(-1, 0, 0), layout.endplateX), [layout.endplateX]);
   // L1 opens the stimulated muscle at the endplates (keeps the proximal part, the cut faces the camera)
@@ -123,6 +133,7 @@ function Atlas({ layout, level, clock, forceAt }: { layout: Layout; level: Level
     };
   }, [opened, deep, clip]);
   const live = useRef(materials);
+  const bend = useMemo(() => restPose(gltf.scene), [gltf]);
   useEffect(() => {
     live.current = materials;
     paint(gltf.scene, layout.parts, materials);
@@ -132,8 +143,67 @@ function Atlas({ layout, level, clock, forceAt }: { layout: Layout; level: Level
     const t = clock.current?.t ?? 0;
     const f = forceAt(t);
     live.current.stimulated.emissiveIntensity = f === null ? 0 : Math.min(1, Math.max(0, f)) * 0.9;
+    // the hand turns at the wrist with the joint angle the engine computed
+    const deg = angleAt(t);
+    applyWrist(bend, deg === null ? 0 : (deg * Math.PI) / 180);
   });
   return <primitive object={gltf.scene} />;
+}
+
+interface BentMesh {
+  position: THREE.BufferAttribute;
+  normal: THREE.BufferAttribute;
+  rest: Float32Array;
+  restNormal: Float32Array;
+  weight: Float32Array;
+}
+
+/** Rest positions and wrist weights of every mesh that crosses or lies past the wrist (the forearm bones do not). */
+function restPose(scene: THREE.Object3D): { meshes: BentMesh[]; angle: number } {
+  const meshes: BentMesh[] = [];
+  scene.traverse((o) => {
+    if (!(o instanceof THREE.Mesh) || o.name === 'radius' || o.name === 'ulna' || o.name === 'humerus') return;
+    const g = o.geometry as THREE.BufferGeometry;
+    if (!g.attributes.normal) g.computeVertexNormals();
+    const position = g.attributes.position as THREE.BufferAttribute;
+    const weight = new Float32Array(position.count);
+    let any = false;
+    for (let i = 0; i < position.count; i++) {
+      weight[i] = o.name === 'handBones' ? 1 : wristWeight(position.getX(i));
+      any ||= weight[i]! > 0;
+    }
+    if (!any) return;
+    const normal = g.attributes.normal as THREE.BufferAttribute;
+    meshes.push({ position, normal, rest: Float32Array.from(position.array), restNormal: Float32Array.from(normal.array), weight });
+  });
+  return { meshes, angle: 0 };
+}
+
+const BENT: [number, number] = [0, 0];
+
+/** Moves the vertices to the wrist angle (rad); skipped when the angle has not changed. */
+function applyWrist(pose: { meshes: BentMesh[]; angle: number }, angle: number): void {
+  if (Math.abs(angle - pose.angle) < 1e-4) return;
+  pose.angle = angle;
+  for (const m of pose.meshes) {
+    const p = m.position.array as Float32Array;
+    const n = m.normal.array as Float32Array;
+    for (let i = 0; i < m.weight.length; i++) {
+      const w = m.weight[i]!;
+      if (w === 0) continue;
+      const j = 3 * i;
+      bendAtWrist(m.rest[j]!, m.rest[j + 1]!, angle, w, BENT);
+      p[j] = BENT[0];
+      p[j + 1] = BENT[1];
+      const a = angle * w; // normals turn by the same angle (about the origin: a direction)
+      const c = Math.cos(a);
+      const s = Math.sin(a);
+      n[j] = m.restNormal[j]! * c - m.restNormal[j + 1]! * s;
+      n[j + 1] = m.restNormal[j]! * s + m.restNormal[j + 1]! * c;
+    }
+    m.position.needsUpdate = true;
+    m.normal.needsUpdate = true;
+  }
 }
 
 /** Normals and materials of the atlas meshes (three.js objects are mutated outside React's render). */
@@ -145,7 +215,7 @@ function paint(scene: THREE.Object3D, parts: readonly string[], materials: Atlas
     o.material =
       id === 'skin'
         ? materials.skin
-        : id === 'radius' || id === 'ulna' || id === 'humerus'
+        : id === 'radius' || id === 'ulna' || id === 'humerus' || (id as string) === 'handBones'
           ? materials.bone
           : parts.includes(id)
             ? materials.stimulated
@@ -545,7 +615,7 @@ function ZoomWatcher({ controls, onReadout, metresPerPixel }: {
   return null;
 }
 
-export function ForearmScene({ layout, level, fly, colors, selected, onSelect, onReadout, replay, clock, forceAt, commands, labels }: SceneProps) {
+export function ForearmScene({ layout, level, fly, colors, selected, onSelect, onReadout, replay, clock, forceAt, angleAt, commands, labels }: SceneProps) {
   const controls = useRef<CameraControls | null>(null);
   const metresPerPixel = useRef(1e-4);
   const first = useRef(true);
@@ -607,7 +677,7 @@ export function ForearmScene({ layout, level, fly, colors, selected, onSelect, o
       <ZoomWatcher controls={controls} onReadout={onReadout} metresPerPixel={metresPerPixel} />
       <LabelProjector layout={layout} level={level} out={labels} />
       <group onPointerMissed={() => onSelect(null)} onDoubleClick={centre}>
-        <Atlas layout={layout} level={level} clock={clock} forceAt={forceAt} />
+        <Atlas layout={layout} level={level} clock={clock} forceAt={forceAt} angleAt={angleAt} />
         {layout.electrodeFraction !== null ? <Electrode layout={layout} replay={replay} clock={clock} /> : null}
         <Nerve layout={layout} showAxons={deep} colors={colors} selected={selected} onSelect={onSelect} />
         {level === 'L1' ? <Territories layout={layout} colors={colors} selected={selected} onSelect={onSelect} replay={replay} clock={clock} /> : null}

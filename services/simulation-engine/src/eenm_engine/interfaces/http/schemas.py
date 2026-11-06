@@ -27,6 +27,7 @@ from eenm_engine.domain.simulation import SimulationConfig
 from eenm_engine.domain.stimulus import ModulationShape, ModulationTarget, StimulusProtocol, Waveform
 from eenm_engine.domain.texts_en import Lang, localized
 from eenm_engine.domain.unit_anatomy import UnitAnatomy
+from eenm_engine.domain.wrist_joint import WristJoint, WristMuscle
 
 
 class _CamelModel(BaseModel):
@@ -312,6 +313,19 @@ def _optional_list(values: NDArray[np.float64] | None) -> list[float] | None:
     return None if values is None else [round(float(v), 6) for v in values]
 
 
+def _joint_json(joint: tuple[WristJoint, WristMuscle]) -> dict[str, float]:
+    j, m = joint
+    return {
+        "momentArmMm": m.moment_arm_m * 1000,
+        "peakForceN": m.peak_force_n,
+        "inertiaKgM2": j.inertia_kg_m2,
+        "dampingNmsRad": j.damping_nms_rad,
+        "stiffnessNmRad": j.stiffness_nm_rad,
+        "flexionLimitDeg": j.flexion_limit_deg,
+        "extensionLimitDeg": j.extension_limit_deg,
+    }
+
+
 def _units_json(units: UnitAnatomy) -> dict[str, object]:
     """Column arrays, one entry per simulated unit (``docs/contracts.md``, ``started.units``)."""
     return {
@@ -338,6 +352,7 @@ def event_to_json(event: SimulationEvent) -> dict[str, object]:
             "durationMs": event.duration_ms,
             "outputStepMs": event.output_step_ms,
             "stepMs": event.step_ms,
+            "joint": _joint_json(event.joint) if event.joint is not None else None,
             "motorUnits": _by_type(dict(event.motor_units)),
             "muscle": event.muscle.value,
             "maxForce": event.max_force,
@@ -365,6 +380,14 @@ def event_to_json(event: SimulationEvent) -> dict[str, object]:
                 else None
             ),
             "axonEvents": event.axon_events,
+            "joint": (
+                {
+                    "angleDeg": [round(float(v), 4) for v in event.joint_angle_deg],
+                    "torqueNm": [round(float(v), 5) for v in event.joint_torque_nm],
+                }
+                if event.joint_angle_deg is not None and event.joint_torque_nm is not None
+                else None
+            ),
             "unitEvents": (
                 {
                     "sample": event.unit_events.sample.tolist(),

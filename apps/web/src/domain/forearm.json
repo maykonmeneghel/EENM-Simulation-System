@@ -8,6 +8,13 @@
   "units": "metres",
   "frame": "origin at the elbow end of radius + ulna; x toward the wrist end; y toward the flexor (palmar) side; z = x × y",
   "forearmLength": 0.2492,
+  "wrist": {
+    "centre": [
+      0.2671,
+      0.0016,
+      0.0004
+    ]
+  },
   "faces": {
     "fcr": 1148,
     "ecrl": 2474,
@@ -15,7 +22,8 @@
     "radius": 672,
     "ulna": 834,
     "humerus": 1725,
-    "skin": 7314
+    "skin": 23615,
+    "handBones": 9722
   },
   "sections": {
     "fcr": [

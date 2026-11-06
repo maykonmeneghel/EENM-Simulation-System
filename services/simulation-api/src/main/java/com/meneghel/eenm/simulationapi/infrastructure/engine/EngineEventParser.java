@@ -21,6 +21,8 @@ import com.meneghel.eenm.simulationapi.domain.event.SimulationStarted;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationSummary;
 import com.meneghel.eenm.simulationapi.domain.event.UnitAnatomy;
 import com.meneghel.eenm.simulationapi.domain.event.UnitEvents;
+import com.meneghel.eenm.simulationapi.domain.event.JointSeries;
+import com.meneghel.eenm.simulationapi.domain.event.WristJoint;
 import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -78,7 +80,29 @@ final class EngineEventParser {
                 optionalNumber(node, "maxForce"),
                 optionalNumber(node, "electrodeFraction"),
                 units(node.get("units")),
-                optionalNumber(node, "stepMs"));
+                optionalNumber(node, "stepMs"),
+                wristJoint(node.get("joint")));
+    }
+
+    /** Absent or {@code null} outside forearm runs (or from an engine older than the field). */
+    private static WristJoint wristJoint(JsonNode node) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        return new WristJoint(number(node, "momentArmMm"), number(node, "peakForceN"), number(node, "inertiaKgM2"),
+                number(node, "dampingNmsRad"), number(node, "stiffnessNmRad"), number(node, "flexionLimitDeg"),
+                number(node, "extensionLimitDeg"));
+    }
+
+    private static JointSeries jointSeries(JsonNode node) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        try {
+            return new JointSeries(numbers(node, "angleDeg"), numbers(node, "torqueNm"));
+        } catch (IllegalArgumentException inconsistent) {
+            throw new EngineProtocolException("Engine field 'joint' is inconsistent: " + inconsistent.getMessage());
+        }
     }
 
     /** Absent or {@code null} from an engine older than the field. */
@@ -115,7 +139,8 @@ final class EngineEventParser {
                 numbers(node, "emg"),
                 fatigue(node.get("fatigue")),
                 axonEvents(node.get("axonEvents")),
-                unitEvents(node.get("unitEvents")));
+                unitEvents(node.get("unitEvents")),
+                jointSeries(node.get("joint")));
     }
 
     /** Absent or {@code null} unless the request asked for them. */

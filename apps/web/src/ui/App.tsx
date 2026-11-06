@@ -319,6 +319,7 @@ export function App({
                   running={running}
                   series={controller.series}
                   unitEvents={controller.unitEvents}
+                  joint={controller.joint}
                   axonLengthPercent={state.request?.axonLengthPercent ?? Number(values.axonLengthPercent)}
                   muscleLabel={muscleLabel}
                   onUseMuscle={(id) => setValues((v) => ({ ...v, muscle: id }))}
