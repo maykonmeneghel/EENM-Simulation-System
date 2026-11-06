@@ -25,6 +25,16 @@ export const CHART_THEMES: Record<ColorScheme, ChartTheme> = {
   },
 };
 
+/**
+ * Colours of compared simulations: the reference palette's eight categorical slots, in fixed order (slots 1–4 are
+ * the chart series above). Validated with the dataviz skill's checker: all checks pass in both modes; in light mode
+ * aqua, yellow and magenta are under 3:1 against the surface, so every comparison also has a legend and a table.
+ */
+export const COMPARE_COLORS: Record<ColorScheme, readonly string[]> = {
+  light: ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'],
+  dark: ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767'],
+};
+
 const QUERY = '(prefers-color-scheme: dark)';
 const media = () => (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia(QUERY) : null);
 

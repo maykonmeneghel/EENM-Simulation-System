@@ -1,12 +1,13 @@
 import { useEffect, useRef } from 'react';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
-/** Any columnar store with a `timeMs` column (SeriesBuffer, FatigueBuffer). */
+/** Any columnar store with a `timeMs` column (SeriesBuffer, FatigueBuffer, a comparison); null is a gap. */
 export interface ChartSource {
-  view(): { timeMs: Float64Array } & Record<string, Float64Array>;
+  view(): { timeMs: Float64Array } & Record<string, Float64Array | readonly (number | null)[]>;
 }
 import type { ChartTheme } from './theme';
 import { InfoIcon } from './InfoIcon';
+import { tickDecimals } from './tickDecimals';
 import type { ZoomSync } from './zoomSync';
 import { fmtNumber, tr } from '../i18n/locale';
 import { useLocale } from '../i18n/useLocale';
@@ -18,6 +19,8 @@ export interface LiveSeriesSpec {
   key: string;
   label: string;
   color: keyof ChartTheme['series'];
+  /** A colour of its own (e.g. a compared simulation's slot), instead of `color`. */
+  stroke?: string;
   width?: number;
 }
 
@@ -143,13 +146,23 @@ export function LiveChart({
               ? splits.map((v) => `${formatTick(v / 1000)} s`)
               : splits.map((v) => `${formatTick(v)} ms`),
         },
-        { label: yLabel, font: fonts.ticks, labelFont: fonts.label, stroke: theme.axis, grid: { stroke: theme.grid, width: 1 }, ticks: { stroke: theme.grid, width: 1 }, size: 60 },
+        {
+          label: yLabel,
+          font: fonts.ticks,
+          labelFont: fonts.label,
+          stroke: theme.axis,
+          grid: { stroke: theme.grid, width: 1 },
+          ticks: { stroke: theme.grid, width: 1 },
+          size: 60,
+          // the locale's decimal separator, with as many decimals as the tick step needs (0.0005 apart: 4)
+          values: (_u, splits, _axis, _space, incr) => splits.map((v) => fmtNumber(v, { minimumFractionDigits: tickDecimals(incr), maximumFractionDigits: tickDecimals(incr) })),
+        },
       ],
       series: [
         { label: 't (ms)', value: (_u, v) => (v == null ? '—' : v.toFixed(2)) },
         ...specs.map<uPlot.Series>((s) => ({
           label: s.label,
-          stroke: theme.series[s.color],
+          stroke: s.stroke ?? theme.series[s.color],
           width: s.width ?? 1.5,
           points: { show: false },
           ...(paths ? { paths } : {}),
@@ -162,7 +175,7 @@ export function LiveChart({
     plotRef.current = plot;
     // (Re)mounted: draw whatever the buffer already holds.
     const v = buffer.view();
-    if (v.timeMs.length > 0) plot.setData([v.timeMs, ...specs.map((s) => v[s.key]!)]);
+    if (v.timeMs.length > 0) plot.setData([v.timeMs, ...specs.map((s) => v[s.key]!)] as uPlot.AlignedData);
 
     const ro =
       typeof ResizeObserver !== 'undefined'
@@ -176,7 +189,7 @@ export function LiveChart({
     };
     const redraw = () => {
       const d = buffer.view();
-      plot.setData([d.timeMs, ...specs.map((s) => d[s.key]!)]);
+      plot.setData([d.timeMs, ...specs.map((s) => d[s.key]!)] as uPlot.AlignedData);
     };
     plot.over.addEventListener('dblclick', onDblClick);
     // Hand: in pan mode (or with Shift) a drag moves the shared time window instead of selecting a box.
@@ -233,7 +246,7 @@ export function LiveChart({
       const plot = plotRef.current;
       if (!plot) return;
       const v = buffer.view();
-      plot.setData([v.timeMs, ...specRef.current.map((s) => v[s.key]!)]);
+      plot.setData([v.timeMs, ...specRef.current.map((s) => v[s.key]!)] as uPlot.AlignedData);
     });
   }, [buffer, samples, runId, xMaxMs]);
 

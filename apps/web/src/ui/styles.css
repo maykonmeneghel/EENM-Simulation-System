@@ -202,7 +202,7 @@ body { overflow: hidden; }
 .toolbar-title { display: flex; align-items: baseline; gap: 0.6rem; min-width: 0; }
 .toolbar-title h1 { font-size: var(--fs-md); font-weight: 600; margin: 0; letter-spacing: 0; white-space: nowrap; }
 .toolbar-subtitle { font-size: var(--fs-sm); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.toolbar-center .segmented { width: 520px; }
+.toolbar-center .segmented { width: 600px; max-width: 100%; }
 .toolbar-actions { display: flex; justify-content: flex-end; align-items: center; gap: 0.5rem; }
 .inspector, .navigator {
   grid-area: navigator;
@@ -229,7 +229,7 @@ body { overflow: hidden; }
   position: relative;
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: 1fr;
+  grid-auto-columns: minmax(0, 1fr); /* equal columns: the thumb is 1/n wide */
   height: 26px;
   padding: var(--seg-pad);
   border-radius: 7px;
@@ -702,3 +702,37 @@ body { overflow: hidden; }
 .app-footer { grid-area: footer; padding: 0.25rem 1rem; border-top: 1px solid var(--separator); text-align: center; font-size: var(--fs-2xs); color: var(--text-3); }
 .app-footer a { color: inherit; text-decoration: none; }
 .app-footer a:hover { color: var(--accent); text-decoration: underline; }
+
+/* ---------- Saved simulations and the Compare step ---------- */
+.save-run-form { display: flex; align-items: center; gap: 0.6rem; }
+.save-run-form label { font-size: var(--fs-sm); color: var(--text-2); }
+.save-run-input, .saved-rename {
+  flex: 1; min-width: 0; height: 24px; padding: 0 0.5rem; font: inherit; font-size: var(--fs-sm); color: inherit;
+  background: var(--surface-solid); border: 1px solid var(--separator); border-radius: 6px;
+}
+.save-run-input:focus, .saved-rename:focus { outline: none; box-shadow: var(--focus); border-color: var(--accent); }
+.save-run-done { margin: 0; font-size: var(--fs-sm); }
+.btn.btn--danger { color: var(--danger); }
+
+.compare-sidebar { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.25rem 1rem; }
+.compare-sidebar .inspector-footer { flex-wrap: wrap; justify-content: flex-start; padding: 0.5rem 0 0; }
+.saved-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.saved-item { display: grid; grid-template-columns: auto auto 1fr; align-items: start; gap: 0.45rem; padding: 0.45rem 0.5rem; border-radius: 7px; }
+.saved-item--on { background: var(--surface-2); }
+.saved-check { margin: 0.2rem 0 0; }
+.saved-swatch { display: inline-block; width: 10px; height: 10px; margin-top: 0.3rem; border-radius: 3px; box-shadow: inset 0 0 0 1px var(--separator); vertical-align: baseline; }
+.saved-body { min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.saved-name { font-size: var(--fs-sm); font-weight: 500; overflow-wrap: anywhere; }
+.saved-date { font-size: var(--fs-2xs); }
+.saved-actions { display: flex; flex-wrap: wrap; gap: 0 0.75rem; }
+
+.compare-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+.empty-state h2 { margin: 0 0 0.4rem; font-size: var(--fs-lg); }
+.empty-state p { margin: 0; }
+.table-scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--card-border); border-radius: 10px; box-shadow: var(--shadow); }
+.compare-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.compare-table caption { text-align: left; padding: 0.7rem 1rem 0.3rem; font-weight: 600; }
+.compare-table th, .compare-table td { padding: 0.35rem 1rem; text-align: left; border-top: 1px solid var(--separator); white-space: nowrap; }
+.compare-table thead th { color: var(--text-2); font-weight: 500; }
+.compare-table tbody th { font-weight: 500; }
+.compare-table .saved-swatch { margin: 0 0.3rem 0 0; }

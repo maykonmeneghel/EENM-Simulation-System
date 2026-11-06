@@ -67,7 +67,7 @@ describe('the whole app in English', () => {
     expect(document.documentElement.lang).toBe('en');
     expect(api.locales).toContain('en'); // the server catalogs are fetched again in English
 
-    for (const step of ['Stimulator', 'Physiology', 'Simulation', 'Results']) {
+    for (const step of ['Stimulator', 'Physiology', 'Simulation', 'Results', 'Compare']) {
       await user.click(screen.getByRole('tab', { name: new RegExp(step) }));
       // open every help text of the step in the sidebar
       for (const help of screen.queryAllByRole('button', { name: /^Help: / })) {
