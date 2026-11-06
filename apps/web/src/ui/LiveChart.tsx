@@ -36,6 +36,10 @@ export interface LiveChartProps {
   theme: ChartTheme;
   /** Draw as steps (useful for the rectangular stimulus pulses). */
   stepped?: boolean;
+  /** Draw as bars centred on each x (e.g. one per stimulus train); a number is the bar's share of the x spacing. */
+  bars?: boolean | number;
+  /** A shaded y range behind the data (e.g. a published reference mean ± SD). */
+  band?: { lo: number; hi: number; title?: string };
   /** Fixed y range (e.g. 0–1 for a fraction); default: fitted to the data. */
   yRange?: [number, number];
   /** Shared time zoom: a box dragged here zooms every chart in time (and this one in amplitude). */
@@ -50,6 +54,13 @@ function chartFonts(): { ticks: string; label: string } {
   const v = (name: string, fallback: string) => css?.getPropertyValue(name).trim() || fallback;
   const family = v('--font', '-apple-system, BlinkMacSystemFont, system-ui, sans-serif');
   return { ticks: `${v('--fs-2xs', '10px')} ${family}`, label: `500 ${v('--fs-sm', '12px')} ${family}` };
+}
+
+/** Canvas can't use CSS variables: the reference band's colours, read when the chart is created. */
+function cssColors(): { fill: string; stroke: string } {
+  const css = typeof document !== 'undefined' ? getComputedStyle(document.documentElement) : null;
+  const v = (name: string, fallback: string) => css?.getPropertyValue(name).trim() || fallback;
+  return { fill: v('--good-bg', 'rgba(52, 199, 89, 0.14)'), stroke: v('--success', '#34c759') };
 }
 
 /** Smaller drags are clicks, not zooms (px). */
@@ -69,6 +80,8 @@ export function LiveChart({
   xMaxMs,
   height = 220,
   stepped = false,
+  bars = false,
+  band,
   theme,
   yRange,
   zoom,
@@ -80,12 +93,17 @@ export function LiveChart({
   const frameRef = useRef<number | null>(null);
   const specRef = useRef(series);
   const yRangeRef = useRef(yRange);
+  const bandRef = useRef(band);
   /** Amplitude zoom of this chart only; cleared when the shared zoom is reset. */
   const yZoomRef = useRef<[number, number] | null>(null);
   const locale = useLocale();
   // series labels follow the locale: the chart is recreated when it changes (below)
   useEffect(() => {
     specRef.current = series;
+    if (bandRef.current?.lo !== band?.lo || bandRef.current?.hi !== band?.hi) {
+      bandRef.current = band;
+      plotRef.current?.redraw();
+    }
   });
 
   // Create / destroy.
@@ -94,7 +112,12 @@ export function LiveChart({
     if (!host) return;
     const specs = specRef.current;
     const fonts = chartFonts();
-    const paths = stepped ? uPlot.paths.stepped?.({ align: 1 }) : undefined;
+    const paths = bars
+      ? uPlot.paths.bars?.({ size: [typeof bars === 'number' ? bars : 0.8, Infinity], align: 0 })
+      : stepped
+        ? uPlot.paths.stepped?.({ align: 1 })
+        : undefined;
+    const bandColors = cssColors();
     const opts: uPlot.Options = {
       width: Math.max(300, host.clientWidth),
       height,
@@ -117,6 +140,26 @@ export function LiveChart({
         },
       },
       hooks: {
+        drawClear: [
+          (u) => {
+            const b = bandRef.current;
+            if (!b) return;
+            const top = u.valToPos(b.hi, 'y', true);
+            const bottom = u.valToPos(b.lo, 'y', true);
+            const { ctx, bbox } = u;
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(bbox.left, bbox.top, bbox.width, bbox.height);
+            ctx.clip();
+            ctx.fillStyle = bandColors.fill;
+            ctx.fillRect(bbox.left, top, bbox.width, bottom - top);
+            ctx.strokeStyle = bandColors.stroke;
+            ctx.setLineDash([3 * devicePixelRatio, 3 * devicePixelRatio]);
+            ctx.lineWidth = devicePixelRatio;
+            ctx.strokeRect(bbox.left, top, bbox.width, bottom - top);
+            ctx.restore();
+          },
+        ],
         setSelect: [
           (u) => {
             const { left, top, width, height: h } = u.select;
@@ -152,6 +195,7 @@ export function LiveChart({
           stroke: theme.series[s.color],
           width: s.width ?? 1.5,
           points: { show: false },
+          ...(bars ? { fill: theme.series[s.color] } : {}),
           ...(paths ? { paths } : {}),
           value: (_u, v) => (v == null ? '—' : v.toFixed(4)),
         })),
@@ -222,7 +266,7 @@ export function LiveChart({
       plot.destroy();
       plotRef.current = null;
     };
-  }, [buffer, height, yLabel, stepped, theme, zoom, locale]);
+  }, [buffer, height, yLabel, stepped, bars, theme, zoom, locale]);
 
   // Push new data (also on new run, which resets to an empty buffer).
   useEffect(() => {
