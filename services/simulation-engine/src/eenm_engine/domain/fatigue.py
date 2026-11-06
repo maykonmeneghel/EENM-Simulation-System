@@ -89,6 +89,11 @@ class UnitFatigue:
         self.capacity = np.ones(nominal_fatigability.size)
         """Remaining fraction of the rested force capacity."""
 
+    @property
+    def fatigability(self) -> NDArray[np.float64]:
+        """Nominal fatigability of each unit (%/s, Eq 9)."""
+        return self._fatigability
+
     def contraction_time_scale(self, k: int) -> float:
         """Eq 11: multiplier of the unit's rested contraction time."""
         return 1.0 + self._model.contraction_time_gain * (1.0 - float(self.capacity[k]))

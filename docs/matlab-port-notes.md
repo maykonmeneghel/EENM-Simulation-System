@@ -46,6 +46,14 @@ follows `Mathematical Model/`.
    (BDF 0.18 %). About 23× faster than BDF on the pool. The BDF solver stays the reference for the Octave comparison
    and the validation scripts.
 
+6. **Streaming force stages (since 2026-11-06).** The post-processing (median filter, junction peaks, MUAP train,
+   twitch sum) runs on each sample once as the voltages arrive (`domain/streaming_force.py`, Numba) instead of
+   reprocessing a trailing window every 5 ms block, and the twitch sum is evaluated only at the output samples
+   (`outputStepMs`). Every streamed force and EMG value equals the reference (`force_pipeline.type_signals` on the
+   complete record) to within 1e-11 relative (`tests/unit/test_streaming_force.py`); a 1.5 s run with 120 units gives
+   the same chunks as before to 3e-15. Consequence: `completed.summary` (peak, mean, time to peak) is now taken on the
+   output grid, so the time to peak is a multiple of `outputStepMs`.
+
 ## Checked against the original code run in GNU Octave
 
 `services/simulation-engine/validation/octave/run.sh [duration_ms]` (needs Docker) runs `Mathematical Model/Main.m`

@@ -55,7 +55,7 @@ class RunSimulation:
         setup = MotorUnitSetup.from_config(config)
         times = protocol.time_grid()
         stimulus = stimulus_series(protocol)
-        force = IncrementalForce(setup, config, times.size)
+        force = IncrementalForce(setup, config, times.size, stride=config.output_stride)
 
         yield SimulationStarted(
             simulation_id=str(uuid.uuid4()),
@@ -73,26 +73,30 @@ class RunSimulation:
         else:
             blocks = self._integrate_in_blocks(setup.motoneurons, config, times, force)
         totals: list[NDArray[np.float64]] = []
+        sampled: list[NDArray[np.int64]] = []
         for series in blocks:
             totals.append(series.total_force)
+            sampled.append(series.indices)
             summary = force.capacity_summary()
             fatigue = (
                 FatigueSnapshot(time_ms=float(times[series.stop - 1]), muscle=summary[0], by_type=summary[1])
                 if summary is not None
                 else None
             )
-            chunk = self._chunk(series, times, stimulus, config.output_stride, fatigue)
+            chunk = self._chunk(series, times, stimulus, fatigue)
             if chunk.time_ms.size:
                 yield chunk
 
+        # on the output grid: force is only computed there
         total = np.concatenate(totals)
         peak = int(np.argmax(total))
+        peak_index = int(np.concatenate(sampled)[peak])
         yield SimulationCompleted(
             elapsed_seconds=time.perf_counter() - clock,
             summary=SimulationSummary(
                 peak_force=float(total[peak]),
                 mean_force=float(total.mean()),
-                time_to_peak_ms=float(times[peak]),
+                time_to_peak_ms=float(times[peak_index]),
             ),
         )
 
@@ -173,18 +177,15 @@ class RunSimulation:
         series: ForceSeries,
         times: NDArray[np.float64],
         stimulus: NDArray[np.float64],
-        stride: int,
         fatigue: FatigueSnapshot | None = None,
     ) -> SimulationChunk:
-        first = series.start + (-series.start) % stride
-        indices = np.arange(first, series.stop, stride)
-        local = indices - series.start
+        indices = series.indices
         return SimulationChunk(
             progress=series.stop / times.size,
             time_ms=times[indices],
             stimulus=stimulus[indices],
-            force_total=series.total_force[local],
-            force_by_type={t: series.force_by_type[t][local] for t in UNIT_TYPES},
-            emg=series.emg[local],
+            force_total=series.total_force,
+            force_by_type=dict(series.force_by_type),
+            emg=series.emg,
             fatigue=fatigue,
         )
