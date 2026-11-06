@@ -101,9 +101,9 @@ export function pulseOutline(s: StimulatorSettings): { points: Point[]; spanUs: 
   return { points: pts, spanUs };
 }
 
-/** Window the envelope scope shows: the whole run, at most 20 s (fixed, so on/off/ramp changes are visible). */
+/** Window the envelope scope shows: the whole run (fixed, so the on/off share of every train is drawn to scale). */
 export function envelopeWindowMs(s: StimulatorSettings): number {
-  return Math.min(s.durationMs, 20_000);
+  return s.durationMs;
 }
 
 /** Exact corner points of the amplitude envelope (×amplitude) over [0, windowMs]. */
@@ -142,6 +142,11 @@ export function stepped(points: readonly Point[]): Point[] {
   return out;
 }
 
+/** Only the points where the value changes (plus the last): the same step trace as every point, far fewer of them. */
+export function changePoints(points: readonly Point[]): Point[] {
+  return points.filter((p, i) => i === 0 || i === points.length - 1 || p[1] !== points[i - 1]![1]);
+}
+
 export interface PulseRecruitment {
   tMs: number;
   amplitude: number;
@@ -154,7 +159,7 @@ export function pulseRecruitment(s: StimulatorSettings, windowMs = envelopeWindo
   const period = periodMs(s);
   const stride = Math.max(1, Math.ceil(windowMs / period / maxPulses));
   const out: PulseRecruitment[] = [];
-  for (let k = 0; k * period <= windowMs; k += stride) {
+  for (let k = 0; k * period < windowMs; k += stride) {
     const t = k * period;
     const amplitude = s.amplitude * envelope(t, s);
     const r = axonRecruitment(amplitude, pulseWidthMs(s));
