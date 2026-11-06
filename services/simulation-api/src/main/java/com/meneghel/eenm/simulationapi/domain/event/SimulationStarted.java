@@ -9,8 +9,12 @@ public record SimulationStarted(
         double outputStepMs,
         MotorUnitCounts motorUnits,
         String muscle,
-        Double maxForce) implements SimulationEvent {
-    // maxForce: the healthy muscle's maximal force (force / maxForce = fraction of maximum); null for ORIGINAL
+        Double maxForce,
+        Double electrodeFraction,
+        UnitAnatomy units) implements SimulationEvent {
+    // maxForce: the healthy muscle's maximal force (force / maxForce = fraction of maximum); null for ORIGINAL.
+    // electrodeFraction: electrode position along the axon from the soma, null when the stimulus goes into the soma.
+    // units: per-unit geometry for the 3D view; null from an engine older than the field.
 
     public static final String TYPE = "started";
 

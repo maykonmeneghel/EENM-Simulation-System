@@ -23,6 +23,7 @@ class SimulationEventSseMapperTest {
     static Stream<Arguments> eventsAndTheirEngineLines() {
         return Stream.of(
                 Arguments.of(SampleEvents.started(), SampleEvents.startedLine()),
+                Arguments.of(SampleEvents.startedWithUnits(), SampleEvents.startedWithUnitsLine()),
                 Arguments.of(SampleEvents.chunk(0.5), SampleEvents.chunkLine(0.5)),
                 Arguments.of(SampleEvents.chunkWithFatigue(), SampleEvents.chunkWithFatigueLine()),
                 Arguments.of(SampleEvents.completed(), SampleEvents.completedLine()),

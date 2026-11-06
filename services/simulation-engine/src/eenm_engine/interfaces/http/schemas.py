@@ -6,6 +6,8 @@ from dataclasses import replace
 from enum import Enum
 from typing import Literal
 
+import numpy as np
+from numpy.typing import NDArray
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
 
@@ -24,6 +26,7 @@ from eenm_engine.domain.muscle_profiles import FieldSource, literature_options, 
 from eenm_engine.domain.simulation import SimulationConfig
 from eenm_engine.domain.stimulus import ModulationShape, ModulationTarget, StimulusProtocol, Waveform
 from eenm_engine.domain.texts_en import Lang, localized
+from eenm_engine.domain.unit_anatomy import UnitAnatomy
 
 
 class _CamelModel(BaseModel):
@@ -298,6 +301,27 @@ def _by_type(values: dict[MotorUnitType, object]) -> dict[str, object]:
     return {t.value: v for t, v in values.items()}
 
 
+def _optional_list(values: NDArray[np.float64] | None) -> list[float] | None:
+    return None if values is None else [round(float(v), 6) for v in values]
+
+
+def _units_json(units: UnitAnatomy) -> dict[str, object]:
+    """Column arrays, one entry per simulated unit (``docs/contracts.md``, ``started.units``)."""
+    return {
+        "motoneuron": units.motoneuron.value,
+        "type": [t.value for t in units.unit_type],
+        "poolIndex": units.pool_index.tolist(),
+        "somaDiameterUm": _optional_list(units.soma_diameter_um),
+        "dendriteDiameterUm": _optional_list(units.dendrite_diameter_um),
+        "dendriteLengthMm": _optional_list(units.dendrite_length_mm),
+        "conductionMs": _optional_list(units.conduction_ms),
+        "toElectrodeMs": _optional_list(units.to_electrode_ms),
+        "toMuscleMs": _optional_list(units.to_muscle_ms),
+        "weight": _optional_list(units.weight),
+        "axonRheobase": _optional_list(units.axon_rheobase),
+    }
+
+
 def event_to_json(event: SimulationEvent) -> dict[str, object]:
     """Serialise an application event to the wire format of ``docs/contracts.md``."""
     if isinstance(event, SimulationStarted):
@@ -309,6 +333,8 @@ def event_to_json(event: SimulationEvent) -> dict[str, object]:
             "motorUnits": _by_type(dict(event.motor_units)),
             "muscle": event.muscle.value,
             "maxForce": event.max_force,
+            "electrodeFraction": event.electrode_fraction,
+            "units": _units_json(event.units) if event.units is not None else None,
         }
     if isinstance(event, SimulationChunk):
         return {

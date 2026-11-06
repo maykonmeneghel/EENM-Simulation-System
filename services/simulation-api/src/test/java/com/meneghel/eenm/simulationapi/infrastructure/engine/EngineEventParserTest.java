@@ -33,6 +33,49 @@ class EngineEventParserTest {
     }
 
     @Test
+    void parsesTheUnitAnatomyOfAStartedEvent() {
+        assertThat(parser.parse(SampleEvents.startedWithUnitsLine())).contains(SampleEvents.startedWithUnits());
+    }
+
+    @Test
+    void unitsWithoutAnElectrodeHaveNoSplit() {
+        String soma = SampleEvents.startedWithUnitsLine().replace("\"electrodeFraction\":0.9", "\"electrodeFraction\":null")
+                .replace("[16.36,13.58]", "null").replace("[1.82,1.51]", "null");
+
+        SimulationStarted started = (SimulationStarted) parser.parse(soma).orElseThrow();
+
+        assertThat(started.electrodeFraction()).isNull();
+        assertThat(started.units().toElectrodeMs()).isNull();
+        assertThat(started.units().toMuscleMs()).isNull();
+    }
+
+    @Test
+    void unitColumnsOfDifferentLengthsAreAProtocolError() {
+        String broken = SampleEvents.startedWithUnitsLine().replace("\"weight\":[160.0,25.0]", "\"weight\":[160.0]");
+
+        assertThatThrownBy(() -> parser.parse(broken))
+                .isInstanceOf(EngineProtocolException.class).hasMessageContaining("units");
+    }
+
+    @Test
+    void anElectrodeSplitOnOnlyOneSideIsAProtocolError() {
+        String broken = SampleEvents.startedWithUnitsLine().replace("[1.82,1.51]", "null");
+
+        assertThatThrownBy(() -> parser.parse(broken))
+                .isInstanceOf(EngineProtocolException.class).hasMessageContaining("units");
+    }
+
+    @Test
+    void aStartedEventFromAnOlderEngineHasNoUnits() {
+        String older = SampleEvents.startedLine().replace(",\"electrodeFraction\":null,\"units\":null", "");
+
+        SimulationStarted started = (SimulationStarted) parser.parse(older).orElseThrow();
+
+        assertThat(started.units()).isNull();
+        assertThat(started.electrodeFraction()).isNull();
+    }
+
+    @Test
     void aStartedEventWithoutMaxForceHasNone() {
         String original = SampleEvents.startedLine().replace(",\"maxForce\":5.1754", "");
 
