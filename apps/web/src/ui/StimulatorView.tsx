@@ -9,6 +9,7 @@ import { axonRecruitment } from '../domain/modelEquations';
 import type { FieldError, StimulationSite } from '../domain/simulation';
 import type { Point, StimulatorSettings, StimulatorWaveform } from '../domain/stimulator';
 import {
+  changePoints,
   envelopeOutline,
   envelopeWindowMs,
   periodMs,
@@ -133,11 +134,12 @@ function EnvelopeScope({ s }: { s: StimulatorSettings }) {
   const [measureSvg, svgScale] = useSvgScale(W);
   const windowMs = envelopeWindowMs(s);
   const outline = envelopeOutline(s, windowMs);
-  const recruit = pulseRecruitment(s, windowMs, 600);
+  // every pulse (a stride would skip short trains in a long run), then only where the fraction changes
+  const recruit = pulseRecruitment(s, windowMs, Infinity);
   const sx = scale([0, windowMs], [PAD.l, W - PAD.r]);
   const sy = scale([0, ampRange(s) * 1.15], [H - PAD.b, PAD.t]);
   const sr = scale([0, 1.15], [H - PAD.b, PAD.t]);
-  const recruitPts: Point[] = stepped(recruit.map((p) => [p.tMs, p.fraction]));
+  const recruitPts: Point[] = stepped(changePoints(recruit.map((p) => [p.tMs, p.fraction])));
   const showPulses = windowMs / periodMs(s) <= 160;
   return (
     <figure className="scope" aria-label={tr({ 'pt-BR': 'Envelope do estímulo', en: 'Stimulus envelope' })}>
@@ -243,6 +245,12 @@ interface PercentSpec {
   pctStep: number;
   /** Decimals of the absolute value written to the form. */
   decimals: number;
+  /** Writes the absolute value (default: the control's own field); lets a dial keep a sum fixed. */
+  write?(absolute: number): void;
+  /** Appended to the hint. */
+  extraHint?: string;
+  /** Unit of the absolute value in the hint (default: the control's unit). */
+  absoluteUnit?: string;
 }
 
 const pctText = (x: number) => fmtNumber(x, { maximumFractionDigits: 1 });
@@ -269,7 +277,9 @@ function PercentDial({
   const setPct = (p: number) => {
     if (!whole || !Number.isFinite(p)) return;
     const clamped = Math.min(spec.pctMax, Math.max(spec.pctMin, p));
-    update(control.path, String(Number(((clamped / 100) * whole).toFixed(spec.decimals))));
+    const value = Number(((clamped / 100) * whole).toFixed(spec.decimals));
+    if (spec.write) spec.write(value);
+    else update(control.path, String(value));
   };
   return (
     <div className={`dial${errors ? ' dial--invalid' : ''}${disabled ? ' dial--disabled' : ''}`}>
@@ -312,8 +322,96 @@ function PercentDial({
         onChange={(e) => setPct(Number(e.target.value))}
       />
       <small id={`${id}-hint`} className="dial-hint">
-        {Number.isFinite(absolute) ? `= ${fmt(absolute, spec.decimals)} ${control.unit}` : '—'} · % {spec.wholeLabel}
-        {whole ? ` (${fmt(whole, 0)} ${control.unit})` : ''}
+        {Number.isFinite(absolute) ? `= ${fmt(absolute, spec.decimals)} ${spec.absoluteUnit ?? control.unit}` : '—'} · % {spec.wholeLabel}
+        {whole ? ` (${fmt(whole, 0)} ${spec.absoluteUnit ?? control.unit})` : ''}
+        {spec.extraHint ? ` · ${spec.extraHint}` : ''}
+      </small>
+      {errors ? (
+        <small className="field-error" role="alert">
+          {errors.join('; ')}
+        </small>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The train period, in ms. The form keeps on and off times; the period is their sum, and changing it keeps the
+ * on share (so on + off is always the whole cycle).
+ */
+function TrainPeriodDial({
+  control,
+  values,
+  setValues,
+  errors,
+  disabled,
+}: {
+  control: StimulatorControl;
+  values: FormValues;
+  setValues: Dispatch<SetStateAction<FormValues>>;
+  errors: readonly string[] | undefined;
+  disabled: boolean;
+}) {
+  const id = 'stim-train-period';
+  // a period longer than the run never switches off: the slider stops at the duration
+  const duration = parse(values['stimulus.durationMs']);
+  const max = Number.isFinite(duration) && duration >= control.min ? Math.min(control.max, duration) : control.max;
+  const on = parse(values['stimulus.trainOnMs']);
+  const off = parse(values['stimulus.trainOffMs']);
+  const period = on + off;
+  const [draft, setDraft] = useState<string | null>(null);
+  const setPeriod = (p: number) => {
+    if (!Number.isFinite(p) || p <= 0) return;
+    setValues((v) => {
+      const on0 = parse(v['stimulus.trainOnMs']);
+      const off0 = parse(v['stimulus.trainOffMs']);
+      const share = on0 > 0 && off0 >= 0 ? on0 / (on0 + off0) : 0.5;
+      const newOn = Math.max(1, Math.round(p * share));
+      return { ...v, 'stimulus.trainOnMs': String(newOn), 'stimulus.trainOffMs': String(Math.max(0, Math.round(p) - newOn)) };
+    });
+  };
+  return (
+    <div className={`dial${errors ? ' dial--invalid' : ''}${disabled ? ' dial--disabled' : ''}`}>
+      <label htmlFor={id} className="dial-label">
+        {control.label}
+      </label>
+      <div className="dial-readout">
+        <input
+          id={id}
+          className="dial-input"
+          type="text"
+          inputMode="decimal"
+          value={draft ?? (Number.isFinite(period) ? String(period) : '—')}
+          disabled={disabled}
+          aria-invalid={errors ? true : undefined}
+          aria-describedby={`${id}-hint`}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            setPeriod(parse(e.target.value));
+          }}
+          onBlur={() => setDraft(null)}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+              e.preventDefault();
+              setPeriod((Number.isFinite(period) ? period : control.min) + (e.key === 'ArrowUp' ? control.step : -control.step));
+            }
+          }}
+        />
+        <span className="dial-unit">{control.unit}</span>
+      </div>
+      <input
+        type="range"
+        className="dial-slider"
+        aria-label={`${control.label} (${tr({ 'pt-BR': 'controle deslizante', en: 'slider' })})`}
+        min={control.min}
+        max={max}
+        step={control.step}
+        value={Number.isFinite(period) ? Math.min(max, Math.max(control.min, period)) : control.min}
+        disabled={disabled}
+        onChange={(e) => setPeriod(Number(e.target.value))}
+      />
+      <small id={`${id}-hint`} className="dial-hint">
+        {control.hint}
       </small>
       {errors ? (
         <small className="field-error" role="alert">
@@ -338,10 +436,26 @@ export function StimulatorControls({ values, onValuesChange: setValues, errors, 
   const { byField, settings, plateau, plateauPct } = useStimulator(values, errors);
   const duration = parse(values['stimulus.durationMs']);
   const onTime = parse(values['stimulus.trainOnMs']);
+  const trainPeriod = onTime + parse(values['stimulus.trainOffMs']);
   const positive = (x: number) => (Number.isFinite(x) && x > 0 ? x : null);
   const rampWhole = values.trainsEnabled ? positive(onTime) : positive(duration);
   const ofDuration = tr({ 'pt-BR': 'da duração', en: 'of the duration' });
   const ofOnTime = tr({ 'pt-BR': 'do tempo ligado', en: 'of the on time' });
+  const ofPeriod = tr({ 'pt-BR': 'do período', en: 'of the period' });
+  const offMs = trainPeriod - onTime;
+  const offHint = Number.isFinite(offMs) && trainPeriod > 0
+    ? tr({
+        'pt-BR': `desligado ${fmt(offMs, 0)} ms (${pctText((offMs / trainPeriod) * 100)} %)`,
+        en: `off ${fmt(offMs, 0)} ms (${pctText((offMs / trainPeriod) * 100)} %)`,
+      })
+    : undefined;
+  // the on time moves inside a fixed period: the off time is what is left of it
+  const writeOnTime = (on: number) =>
+    setValues((v) => {
+      const p = parse(v['stimulus.trainOnMs']) + parse(v['stimulus.trainOffMs']);
+      const clamped = Math.min(p, Math.max(1, on));
+      return { ...v, 'stimulus.trainOnMs': String(clamped), 'stimulus.trainOffMs': String(Math.round((p - clamped) * 1000) / 1000) };
+    });
   const percent = (c: StimulatorControl, spec: Omit<PercentSpec, 'control'>) => (
     <PercentDial
       key={c.path}
@@ -442,8 +556,24 @@ export function StimulatorControls({ values, onValuesChange: setValues, errors, 
         />
         {values.trainsEnabled ? (
           <div className="dial-grid">
-            {percent(C.trainOn, { whole: positive(duration), wholeLabel: ofDuration, pctMin: 0.5, pctMax: 100, pctStep: 0.5, decimals: 0 })}
-            {percent(C.trainOff, { whole: positive(duration), wholeLabel: ofDuration, pctMin: 0, pctMax: 100, pctStep: 0.5, decimals: 0 })}
+            <TrainPeriodDial
+              control={C.trainPeriod}
+              values={values}
+              setValues={setValues}
+              errors={byField[C.trainPeriod.path]}
+              disabled={running}
+            />
+            {percent(C.trainOn, {
+              whole: positive(trainPeriod),
+              wholeLabel: ofPeriod,
+              pctMin: C.trainOn.min,
+              pctMax: C.trainOn.max,
+              pctStep: C.trainOn.step,
+              decimals: 0,
+              write: writeOnTime,
+              extraHint: offHint,
+              absoluteUnit: 'ms',
+            })}
           </div>
         ) : null}
         <div className="dial-grid">

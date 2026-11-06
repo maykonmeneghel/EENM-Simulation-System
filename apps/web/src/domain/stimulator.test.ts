@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import fixture from './stimulator.fixture.json';
 import type { StimulatorSettings } from './stimulator';
 import {
+  changePoints,
   envelope,
   envelopeOutline,
   stepped,
@@ -101,6 +102,22 @@ describe('stimulator scopes', () => {
     expect(new Set(widths).size).toBe(1);
     const trains = { ...base, durationMs: 10_000, trainOnMs: 1000, rampUpMs: 0 };
     expect(envelopeWindowMs({ ...trains, trainPeriodMs: 2000 })).toBe(envelopeWindowMs({ ...trains, trainPeriodMs: 5000 }));
+  });
+
+  it('the envelope window is the whole run, so a 50 % on time fills half of it', () => {
+    const s = { ...base, amplitude: 153, durationMs: 120_000, trainOnMs: 60_000, trainPeriodMs: 120_000, rampUpMs: 0, rampDownMs: 0 };
+    expect(envelopeWindowMs(s)).toBe(120_000);
+    const pts = envelopeOutline(s);
+    expect(pts).toContainEqual([60_000, 153]);
+    expect(pts).toContainEqual([60_000, 0]);
+  });
+
+  it('recruitment trace of a long run keeps every short train (no pulse skipped), as change points only', () => {
+    const s = { ...base, amplitude: 153, durationMs: 120_000, trainOnMs: 100, trainPeriodMs: 1000, rampUpMs: 0, rampDownMs: 0 };
+    const trace = changePoints(pulseRecruitment(s, envelopeWindowMs(s), Infinity).map((p) => [p.tMs, p.fraction]));
+    const rises = trace.filter((p, i) => i > 0 && p[1] === 1 && trace[i - 1]![1] === 0).length;
+    expect(rises).toBe(119); // trains 2..120 rise from 0 (the first starts at 1; no pulse at the run’s end)
+    expect(trace.length).toBeLessThan(300);
   });
 
   it('recruitment follows the ramp: none, then partial, then all units', () => {

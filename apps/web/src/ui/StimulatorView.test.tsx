@@ -67,7 +67,8 @@ describe('StimulatorView', () => {
     await user.click(screen.getByRole('radio', { name: 'Monofásica' }));
     expect(screen.getByRole('img', { name: /Pulso monofásico/ })).toBeInTheDocument();
     await user.click(screen.getByRole('switch', { name: /Trens/ }));
-    expect(screen.getByLabelText('Tempo ligado')).toHaveValue('33'); // % of the 1000 ms run
+    expect(screen.getByLabelText('Período do trem')).toHaveValue('1000'); // on 330 + off 670 ms
+    expect(screen.getByLabelText('Tempo ligado')).toHaveValue('33'); // % of the period
     const ramp = screen.getByLabelText('Rampa de subida');
     await user.clear(ramp);
     await user.type(ramp, '30'); // % of the 330 ms on time
@@ -77,10 +78,15 @@ describe('StimulatorView', () => {
       trainPeriodMs: 1000,
       rampUpMs: 99,
     });
-    const off = screen.getByLabelText('Tempo desligado');
-    await user.clear(off);
-    await user.type(off, '17');
-    expect(request().stimulus.trainPeriodMs).toBe(500); // on 330 + off 170 ms
+    const on = screen.getByLabelText('Tempo ligado');
+    await user.clear(on);
+    await user.type(on, '50');
+    expect(request().stimulus).toMatchObject({ trainOnMs: 500, trainPeriodMs: 1000 }); // the period stays; off is the rest
+    expect(screen.getByText(/desligado 500 ms \(50 %\)/)).toBeInTheDocument();
+    const period = screen.getByLabelText('Período do trem');
+    await user.clear(period);
+    await user.type(period, '800'); // ≤ the 1000 ms run
+    expect(request().stimulus).toMatchObject({ trainOnMs: 400, trainPeriodMs: 800 }); // the on share stays at 50 %
   });
 
   it('warns instead of drawing when the ramps do not fit in the on time', () => {
@@ -89,7 +95,7 @@ describe('StimulatorView', () => {
     expect(screen.queryByRole('img', { name: /Envelope/ })).toBeNull();
   });
 
-  it('shows field errors next to their control (trainPeriodMs on the off time)', async () => {
+  it('shows field errors next to their control (trainPeriodMs on the train period)', async () => {
     const user = setup({
       errors: [
         { field: 'stimulus.amplitude', message: 'must be between 0 and 500' },
@@ -98,9 +104,9 @@ describe('StimulatorView', () => {
     });
     expect(screen.getByLabelText('Amplitude')).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByText('must be between 0 and 500')).toBeInTheDocument();
-    expect(screen.queryByText('must be ≤ durationMs')).toBeNull(); // off-time control hidden while trains are off
+    expect(screen.queryByText('must be ≤ durationMs')).toBeNull(); // period control hidden while trains are off
     await user.click(screen.getByRole('switch', { name: /Trens/ }));
-    expect(screen.getByLabelText('Tempo desligado')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('Período do trem')).toHaveAttribute('aria-invalid', 'true');
   });
 
   it('motoneuron pool site: the Weiss meter gives way to an explanation, and the site reaches the request', async () => {

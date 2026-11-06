@@ -206,7 +206,7 @@ const control = (base: Omit<StimulatorControl, 'label' | 'hint' | 'unit'>, label
   withTexts(base, { label, unit, hint });
 
 export const STIMULATOR_CONTROLS: Record<
-  'frequency' | 'pulseWidth' | 'amplitude' | 'trainOn' | 'trainOff' | 'rampUp' | 'rampDown',
+  'frequency' | 'pulseWidth' | 'amplitude' | 'trainOn' | 'trainPeriod' | 'rampUp' | 'rampDown',
   StimulatorControl
 > = {
   frequency: control({ path: 'stimulus.frequencyHz', min: 1, max: 100, step: 1 }, L('Frequência', 'Frequency'), L('Hz', 'Hz'), L('FES: 20–50 Hz', 'FES: 20–50 Hz')),
@@ -217,12 +217,18 @@ export const STIMULATOR_CONTROLS: Record<
     L('FES: 300–600 µs (por fase)', 'FES: 300–600 µs (per phase)'),
   ),
   amplitude: control({ path: 'stimulus.amplitude', min: 0, max: 300, step: 1 }, L('Amplitude', 'Amplitude'), L('u.m.', 'm.u.'), L('unidade do modelo', 'model unit')),
-  trainOn: control({ path: 'stimulus.trainOnMs', min: 10, max: 20000, step: 10 }, L('Tempo ligado', 'On time'), L('ms', 'ms'), L('inclui as rampas', 'includes the ramps')),
-  trainOff: control(
-    { path: 'stimulus.trainOffMs', min: 0, max: 20000, step: 10 },
-    L('Tempo desligado', 'Off time'),
+  trainOn: control(
+    { path: 'stimulus.trainOnMs', min: 0.5, max: 100, step: 0.5 },
+    L('Tempo ligado', 'On time'),
+    L('%', '%'),
+    L('inclui as rampas', 'includes the ramps'),
+  ),
+  /** One on + off cycle. The form keeps the off time (`stimulus.trainOffMs`), which also carries the period's errors. */
+  trainPeriod: control(
+    { path: 'stimulus.trainOffMs', min: 20, max: 20000, step: 10 },
+    L('Período do trem', 'Train period'),
     L('ms', 'ms'),
-    L('repouso entre trens', 'rest between trains'),
+    L('um ciclo: ligado + desligado', 'one cycle: on + off'),
   ),
   rampUp: control({ path: 'stimulus.rampUpMs', min: 0, max: 5000, step: 50 }, L('Rampa de subida', 'Ramp up'), L('ms', 'ms'), L('0 = início abrupto', '0 = abrupt start')),
   rampDown: control({ path: 'stimulus.rampDownMs', min: 0, max: 5000, step: 50 }, L('Rampa de descida', 'Ramp down'), L('ms', 'ms'), L('0 = fim abrupto', '0 = abrupt end')),
