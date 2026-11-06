@@ -67,7 +67,8 @@ final class EngineEventParser {
                 number(node, "durationMs"),
                 number(node, "outputStepMs"),
                 unitCounts(node, "motorUnits"),
-                text(node, "muscle"));
+                text(node, "muscle"),
+                optionalNumber(node, "maxForce"));
     }
 
     private SimulationChunk chunk(JsonNode node) {

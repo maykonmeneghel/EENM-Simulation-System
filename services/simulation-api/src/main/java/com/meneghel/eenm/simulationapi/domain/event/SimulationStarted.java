@@ -8,7 +8,9 @@ public record SimulationStarted(
         double durationMs,
         double outputStepMs,
         MotorUnitCounts motorUnits,
-        String muscle) implements SimulationEvent {
+        String muscle,
+        Double maxForce) implements SimulationEvent {
+    // maxForce: the healthy muscle's maximal force (force / maxForce = fraction of maximum); null for ORIGINAL
 
     public static final String TYPE = "started";
 

@@ -17,6 +17,8 @@ class SimulationStarted:
     output_step_ms: float
     motor_units: dict[MotorUnitType, int]
     muscle: Muscle
+    max_force: float | None = None
+    """Maximal force of the healthy muscle (``domain.max_force``): force ÷ this = fraction of maximum."""
 
 
 @dataclass(frozen=True)

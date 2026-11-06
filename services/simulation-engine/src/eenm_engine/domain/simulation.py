@@ -42,6 +42,8 @@ class SimulationConfig:
     seed: int = 0
     output_step_ms: float = 0.1
     model: ModelOptions = field(default_factory=ModelOptions)
+    reference_model: ModelOptions | None = None
+    """Model of the maximal-force reference (the healthy LITERATURE model); None = no percentage (ORIGINAL)."""
 
     def __post_init__(self) -> None:
         if sum(self.units_per_type.get(t, 0) for t in UNIT_TYPES) < 1:

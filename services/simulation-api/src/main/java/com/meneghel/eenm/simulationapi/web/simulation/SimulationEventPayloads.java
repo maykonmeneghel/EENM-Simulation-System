@@ -9,7 +9,7 @@ final class SimulationEventPayloads {
     }
 
     record Started(String type, String simulationId, double durationMs, double outputStepMs,
-            MotorUnitCountsPayload motorUnits, String muscle) {
+            MotorUnitCountsPayload motorUnits, String muscle, Double maxForce) {
     }
 
     record Chunk(String type, double progress, List<Double> timeMs, List<Double> stimulus, Force force,

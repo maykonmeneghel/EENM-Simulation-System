@@ -126,6 +126,11 @@ class SimulationRequest(_CamelModel):
             muscle=self.muscle,
             units_per_type=self._units(),
             model=self._model(),
+            reference_model=(
+                ModelOptions.literature(self.calibration_target, _SITES[self.stimulation_site])
+                if self.model_variant is ModelVariant.LITERATURE
+                else None
+            ),
             axon_length_percent=self.axon_length_percent,
             temperature_c=self.temperature_celsius,
             injection_site=self.injection_site,
@@ -242,6 +247,7 @@ def event_to_json(event: SimulationEvent) -> dict[str, object]:
             "outputStepMs": event.output_step_ms,
             "motorUnits": _by_type(dict(event.motor_units)),
             "muscle": event.muscle.value,
+            "maxForce": event.max_force,
         }
     if isinstance(event, SimulationChunk):
         return {

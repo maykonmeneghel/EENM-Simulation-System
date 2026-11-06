@@ -17,7 +17,7 @@ public final class SampleEvents {
     }
 
     public static SimulationStarted started() {
-        return new SimulationStarted("sim-1", 1000, 0.1, new MotorUnitCounts(5, 2, 2), "SOLEUS");
+        return new SimulationStarted("sim-1", 1000, 0.1, new MotorUnitCounts(5, 2, 2), "SOLEUS", 5.1754);
     }
 
     public static SimulationChunk chunk(double progress) {
@@ -36,7 +36,7 @@ public final class SampleEvents {
 
     public static String startedLine() {
         return "{\"type\":\"started\",\"simulationId\":\"sim-1\",\"durationMs\":1000,\"outputStepMs\":0.1,"
-                + "\"motorUnits\":{\"S\":5,\"FR\":2,\"FF\":2},\"muscle\":\"SOLEUS\"}";
+                + "\"motorUnits\":{\"S\":5,\"FR\":2,\"FF\":2},\"muscle\":\"SOLEUS\",\"maxForce\":5.1754}";
     }
 
     public static String chunkLine(double progress) {

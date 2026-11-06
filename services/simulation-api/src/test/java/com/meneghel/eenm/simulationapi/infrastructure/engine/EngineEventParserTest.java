@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.meneghel.eenm.simulationapi.application.port.EngineProtocolException;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationChunk;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationFailed;
+import com.meneghel.eenm.simulationapi.domain.event.SimulationStarted;
 import com.meneghel.eenm.simulationapi.support.SampleEvents;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -28,6 +29,13 @@ class EngineEventParserTest {
     @Test
     void parsesTheFatigueSnapshotOfAChunkWithEmptyTypesAsNull() {
         assertThat(parser.parse(SampleEvents.chunkWithFatigueLine())).contains(SampleEvents.chunkWithFatigue());
+    }
+
+    @Test
+    void aStartedEventWithoutMaxForceHasNone() {
+        String original = SampleEvents.startedLine().replace(",\"maxForce\":5.1754", "");
+
+        assertThat(((SimulationStarted) parser.parse(original).orElseThrow()).maxForce()).isNull();
     }
 
     @Test
