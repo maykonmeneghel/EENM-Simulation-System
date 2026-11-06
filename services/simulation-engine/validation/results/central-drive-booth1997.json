@@ -1,0 +1,98 @@
+{
+  "PUBLISHED": {
+    "posture5nA": {
+      "activeUnits": 120,
+      "rateHz": {
+        "mean": 72.59102576004058,
+        "min": 49.74978209987171,
+        "max": 94.61718488799733
+      },
+      "isiCv": {
+        "mean": 0.3005566820748586,
+        "min": 0.2518595927492741,
+        "max": 0.4238072995377835
+      },
+      "shortIsiMs": {
+        "n": 25872,
+        "mean": 13.738730094310453,
+        "sd": 5.354140165354291
+      }
+    },
+    "restNoTremor": {
+      "activeUnits": 55,
+      "rateHz": {
+        "mean": 58.30979128669132,
+        "min": 55.54393106465541,
+        "max": 65.55343934092215
+      },
+      "isiCv": {
+        "mean": 0.22251776131149034,
+        "min": 0.17513060848034756,
+        "max": 0.32434792334272355
+      },
+      "shortIsiMs": {
+        "n": 8437,
+        "mean": 17.19999111058433,
+        "sd": 3.7331714275811247
+      }
+    },
+    "restTremor4p4Hz": {
+      "activeUnits": 59,
+      "rateHz": {
+        "mean": 56.938582257476334,
+        "min": 48.35361206737971,
+        "max": 65.0174437044085
+      },
+      "isiCv": {
+        "mean": 0.48098168410232744,
+        "min": 0.27555524267581355,
+        "max": 1.2302601707243301
+      },
+      "shortIsiMs": {
+        "n": 8729,
+        "mean": 17.174389964486195,
+        "sd": 5.925576296698614
+      },
+      "force": {
+        "peakHz": 4.331889370209931,
+        "bandShareOfPower": 0.31885587205264787
+      }
+    }
+  },
+  "RHEOBASE": {
+    "posture5nA": {
+      "activeUnits": 63,
+      "rateHz": {
+        "mean": 58.736878643580006,
+        "min": 54.899269643644914,
+        "max": 62.40672907339579
+      },
+      "isiCv": {
+        "mean": 0.2316477222924504,
+        "min": 0.17545054690236264,
+        "max": 0.359546159743239
+      },
+      "shortIsiMs": {
+        "n": 9937,
+        "mean": 16.957721143202175,
+        "sd": 3.877246052914915
+      }
+    },
+    "restNoTremor": {
+      "activeUnits": 0,
+      "rateHz": null,
+      "isiCv": null,
+      "shortIsiMs": null
+    },
+    "restTremor4p4Hz": {
+      "activeUnits": 0,
+      "rateHz": null,
+      "isiCv": null,
+      "shortIsiMs": null,
+      "force": {
+        "peakHz": 2.332555814728424,
+        "bandShareOfPower": NaN
+      }
+    }
+  }
+}

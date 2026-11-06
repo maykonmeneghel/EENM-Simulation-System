@@ -284,7 +284,8 @@ class StreamingTypeForce:
         self._units = group.size
         self._step = step_ms
         self._options = options
-        self._axons = options.stimulation_site is StimulationSite.MOTOR_AXONS
+        # spike trains instead of soma voltages: axon stimulation, or Cisi & Kohn motoneurons under a central drive
+        self._axons = options.stimulation_site is StimulationSite.MOTOR_AXONS or options.central_drive is not None
         self._own_spikes = options.twitch_drive is TwitchDrive.OWN_SPIKES
         self._scale = 1.0 if self._axons else float(junction_potential(np.ones(1), axon_length_percent)[0])
         delay = np.asarray(group.muap_delay_samples, dtype=np.int64)

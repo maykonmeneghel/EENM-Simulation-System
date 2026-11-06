@@ -15,7 +15,7 @@ from eenm_engine.application.events import (
     SimulationEvent,
     SimulationStarted,
 )
-from eenm_engine.domain.central_drive import CentralDrive, CurrentScale, Tremor
+from eenm_engine.domain.central_drive import CentralDrive, CurrentScale, ThresholdRule, Tremor
 from eenm_engine.domain.conditions import ADJUSTMENTS, Adjustment, Condition, apply_condition, defaults
 from eenm_engine.domain.model_options import LITERATURE_UNITS, CalibrationTarget, ModelOptions, StimulationSite
 from eenm_engine.domain.motoneuron import InjectionSite
@@ -91,6 +91,8 @@ class CentralDriveDto(_CamelModel):
     voluntary_na: float = Field(0.0, ge=0, le=20)
     noise_cv: float = Field(0.2, ge=0, le=2)
     current_scale: CurrentScale = CurrentScale.PUBLISHED
+    threshold_rule: ThresholdRule = ThresholdRule.CISI_KOHN_2008
+    """Thresholds of the Cisi & Kohn motoneurons that receive the drive."""
     tremor: TremorDto = Field(default_factory=TremorDto)
     electrode_fraction: float = Field(0.9, gt=0, le=1)
 
@@ -174,6 +176,7 @@ class SimulationRequest(_CamelModel):
                 voluntary_na=d.voluntary_na,
                 noise_cv=d.noise_cv,
                 scale=d.current_scale,
+                threshold_rule=d.threshold_rule,
                 tremor=Tremor(d.tremor.frequency_hz, d.tremor.amplitude_na) if tremor else None,
             )
             options = replace(options, central_drive=drive, electrode_fraction=d.electrode_fraction)

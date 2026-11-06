@@ -26,7 +26,6 @@ from eenm_engine.domain.motoneuron import (
     InjectionSite,
     MotoneuronPool,
 )
-from eenm_engine.infrastructure.axon_merge import AxonMerge, electrode_events, soma_events
 
 _PARAMS = (
     "vna", "vk", "vl", "vca", "vrest", "gls", "gld", "cd", "cs", "gc", "p", "kd", "f", "kca", "alpha", "sgna", "sgk",
@@ -116,11 +115,7 @@ def _integrate(
     out: NDArray[np.float64],
     active_substeps: int,
     active_dv: float,
-    drive: NDArray[np.float64],
-    has_drive: bool,
 ) -> None:
-    """``current``: the stimulus (fine steps while it is non-zero); ``drive``: a slow per-unit current added to it
-    (central drive, ``has_drive``), which does not by itself call for fine steps."""
     n_units = s.shape[1]
     for k in prange(n_units):  # units are independent: one thread per unit
         a = area[k]
@@ -133,8 +128,6 @@ def _integrate(
             moving = abs(vs - previous) > active_dv
             previous = vs
             n_sub = active_substeps if (i_in != 0.0 or moving or vs > -50.0) else substeps
-            if has_drive:
-                i_in += drive[j, k]
             vs, snah, sn, scam, scah, sca, vd, dcas, dca, mnap, hnap = _substeps(
                 vs, snah, sn, scam, scah, sca, vd, dcas, dca, mnap, hnap,
                 p, a, dt / n_sub, n_sub, i_in if soma else 0.0, 0.0 if soma else i_in, temp,
@@ -142,85 +135,6 @@ def _integrate(
             out[j, k] = vs
         s[0, k], s[1, k], s[2, k], s[3, k], s[4, k], s[5, k] = vs, snah, sn, scam, scah, sca
         s[6, k], s[7, k], s[8, k], s[9, k], s[10, k] = vd, dcas, dca, mnap, hnap
-
-
-SPIKE_THRESHOLD_MV = -20.0
-"""A soma spike is an upward crossing of this voltage."""
-
-
-@njit(cache=True, fastmath=False, parallel=True)
-def _integrate_merged(
-    s: NDArray[np.float64],
-    area: NDArray[np.float64],
-    drive: NDArray[np.float64],
-    recruit: NDArray[np.bool_],
-    p: NDArray[np.float64],
-    dt: float,
-    substeps: int,
-    temp: float,
-    active_substeps: int,
-    active_dv: float,
-    to_electrode: NDArray[np.int64],
-    refractory: int,
-    reset_density: float,
-    reset_samples: int,
-    ignore_samples: int,
-    base: int,
-    inflight: NDArray[np.int64],
-    n_inflight: NDArray[np.int64],
-    antidromic: NDArray[np.int64],
-    n_antidromic: NDArray[np.int64],
-    unit_state: NDArray[np.int64],
-    previous_vs: NDArray[np.float64],
-    counters: NDArray[np.int64],
-    spikes: NDArray[np.float64],
-) -> None:
-    """Central drive into the soma, FES at the electrode, both on the same motor axon (design §3.3, after Formento
-    et al. 2018). ``spikes[j, k] = 1`` when a spike leaves the electrode towards the muscle at sample ``base + j``.
-
-    Per unit, in time order: (1) a central spike reaching the electrode passes on; (2) an FES pulse that recruits the
-    axon fires it unless the electrode is refractory; its antidromic spike annihilates the central spike nearest the
-    electrode, or else travels to the soma; (3) the soma integrates the drive (plus a brief reset current when an
-    antidromic spike arrives); (4) a new soma spike meets a pending antidromic spike (both lost) or starts down the
-    axon; a soma spike caused by an antidromic arrival is not sent (the axon behind it is refractory); (5) a fibre
-    cannot follow two spikes within ``refractory`` samples. ``unit_state`` columns: last pass, reset samples left,
-    ignore-until.
-    """
-    n_units = s.shape[1]
-    for k in prange(n_units):
-        a = area[k]
-        vs, snah, sn, scam, scah, sca = s[0, k], s[1, k], s[2, k], s[3, k], s[4, k], s[5, k]
-        vd, dcas, dca, mnap, hnap = s[6, k], s[7, k], s[8, k], s[9, k], s[10, k]
-        previous = previous_vs[k]
-        last_pass, reset_left, ignore_until = unit_state[k, 0], unit_state[k, 1], unit_state[k, 2]
-        for j in range(drive.shape[0]):
-            n = base + j
-            last_pass = electrode_events(
-                k, n, j, recruit[j, k], last_pass, to_electrode, refractory, inflight, n_inflight, antidromic,
-                n_antidromic, counters, spikes,
-            )  # fmt: skip
-            # (3) soma
-            i_in = drive[j, k]
-            resetting = reset_left > 0
-            if resetting:
-                i_in += reset_density
-                reset_left -= 1
-            moving = abs(vs - previous) > active_dv
-            previous = vs
-            n_sub = active_substeps if (resetting or moving or vs > -50.0) else substeps
-            v_before = vs
-            vs, snah, sn, scam, scah, sca, vd, dcas, dca, mnap, hnap = _substeps(
-                vs, snah, sn, scam, scah, sca, vd, dcas, dca, mnap, hnap,
-                p, a, dt / n_sub, n_sub, i_in, 0.0, temp,
-            )  # fmt: skip
-            reset_left, ignore_until = soma_events(
-                k, n, v_before < SPIKE_THRESHOLD_MV <= vs, reset_left, ignore_until, reset_samples, ignore_samples,
-                inflight, n_inflight, antidromic, n_antidromic, counters,
-            )  # fmt: skip
-        s[0, k], s[1, k], s[2, k], s[3, k], s[4, k], s[5, k] = vs, snah, sn, scam, scah, sca
-        s[6, k], s[7, k], s[8, k], s[9, k], s[10, k] = vd, dcas, dca, mnap, hnap
-        previous_vs[k] = previous
-        unit_state[k, 0], unit_state[k, 1], unit_state[k, 2] = last_pass, reset_left, ignore_until
 
 
 class CompiledPoolIntegration:
@@ -239,16 +153,15 @@ class CompiledPoolIntegration:
         self._active_dv = active_dv
         self._temp = 3 ** ((pool.temperature_c - REFERENCE_TEMPERATURE_C) / 10)
         self._soma = pool.injection_site is InjectionSite.SOMA
-        self._merge: AxonMerge | None = None
 
     @property
     def soma_voltage(self) -> NDArray[np.float64]:
         voltage: NDArray[np.float64] = self._state[VS].copy()
         return voltage
 
-    def advance(self, current: NDArray[np.float64], drive: NDArray[np.float64] | None = None) -> NDArray[np.float64]:
-        """Integrate one sample interval per row of ``current`` (``(rows,)`` shared, or ``(rows, units)``), plus the
-        per-unit ``drive`` ``(rows, units)`` if given; return the soma voltage at the end of each interval."""
+    def advance(self, current: NDArray[np.float64]) -> NDArray[np.float64]:
+        """Integrate one sample interval per row of ``current`` (``(rows,)`` shared, or ``(rows, units)``);
+        return the soma voltage at the end of each interval, ``(rows, units)``."""
         n_units = self._area.size
         per_unit = current if current.ndim == 2 else np.repeat(current[:, None], n_units, axis=1)
         out = np.empty((per_unit.shape[0], n_units))
@@ -264,38 +177,8 @@ class CompiledPoolIntegration:
             out,
             self._active_substeps,
             self._active_dv,
-            np.ascontiguousarray(drive, dtype=np.float64) if drive is not None else np.zeros((1, 1)),
-            drive is not None,
         )
         return out
-
-    def enable_merge(self, soma_to_muscle_samples: NDArray[np.int64], electrode_fraction: float) -> None:
-        self._merge = AxonMerge(
-            np.asarray(soma_to_muscle_samples, dtype=np.int64), self._step, electrode_fraction, self._state[VS]
-        )
-
-    def axon_events(self) -> dict[str, int]:
-        return self._merge.totals() if self._merge is not None else {}
-
-    def advance_merged(self, drive: NDArray[np.float64], recruit: NDArray[np.bool_]) -> NDArray[np.float64]:
-        """Drive into the soma and FES at the electrode on the same axons (``_integrate_merged``): the spikes that
-        leave the electrode towards the muscle, ``(rows, units)`` (1 = spike). ``recruit[j, k]``: the FES pulse ending
-        at that sample fires the axon of unit ``k`` (``axon_stimulation``). Samples are numbered from 1 on the first
-        call (sample 0 is the initial state)."""
-        merge = self._merge
-        if merge is None:
-            raise ValueError("call enable_merge first")
-        rows = drive.shape[0]
-        spikes = np.zeros((rows, self._area.size))
-        _integrate_merged(
-            self._state, self._area, np.ascontiguousarray(drive, dtype=np.float64),
-            np.ascontiguousarray(recruit, dtype=np.bool_), self._params, self._step, self._substeps, self._temp,
-            self._active_substeps, self._active_dv, merge.to_electrode, merge.refractory, merge.reset_density,
-            merge.reset_samples, merge.ignore_samples, merge.next_sample, merge.inflight, merge.n_inflight,
-            merge.antidromic, merge.n_antidromic, merge.unit_state, merge.previous_vs, merge.counters, spikes,
-        )  # fmt: skip
-        merge.next_sample += rows
-        return spikes
 
 
 class CompiledPoolIntegrator:
