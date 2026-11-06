@@ -154,6 +154,14 @@ Outputs: θ, ω and the tangential acceleration at a sensor distance `d` from th
 (existing MUAP pipeline). **DECIDED (2026-11-06):** `d` = 8 cm (hand dorsum, where Agapaki 2018 placed the
 accelerometer); the exact distance is not in the text read, so it is configurable and labelled as an assumption.
 
+**Partly implemented 2026-11-06 (for the 3D step), single muscle:** `domain/wrist_joint.py`. The run's stimulated
+muscle (FCR or ECR) drives the 1-DOF equation above with F = force / healthy maximum × peak isometric force (Saul 2015:
+FCR 407.9 N, ECRL + ECRB 589.8 N). There is no antagonist yet and the force is isometric. Because a maximal FCR gives
+≈ 6.1 N·m, which with K = 0.992 N·m/rad would be ≈ 350°, the angle stops at 54° flexion / 60° extension: the largest
+angles daily tasks need (Ryu et al. 1991, abstract). The anatomical maximum was not verified (Gunal 1996 gives no
+numbers in the abstract and the full text was not read). Note: Corie & Charles 2019 scale the 407.9 N by 0.33; the
+reason was not read, and the factor is not applied here.
+
 ### 3.6 Ia afferent loop (spindles and reciprocal inhibition)
 
 Needed from the first version because the antagonist phase must emerge from it (Section 3.1). Following Gallego

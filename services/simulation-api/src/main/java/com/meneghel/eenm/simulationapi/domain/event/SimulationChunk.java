@@ -11,7 +11,8 @@ public record SimulationChunk(
         List<Double> emg,
         FatigueSnapshot fatigue,
         AxonEvents axonEvents,
-        UnitEvents unitEvents) implements SimulationEvent {
+        UnitEvents unitEvents,
+        JointSeries joint) implements SimulationEvent {
     // fatigue: null when the model has no fatigue (ORIGINAL); axonEvents: null outside the axon merge;
     // unitEvents: null unless the request asked for them
 
@@ -26,12 +27,17 @@ public record SimulationChunk(
 
     public SimulationChunk(double progress, List<Double> timeMs, List<Double> stimulus, ForceSeries force,
             List<Double> emg, FatigueSnapshot fatigue) {
-        this(progress, timeMs, stimulus, force, emg, fatigue, null, null);
+        this(progress, timeMs, stimulus, force, emg, fatigue, null, null, null);
     }
 
     public SimulationChunk(double progress, List<Double> timeMs, List<Double> stimulus, ForceSeries force,
             List<Double> emg, FatigueSnapshot fatigue, AxonEvents axonEvents) {
-        this(progress, timeMs, stimulus, force, emg, fatigue, axonEvents, null);
+        this(progress, timeMs, stimulus, force, emg, fatigue, axonEvents, null, null);
+    }
+
+    public SimulationChunk(double progress, List<Double> timeMs, List<Double> stimulus, ForceSeries force,
+            List<Double> emg, FatigueSnapshot fatigue, AxonEvents axonEvents, UnitEvents unitEvents) {
+        this(progress, timeMs, stimulus, force, emg, fatigue, axonEvents, unitEvents, null);
     }
 
     @Override

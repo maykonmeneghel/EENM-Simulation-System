@@ -78,12 +78,22 @@ describe('ThreeDView', () => {
     rerender(<ThreeDView run={run} running={false} {...props} unitEvents={log} />);
     expect(screen.getByRole('button', { name: 'Pausar' })).toBeInTheDocument(); // it starts playing
     expect(screen.getByRole('button', { name: 'Próximo pulso' })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: '1/1000×' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: '1/10×' })).toHaveAttribute('aria-checked', 'true'); // the forearm level shows the wrist move
     expect(screen.getByRole('slider', { name: 'Tempo do replay' })).toBeInTheDocument();
   });
 
   it('says why there is no replay for a run without per-unit events', () => {
     render(<ThreeDView run={started()} {...props} unitEvents={new UnitEventLog()} />);
     expect(screen.getByText(/rode de novo para receber os disparos por unidade/)).toBeInTheDocument();
+  });
+
+  it('shows the wrist angle and its limits when the run has a joint', async () => {
+    const { JointBuffer } = await import('../../application/jointBuffer');
+    const joint = new JointBuffer();
+    joint.append({ joint: { angleDeg: [12.34], torqueNm: [1] } } as unknown as ChunkEvent);
+    const model = { momentArmMm: 14.9, peakForceN: 407.9, inertiaKgM2: 0.003, dampingNmsRad: 0.028, stiffnessNmRad: 0.992, flexionLimitDeg: 54, extensionLimitDeg: 60 };
+    render(<ThreeDView run={started({ joint: model })} {...props} joint={joint} />);
+    expect(screen.getByText(/Punho: 12,3° flexão/)).toBeInTheDocument();
+    expect(screen.getByText(/limites 54° flexão \/ 60° extensão \(Ryu 1991\)/)).toBeInTheDocument();
   });
 });

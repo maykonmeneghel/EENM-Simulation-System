@@ -181,6 +181,19 @@ export interface StartedEvent {
   units?: UnitAnatomy | null;
   /** Integration step: `unitEvents` samples × this = ms. */
   stepMs?: number | null;
+  /** Wrist joint driven by the stimulated muscle (FCR / ECR runs of the LITERATURE model), else null. */
+  joint?: WristJointModel | null;
+}
+
+/** Constants of the 1-DOF wrist (engine `domain/wrist_joint.py`; sources there). */
+export interface WristJointModel {
+  momentArmMm: number;
+  peakForceN: number;
+  inertiaKgM2: number;
+  dampingNmsRad: number;
+  stiffnessNmRad: number;
+  flexionLimitDeg: number;
+  extensionLimitDeg: number;
 }
 
 /** One entry per simulated unit in every column, S then FR then FF (contract §2, `started.units`). */
@@ -248,6 +261,8 @@ export interface ChunkEvent {
   axonEvents?: AxonEvents | null;
   /** Per-unit events since the previous chunk, when the request asked for them (`output.unitEvents`). */
   unitEvents?: UnitEventsChunk | null;
+  /** Wrist angle (°, + flexion) and muscle torque (N·m) at `timeMs`, when the run has a joint. */
+  joint?: { angleDeg: number[]; torqueNm: number[] } | null;
 }
 
 export interface FatigueSnapshot {

@@ -2,6 +2,8 @@ package com.meneghel.eenm.simulationapi.web.simulation;
 
 import com.meneghel.eenm.simulationapi.domain.event.UnitAnatomy;
 import com.meneghel.eenm.simulationapi.domain.event.UnitEvents;
+import com.meneghel.eenm.simulationapi.domain.event.JointSeries;
+import com.meneghel.eenm.simulationapi.domain.event.WristJoint;
 import java.util.List;
 
 /** JSON shapes of the stream events, identical to the engine's NDJSON objects. */
@@ -12,11 +14,11 @@ final class SimulationEventPayloads {
 
     record Started(String type, String simulationId, double durationMs, double outputStepMs,
             MotorUnitCountsPayload motorUnits, String muscle, Double maxForce, Double electrodeFraction,
-            UnitAnatomy units, Double stepMs) {
+            UnitAnatomy units, Double stepMs, WristJoint joint) {
     }
 
     record Chunk(String type, double progress, List<Double> timeMs, List<Double> stimulus, Force force,
-            List<Double> emg, Fatigue fatigue, AxonEvents axonEvents, UnitEvents unitEvents) {
+            List<Double> emg, Fatigue fatigue, AxonEvents axonEvents, UnitEvents unitEvents, JointSeries joint) {
     }
 
     record AxonEvents(long central, long centralTransmitted, long fesTransmitted, long collisions, long fesBlocked,
