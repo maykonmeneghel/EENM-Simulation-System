@@ -89,6 +89,31 @@ export interface Stimulus {
   rampDownMs?: number;
 }
 
+export const CURRENT_SCALES = ['PUBLISHED', 'RHEOBASE'] as const;
+export type CurrentScale = (typeof CURRENT_SCALES)[number];
+
+/** Descending drive into the motoneurons (central_drive.py); the tremor applies only with PD_TREMOR. */
+export interface CentralDrive {
+  enabled: boolean;
+  backgroundNa: number;
+  voluntaryNa: number;
+  noiseCv: number;
+  currentScale: CurrentScale;
+  tremor: { frequencyHz: number; amplitudeNa: number };
+  /** Electrode position along the axon from the soma (non-invasive mode). */
+  electrodeFraction: number;
+}
+
+/** Cumulative counts of the axon merge (non-invasive mode with a central drive). */
+export interface AxonEvents {
+  central: number;
+  centralTransmitted: number;
+  fesTransmitted: number;
+  collisions: number;
+  fesBlocked: number;
+  resets: number;
+}
+
 export interface SimulationRequest {
   stimulus: Stimulus;
   modelVariant: ModelVariant;
@@ -110,6 +135,8 @@ export interface SimulationRequest {
   dendriteGeometry: Geometry;
   seed: number;
   outputStepMs: number;
+  /** LITERATURE only; omitted = no drive. */
+  centralDrive?: CentralDrive;
 }
 
 /** Where one value of a muscle preset comes from (GET /muscles, `provenance`). */
@@ -160,6 +187,8 @@ export interface ChunkEvent {
   emg: number[];
   /** Remaining force capacity at the end of the chunk (LITERATURE); null without fatigue (ORIGINAL). */
   fatigue?: FatigueSnapshot | null;
+  /** Axon-merge counts so far; null outside the non-invasive mode with a central drive. */
+  axonEvents?: AxonEvents | null;
 }
 
 export interface FatigueSnapshot {

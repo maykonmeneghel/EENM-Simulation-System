@@ -243,16 +243,16 @@ export function StimulatorView({ values, onValuesChange: setValues, errors, runn
 
         <div className="dial dial--wide">
           <span className="dial-label">
-            Local do estímulo{' '}
-            <HelpPopover label="Local do estímulo">
-              <strong>Superfície da pele:</strong> {STIMULATION_SITE_HELP.SKIN_SURFACE}
+            Modo{' '}
+            <HelpPopover label="Modo de aplicação">
+              <strong>Não invasivo (pele):</strong> {STIMULATION_SITE_HELP.SKIN_SURFACE}
               <br />
-              <strong>Pool de motoneurônios:</strong> {STIMULATION_SITE_HELP.MOTONEURON_POOL}
+              <strong>Invasivo (pool de motoneurônios):</strong> {STIMULATION_SITE_HELP.MOTONEURON_POOL}
             </HelpPopover>
           </span>
           <SegmentedControl<StimulationSite>
             id="stim-site"
-            label="Local do estímulo"
+            label="Modo de aplicação"
             options={STIMULATION_SITE_OPTIONS}
             value={values.stimulationSite === 'MOTONEURON_POOL' ? 'MOTONEURON_POOL' : 'SKIN_SURFACE'}
             disabled={running}

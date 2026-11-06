@@ -1,6 +1,7 @@
 package com.meneghel.eenm.simulationapi.application.simulation;
 
 import com.meneghel.eenm.simulationapi.domain.simulation.CalibrationTarget;
+import com.meneghel.eenm.simulationapi.domain.simulation.CentralDrive;
 import com.meneghel.eenm.simulationapi.domain.simulation.StimulationSite;
 import com.meneghel.eenm.simulationapi.domain.simulation.Condition;
 import com.meneghel.eenm.simulationapi.domain.simulation.CompartmentGeometry;
@@ -28,10 +29,11 @@ public record SimulationDraft(
         CompartmentGeometry somaGeometry,
         CompartmentGeometry dendriteGeometry,
         Long seed,
-        Double outputStepMs) {
+        Double outputStepMs,
+        CentralDrive centralDrive) {
 
     public static SimulationDraft empty() {
         return new SimulationDraft(null, null, null, null, null, null, null, null, null, null, null, null, null, null,
-                null);
+                null, null);
     }
 }

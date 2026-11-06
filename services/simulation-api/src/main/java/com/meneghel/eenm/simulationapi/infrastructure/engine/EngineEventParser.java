@@ -7,6 +7,7 @@ import static com.meneghel.eenm.simulationapi.infrastructure.engine.JsonFields.t
 import static com.meneghel.eenm.simulationapi.infrastructure.engine.JsonFields.unitCounts;
 
 import com.meneghel.eenm.simulationapi.application.port.EngineProtocolException;
+import com.meneghel.eenm.simulationapi.domain.event.AxonEvents;
 import com.meneghel.eenm.simulationapi.domain.event.FatigueSnapshot;
 import com.meneghel.eenm.simulationapi.domain.event.ForceSeries;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationChunk;
@@ -79,7 +80,25 @@ final class EngineEventParser {
                 numbers(node, "stimulus"),
                 new ForceSeries(numbers(force, "total"), numbers(force, "S"), numbers(force, "FR"), numbers(force, "FF")),
                 numbers(node, "emg"),
-                fatigue(node.get("fatigue")));
+                fatigue(node.get("fatigue")),
+                axonEvents(node.get("axonEvents")));
+    }
+
+    /** Absent or {@code null} outside the axon merge (or from an engine older than the field). */
+    private static AxonEvents axonEvents(JsonNode node) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        return new AxonEvents(count(node, "central"), count(node, "centralTransmitted"), count(node, "fesTransmitted"),
+                count(node, "collisions"), count(node, "fesBlocked"), count(node, "resets"));
+    }
+
+    private static long count(JsonNode node, String field) {
+        JsonNode value = node.get(field);
+        if (value == null || !value.canConvertToLong()) {
+            throw new EngineProtocolException("Engine event field '" + field + "' is not an integer");
+        }
+        return value.asLong();
     }
 
     /** Absent or {@code null} without fatigue (ORIGINAL, or an engine older than the field). */

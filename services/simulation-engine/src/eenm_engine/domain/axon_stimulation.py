@@ -76,6 +76,8 @@ def pulses(stimulus: NDArray[np.float64]) -> list[Pulse]:
     falls in the axon's refractory period (simplification: refractoriness is not otherwise modelled).
     """
     sign = np.sign(stimulus).astype(np.int8)
+    if not sign.any():
+        return []  # no pulse at all (amplitude 0: e.g. the central drive alone)
     starts = np.flatnonzero(np.diff(np.concatenate(([0], sign))) != 0)  # first sample of every constant-sign run
     ends = np.concatenate((starts[1:], [stimulus.size]))
     out = []

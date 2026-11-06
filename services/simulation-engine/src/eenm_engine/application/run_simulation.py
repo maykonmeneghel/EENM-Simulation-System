@@ -17,8 +17,9 @@ from eenm_engine.application.events import (
     SimulationStarted,
     SimulationSummary,
 )
-from eenm_engine.application.ports import OdeSolver, PoolIntegrator
+from eenm_engine.application.ports import OdeSolver, PoolIntegration, PoolIntegrator
 from eenm_engine.domain.axon_stimulation import axon_spike_events, spikes_in
+from eenm_engine.domain.central_drive import DriveGenerator
 from eenm_engine.domain.max_force import maximal_force
 from eenm_engine.domain.model_options import StimulationSite
 from eenm_engine.domain.motoneuron import MotoneuronPool
@@ -66,7 +67,13 @@ class RunSimulation:
             max_force=maximal_force(config, config.reference_model),
         )
 
-        if config.model.stimulation_site is StimulationSite.MOTOR_AXONS:
+        drive = config.model.central_drive
+        merge: list[PoolIntegration] = []  # the merged integration, once started (its axon-event totals)
+        if drive is not None and self._pool_integrator is None:
+            raise ValueError("a central drive needs the compiled motoneuron integrator")
+        if drive is not None and config.model.stimulation_site is StimulationSite.MOTOR_AXONS:
+            blocks = self._merged_blocks(setup, config, stimulus, force, merge)
+        elif config.model.stimulation_site is StimulationSite.MOTOR_AXONS:
             blocks = self._axon_blocks(setup, config, stimulus, force)
         elif self._pool_integrator is not None:
             blocks = self._pool_blocks(setup.motoneurons, config, stimulus, force)
@@ -83,7 +90,7 @@ class RunSimulation:
                 if summary is not None
                 else None
             )
-            chunk = self._chunk(series, times, stimulus, fatigue)
+            chunk = self._chunk(series, times, stimulus, fatigue, merge[0].axon_events() if merge else None)
             if chunk.time_ms.size:
                 yield chunk
 
@@ -130,15 +137,59 @@ class RunSimulation:
         assert self._pool_integrator is not None
         protocol = config.stimulus
         integration = self._pool_integrator.start(motoneurons, protocol.step_ms)
+        drive = self._drive(config, motoneurons)
         released = force.add(MotoneuronPool.soma_voltage(motoneurons.initial_state()[:, None], motoneurons.n_units))
         if released is not None:
             yield released
         block = max(1, round(self._block_ms / protocol.step_ms))
         for start in range(1, stimulus.size, block):
             stop = min(start + block, stimulus.size)
-            released = force.add(integration.advance(stimulus[start - 1 : stop - 1]))
+            extra = drive.next(stop - start) if drive is not None else None
+            released = force.add(integration.advance(stimulus[start - 1 : stop - 1], extra))
             if released is not None:
                 yield released
+
+    def _merged_blocks(
+        self,
+        setup: MotorUnitSetup,
+        config: SimulationConfig,
+        stimulus: NDArray[np.float64],
+        force: IncrementalForce,
+        merge: list[PoolIntegration],
+    ) -> Iterator[ForceSeries]:
+        """Non-invasive mode with a central drive: the motoneurons fire from the drive alone, the stimulus fires the
+        axons at the electrode, and both meet on the axon (``AxonMerge``); the spikes leaving the electrode drive the
+        muscle as in axon stimulation."""
+        assert self._pool_integrator is not None
+        protocol = config.stimulus
+        integration = self._pool_integrator.start(setup.motoneurons, protocol.step_ms)
+        integration.enable_merge(
+            np.concatenate([setup.groups[t].muap_delay_samples for t in UNIT_TYPES]), config.model.electrode_fraction
+        )
+        merge.append(integration)
+        drive = self._drive(config, setup.motoneurons)
+        assert drive is not None
+        excitability = config.model.axon_excitability
+        index, fires = axon_spike_events(stimulus, protocol.step_ms, setup.axon_rheobase, excitability)
+        released = force.add(np.zeros((1, setup.motoneurons.n_units)))
+        if released is not None:
+            yield released
+        block = max(1, round(self._block_ms / protocol.step_ms))
+        for start in range(1, stimulus.size, block):
+            stop = min(start + block, stimulus.size)
+            recruit = spikes_in(index, fires, start, stop) > 0
+            released = force.add(integration.advance_merged(drive.next(stop - start), recruit))
+            if released is not None:
+                yield released
+
+    @staticmethod
+    def _drive(config: SimulationConfig, motoneurons: MotoneuronPool) -> DriveGenerator | None:
+        drive = config.model.central_drive
+        if drive is None:
+            return None
+        if motoneurons.soma_area_cm2 is None:
+            raise ValueError("the central drive needs the absolute soma areas")
+        return DriveGenerator(drive, motoneurons.soma_area_cm2, config.stimulus.step_ms, seed=config.seed + 2)
 
     def _integrate_in_blocks(
         self,
@@ -178,6 +229,7 @@ class RunSimulation:
         times: NDArray[np.float64],
         stimulus: NDArray[np.float64],
         fatigue: FatigueSnapshot | None = None,
+        axon_events: dict[str, int] | None = None,
     ) -> SimulationChunk:
         indices = series.indices
         return SimulationChunk(
@@ -188,4 +240,5 @@ class RunSimulation:
             force_by_type=dict(series.force_by_type),
             emg=series.emg,
             fatigue=fatigue,
+            axon_events=axon_events,
         )

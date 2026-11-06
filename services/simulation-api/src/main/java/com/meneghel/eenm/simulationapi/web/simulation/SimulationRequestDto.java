@@ -32,5 +32,6 @@ public record SimulationRequestDto(
         CompartmentGeometry somaGeometry,
         CompartmentGeometry dendriteGeometry,
         @PositiveOrZero(message = "must be greater than or equal to 0") Long seed,
-        @DecimalMax(value = "10", message = "must be less than or equal to 10") Double outputStepMs) {
+        @DecimalMax(value = "10", message = "must be less than or equal to 10") Double outputStepMs,
+        @Valid CentralDriveDto centralDrive) {
 }

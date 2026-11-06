@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from enum import Enum
 from typing import Literal
 
@@ -14,7 +15,8 @@ from eenm_engine.application.events import (
     SimulationEvent,
     SimulationStarted,
 )
-from eenm_engine.domain.conditions import ADJUSTMENTS, Adjustment, Condition, apply_condition
+from eenm_engine.domain.central_drive import CentralDrive, CurrentScale, Tremor
+from eenm_engine.domain.conditions import ADJUSTMENTS, Adjustment, Condition, apply_condition, defaults
 from eenm_engine.domain.model_options import LITERATURE_UNITS, CalibrationTarget, ModelOptions, StimulationSite
 from eenm_engine.domain.motoneuron import InjectionSite
 from eenm_engine.domain.motor_unit_pool import Geometry, MotorUnitType, Muscle, MusclePreset, proportional_units
@@ -76,6 +78,23 @@ class ModelVariant(Enum):
     LITERATURE = "LITERATURE"
 
 
+class TremorDto(_CamelModel):
+    frequency_hz: float = Field(4.4, gt=0, le=20)
+    amplitude_na: float = Field(3.0, ge=0, le=20)
+
+
+class CentralDriveDto(_CamelModel):
+    """Descending drive (LITERATURE only). The tremor is applied only with Parkinson's ``PD_TREMOR`` adjustment."""
+
+    enabled: bool = False
+    background_na: float = Field(3.5, ge=0, le=20)
+    voluntary_na: float = Field(0.0, ge=0, le=20)
+    noise_cv: float = Field(0.2, ge=0, le=2)
+    current_scale: CurrentScale = CurrentScale.PUBLISHED
+    tremor: TremorDto = Field(default_factory=TremorDto)
+    electrode_fraction: float = Field(0.9, gt=0, le=1)
+
+
 class SimulationRequest(_CamelModel):
     """Every field optional; defaults reproduce ``Main.m``. Range checks are the public API's job."""
 
@@ -89,6 +108,7 @@ class SimulationRequest(_CamelModel):
     """Clinical condition (LITERATURE only; ORIGINAL ignores it)."""
     condition_adjustments: list[str] | None = None
     """Ids of the condition's adjustments to apply (``GET /v1/conditions``); ``None`` = the condition's defaults."""
+    central_drive: CentralDriveDto = Field(default_factory=CentralDriveDto)
     muscle: Muscle = Muscle.SOLEUS
     units_per_type: UnitsPerTypeDto | None = None
     """``None``: 5/2/2 (ORIGINAL) or 120 units in the pool's proportions (LITERATURE)."""
@@ -146,6 +166,17 @@ class SimulationRequest(_CamelModel):
             return ModelOptions()
         options = literature_options(self.muscle, self.calibration_target, _SITES[self.stimulation_site])
         chosen = None if self.condition_adjustments is None else tuple(self.condition_adjustments)
+        d = self.central_drive
+        tremor = self.condition is Condition.PARKINSON and "PD_TREMOR" in (chosen or defaults(self.condition))
+        if d.enabled or tremor:
+            drive = CentralDrive(
+                background_na=d.background_na,
+                voluntary_na=d.voluntary_na,
+                noise_cv=d.noise_cv,
+                scale=d.current_scale,
+                tremor=Tremor(d.tremor.frequency_hz, d.tremor.amplitude_na) if tremor else None,
+            )
+            options = replace(options, central_drive=drive, electrode_fraction=d.electrode_fraction)
         return apply_condition(options, self.condition, chosen)
 
     def _units(self) -> dict[MotorUnitType, int]:
@@ -295,6 +326,7 @@ def event_to_json(event: SimulationEvent) -> dict[str, object]:
                 if event.fatigue is not None
                 else None
             ),
+            "axonEvents": event.axon_events,
         }
     if isinstance(event, SimulationCompleted):
         return {

@@ -127,6 +127,8 @@ class MotoneuronPool:
     temperature_c: float = REFERENCE_TEMPERATURE_C
     injection_site: InjectionSite = InjectionSite.SOMA
     conductances: Conductances = Conductances()
+    soma_area_cm2: NDArray[np.float64] | None = None
+    """Absolute soma area per unit (only needed to convert a drive in nA into current density)."""
 
     @property
     def n_units(self) -> int:

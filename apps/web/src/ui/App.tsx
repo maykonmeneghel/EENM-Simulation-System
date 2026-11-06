@@ -9,6 +9,7 @@ import type { ApiClient } from '../infrastructure/apiClient';
 import { DiagramView } from './DiagramView';
 import type { StageFocus } from './EquationsView';
 import { EquationsView } from './EquationsView';
+import { ExplainPanel } from './ExplainPanel';
 import { FatiguePanel } from './FatiguePanel';
 import { LiveCharts } from './LiveCharts';
 import { SegmentedControl } from './SegmentedControl';
@@ -45,6 +46,7 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
   const [view, setView] = useState<MainView>('simulation');
   const [focus, setFocus] = useState<StageFocus | null>(null);
   const [clientErrors, setClientErrors] = useState<readonly FieldError[]>(NO_ERRORS);
+  const [explainOpen, setExplainOpen] = useState(true);
   const running = state.status === 'running';
   // One time zoom for every chart; a new run shows the whole run again.
   const zoom = useMemo(() => new ZoomSync(), []);
@@ -89,11 +91,11 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
   }, [controller, mac]);
 
   return (
-    <div className="window">
+    <div className={`window${explainOpen ? '' : ' window--explain-hidden'}`}>
       <header className="toolbar">
         <div className="toolbar-title">
           <h1>Simulador EENM</h1>
-          <span className="toolbar-subtitle">Estímulo nos axônios motores → força muscular</span>
+          <span className="toolbar-subtitle">FES não invasiva ou invasiva, drive central → força muscular</span>
         </div>
         <div className="toolbar-center">
           <SegmentedControl<MainView>
@@ -113,6 +115,16 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
               <span className="live-dot" aria-hidden="true" /> {Math.round(state.progress * 100)} %
             </span>
           ) : null}
+          <button
+            type="button"
+            className={`btn${explainOpen ? ' btn--selected' : ''}`}
+            aria-pressed={explainOpen}
+            aria-controls="explainer"
+            onClick={() => setExplainOpen((o) => !o)}
+            title="Mostrar ou ocultar a coluna de explicações"
+          >
+            Explicação
+          </button>
           <button
             type="button"
             className="btn"
@@ -173,6 +185,10 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
           )}
         </section>
       </main>
+
+      <aside id="explainer" className="explainer" aria-label="Explicação">
+        <ExplainPanel values={values} axonEvents={controller.axonEvents} />
+      </aside>
     </div>
   );
 }

@@ -24,7 +24,9 @@ public record SimulationRequest(
         CompartmentGeometry somaGeometry,
         CompartmentGeometry dendriteGeometry,
         long seed,
-        double outputStepMs) {
+        double outputStepMs,
+        CentralDrive centralDrive) {
+    // centralDrive: null = none (the engine's default)
 
     public SimulationRequest {
         Objects.requireNonNull(stimulus, "stimulus");

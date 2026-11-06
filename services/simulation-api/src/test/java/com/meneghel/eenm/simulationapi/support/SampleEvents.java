@@ -42,7 +42,7 @@ public final class SampleEvents {
     public static String chunkLine(double progress) {
         return "{\"type\":\"chunk\",\"progress\":" + progress + ",\"timeMs\":[0.0,0.1],\"stimulus\":[100.0,100.0],"
                 + "\"force\":{\"total\":[0.6,0.9],\"S\":[0.1,0.2],\"FR\":[0.2,0.3],\"FF\":[0.3,0.4]},"
-                + "\"emg\":[0.01,-0.02],\"fatigue\":null}";
+                + "\"emg\":[0.01,-0.02],\"fatigue\":null,\"axonEvents\":null}";
     }
 
     /** A LITERATURE chunk: fatigue snapshot, FR with no simulated units. */

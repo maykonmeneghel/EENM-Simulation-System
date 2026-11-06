@@ -42,6 +42,8 @@ class SimulationChunk:
     emg: NDArray[np.float64]
     fatigue: FatigueSnapshot | None = None
     """``None`` when the model has no fatigue (ORIGINAL)."""
+    axon_events: dict[str, int] | None = None
+    """Cumulative axon-merge counts (non-invasive mode with a central drive), else ``None``."""
 
 
 @dataclass(frozen=True)

@@ -3,6 +3,7 @@ import type {
   CalibrationTarget,
   ConditionId,
   ConditionInfo,
+  CurrentScale,
   FieldError,
   Geometry,
   InjectionSite,
@@ -53,6 +54,13 @@ export const FIELD_PATHS = [
   'dendriteGeometry',
   'seed',
   'outputStepMs',
+  'centralDrive.backgroundNa',
+  'centralDrive.voluntaryNa',
+  'centralDrive.noiseCv',
+  'centralDrive.currentScale',
+  'centralDrive.tremor.frequencyHz',
+  'centralDrive.tremor.amplitudeNa',
+  'centralDrive.electrodeFraction',
 ] as const;
 export type FieldPath = (typeof FIELD_PATHS)[number];
 
@@ -61,6 +69,8 @@ export interface FormFlags {
   manualUnits: boolean;
   /** Send `trainOnMs` / `trainPeriodMs`. */
   trainsEnabled: boolean;
+  /** Descending drive into the motoneurons (the Parkinson tremor turns it on by itself). */
+  driveEnabled: boolean;
 }
 /** Chosen adjustments of the condition; null = leave them to the engine's defaults. */
 export interface FormExtras {
@@ -73,6 +83,37 @@ export const DEFAULT_TRAIN = { onMs: 330, offMs: 670 };
 
 /** Inputs of the motoneuron compartments (only with the stimulus in the motoneuron pool). */
 export const MOTONEURON_FIELDS: readonly FieldPath[] = ['injectionSite', 'somaGeometry', 'dendriteGeometry', 'temperatureCelsius'];
+
+/** Descending-drive inputs (active with the drive on or the Parkinson tremor). */
+export const DRIVE_FIELDS: readonly FieldPath[] = [
+  'centralDrive.backgroundNa',
+  'centralDrive.voluntaryNa',
+  'centralDrive.noiseCv',
+  'centralDrive.currentScale',
+  'centralDrive.electrodeFraction',
+];
+export const TREMOR_FIELDS: readonly FieldPath[] = ['centralDrive.tremor.frequencyHz', 'centralDrive.tremor.amplitudeNa'];
+
+/** Defaults of the drive (Gallego 2015; tremor 4,4 Hz, Dideriksen 2017). */
+export const DRIVE_DEFAULTS = {
+  backgroundNa: 3.5,
+  voluntaryNa: 0,
+  noiseCv: 0.2,
+  currentScale: 'PUBLISHED',
+  tremorFrequencyHz: 4.4,
+  tremorAmplitudeNa: 3,
+  electrodeFraction: 0.9,
+} as const;
+
+/** The Parkinson resting tremor is chosen (condition PARKINSON with PD_TREMOR on; it is off by default). */
+export function tremorActive(values: FormValues): boolean {
+  return values.condition === 'PARKINSON' && (values.conditionAdjustments ?? []).includes('PD_TREMOR');
+}
+
+/** The motoneurons are simulated: stimulus in the pool (invasive) or a central drive (either mode). */
+export function driveActive(values: FormValues): boolean {
+  return values.modelVariant === 'LITERATURE' && (values.driveEnabled || tremorActive(values));
+}
 
 /** Server error paths shown on another input. */
 const FIELD_ALIASES: Readonly<Record<string, FieldPath>> = { 'stimulus.trainPeriodMs': 'stimulus.trainOffMs' };
@@ -119,6 +160,14 @@ export function toFormValues(r: SimulationRequest = defaultRequest()): FormValue
     outputStepMs: String(r.outputStepMs),
     manualUnits: r.unitsPerType !== undefined,
     trainsEnabled,
+    driveEnabled: r.centralDrive?.enabled ?? false,
+    'centralDrive.backgroundNa': String(r.centralDrive?.backgroundNa ?? DRIVE_DEFAULTS.backgroundNa),
+    'centralDrive.voluntaryNa': String(r.centralDrive?.voluntaryNa ?? DRIVE_DEFAULTS.voluntaryNa),
+    'centralDrive.noiseCv': String(r.centralDrive?.noiseCv ?? DRIVE_DEFAULTS.noiseCv),
+    'centralDrive.currentScale': r.centralDrive?.currentScale ?? DRIVE_DEFAULTS.currentScale,
+    'centralDrive.tremor.frequencyHz': String(r.centralDrive?.tremor.frequencyHz ?? DRIVE_DEFAULTS.tremorFrequencyHz),
+    'centralDrive.tremor.amplitudeNa': String(r.centralDrive?.tremor.amplitudeNa ?? DRIVE_DEFAULTS.tremorAmplitudeNa),
+    'centralDrive.electrodeFraction': String(r.centralDrive?.electrodeFraction ?? DRIVE_DEFAULTS.electrodeFraction),
   };
 }
 
@@ -136,13 +185,20 @@ export function inactiveFields(values: FormValues): ReadonlySet<FieldPath> {
     out.add('stimulus.trainOffMs');
   }
   if (values.modelVariant === 'LITERATURE') {
-    // the motoneuron compartments are simulated only when the stimulus is injected into them
-    if (values.stimulationSite !== 'MOTONEURON_POOL') for (const f of MOTONEURON_FIELDS) out.add(f);
+    // the motoneuron compartments are simulated with the stimulus in the pool or with a central drive
+    if (values.stimulationSite !== 'MOTONEURON_POOL' && !driveActive(values)) for (const f of MOTONEURON_FIELDS) out.add(f);
+    if (!driveActive(values)) for (const f of DRIVE_FIELDS) out.add(f);
+    if (values.stimulationSite === 'MOTONEURON_POOL') out.add('centralDrive.electrodeFraction');
+    // in the non-invasive mode the drive always enters the soma (the stimulus acts on the axon)
+    if (values.stimulationSite !== 'MOTONEURON_POOL') out.add('injectionSite');
+    if (!tremorActive(values)) for (const f of TREMOR_FIELDS) out.add(f);
     if (!values.manualUnits) {
       out.add('unitsPerType.S');
       out.add('unitsPerType.FR');
       out.add('unitsPerType.FF');
     }
+  } else {
+    for (const f of [...DRIVE_FIELDS, ...TREMOR_FIELDS]) out.add(f);
   }
   return out;
 }
@@ -260,6 +316,22 @@ export function parseForm(values: FormValues, muscles: readonly MusclePreset[] =
     dendriteGeometry: values.dendriteGeometry as Geometry,
     seed: num('seed'),
     outputStepMs: num('outputStepMs'),
+    ...(driveActive(values)
+      ? {
+          centralDrive: {
+            enabled: values.driveEnabled,
+            backgroundNa: num('centralDrive.backgroundNa'),
+            voluntaryNa: num('centralDrive.voluntaryNa'),
+            noiseCv: num('centralDrive.noiseCv'),
+            currentScale: values['centralDrive.currentScale'] as CurrentScale,
+            tremor: {
+              frequencyHz: num('centralDrive.tremor.frequencyHz'),
+              amplitudeNa: num('centralDrive.tremor.amplitudeNa'),
+            },
+            electrodeFraction: num('centralDrive.electrodeFraction'),
+          },
+        }
+      : {}),
   };
 
   // Parse errors first; range checks would only repeat "must be a number".

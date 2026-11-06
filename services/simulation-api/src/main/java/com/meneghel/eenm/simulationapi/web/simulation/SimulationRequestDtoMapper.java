@@ -26,7 +26,8 @@ final class SimulationRequestDtoMapper {
                 dto.somaGeometry(),
                 dto.dendriteGeometry(),
                 dto.seed(),
-                dto.outputStepMs());
+                dto.outputStepMs(),
+                dto.centralDrive() == null ? null : dto.centralDrive().toDomain());
     }
 
     private StimulusDraft toDraft(StimulusDto dto) {

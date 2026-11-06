@@ -215,11 +215,23 @@ two-channel Estimulador and a joint panel; the `PD_TREMOR` condition adjustment 
 1. **Per-unit motoneuron input + compiled HH.** Gate: firing of the existing pool unchanged with a constant input
    (regression to the Octave-checked behaviour), one 4-s two-pool trial ≤ 10 s.
 2. **Descending drive** (3.1). Gate: motor unit rate, ISI CV 10–30 %, doublets within the Agapaki ranges.
+   **Implemented 2026-11-06** (`domain/central_drive.py`; `validation/central_drive.py`,
+   `validation/results/central-drive.json`, 120-unit FCR, 4 s): ISI CV 0.22–0.30 ✓; force peak 4.33 Hz for a 4.4 Hz
+   tremor ✓; **rate 50–95 Hz ✗** (10.9 ± 2.9 Hz) and short ISIs ≈ 17 ms ✗ (doublets 41.6 ± 5.1 ms). Cause: the
+   inherited motoneuron (Booth, Rinzel & Kiehn 1997, built for Ca²⁺ plateaus) has no low-rate regime — its smallest
+   unit goes from silence to ≈ 46 Hz — and is bistable (keeps firing after the current ends). Our smallest rheobase is
+   1.81 nA (Gallego's 4 nA): currents offered as published (default) or rescaled by 0.45 (then the resting tremor
+   fires no unit). **Open decision:** keep, retune (e.g. KCa ×3 gives 19–39 Hz, not yet fitted) or replace the
+   motoneuron for the central drive.
 3. **FCR/ECR muscles** (step 3 research) and **joint** (3.4–3.5), open loop. Gate: tremor frequency inside the
    Section 4 targets with a phase-free common drive (antagonists in phase at this stage — expected).
 4. **Ia loop** (3.6: spindles, Ia interneurons, reciprocal inhibition). Gate: FCR–ECR burst delay 32.8 ± 12.8 %,
    coherence and acceleration inside the targets, without FES.
 5. **Axon merge with collision** (3.3). Gate: unit tests of the event rules; collision vs rank as Herbert & Gandevia.
+   **Rules 1–4 implemented 2026-11-06**, ahead of phases 3–4, so the non-invasive mode can carry the tremor
+   (`_integrate_merged` in `infrastructure/compiled_motoneuron.py`; scripted tests of each rule in
+   `tests/unit/test_central_drive.py`, each caught by a negative probe). The antidromic reset is a 0.3 ms soma current
+   whose spike is not sent. Not done yet: collision vs rank against Herbert & Gandevia.
 6. **FES on the wrist** (two channels) — open-loop suppression in the published range. Then the controllers (OE4).
 
 ## 7. Decisions

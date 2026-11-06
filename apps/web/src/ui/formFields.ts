@@ -1,5 +1,5 @@
 import type { FieldPath } from '../application/formModel';
-import { CALIBRATION_TARGETS, GEOMETRIES, INJECTION_SITES, STIMULATION_SITES } from '../domain/simulation';
+import { CALIBRATION_TARGETS, CURRENT_SCALES, GEOMETRIES, INJECTION_SITES, STIMULATION_SITES } from '../domain/simulation';
 
 /** Presentation metadata for each input (labels in Portuguese). */
 export interface NumberField {
@@ -23,7 +23,7 @@ export interface SelectField {
 }
 export type FieldSpec = NumberField | SelectField;
 
-export type GroupId = 'model' | 'condition' | 'stimulus' | 'muscle' | 'motoneuron' | 'simulation';
+export type GroupId = 'model' | 'condition' | 'drive' | 'stimulus' | 'muscle' | 'motoneuron' | 'simulation';
 
 export interface FieldGroup {
   id: GroupId;
@@ -62,6 +62,25 @@ export const FIELD_GROUPS: FieldGroup[] = [
     ],
   },
   { id: 'condition', title: 'Condição', fields: [] },
+  {
+    id: 'drive',
+    title: 'Drive central',
+    fields: [
+      { path: 'centralDrive.backgroundNa', kind: 'number', stepBy: 0.5, label: 'Corrente de fundo', unit: 'nA', step: 'any', hint: '0 – 20' },
+      { path: 'centralDrive.voluntaryNa', kind: 'number', stepBy: 0.5, label: 'Comando voluntário', unit: 'nA', step: 'any', hint: '0 – 20 (postura: 4,5 – 5,5)' },
+      { path: 'centralDrive.noiseCv', kind: 'number', stepBy: 0.05, label: 'Ruído (DP / média)', step: 'any', hint: '0 – 2' },
+      {
+        path: 'centralDrive.currentScale',
+        kind: 'select',
+        segmented: true,
+        label: 'Escala das correntes',
+        options: opts(CURRENT_SCALES, { PUBLISHED: 'nA publicados', RHEOBASE: 'pela reobase' }),
+      },
+      { path: 'centralDrive.tremor.frequencyHz', kind: 'number', stepBy: 0.1, label: 'Frequência do tremor', unit: 'Hz', step: 'any', hint: '0,1 – 20' },
+      { path: 'centralDrive.tremor.amplitudeNa', kind: 'number', stepBy: 0.5, label: 'Amplitude do tremor', unit: 'nA', step: 'any', hint: '0 – 20' },
+      { path: 'centralDrive.electrodeFraction', kind: 'number', stepBy: 0.05, label: 'Posição do eletrodo no axônio', step: 'any', hint: '0,01 – 1 (do soma)' },
+    ],
+  },
   { id: 'stimulus', title: 'Estímulo', fields: [] },
   {
     id: 'muscle',
@@ -149,15 +168,15 @@ export const STIMULATOR_CONTROLS: Record<
 };
 
 export const STIMULATION_SITE_OPTIONS = opts(STIMULATION_SITES, {
-  SKIN_SURFACE: 'Superfície da pele',
-  MOTONEURON_POOL: 'Pool de motoneurônios',
+  SKIN_SURFACE: 'Não invasivo (pele)',
+  MOTONEURON_POOL: 'Invasivo (pool)',
 });
 
 export const STIMULATION_SITE_HELP: Record<string, string> = {
   SKIN_SURFACE:
-    'FES de superfície: a corrente excita os axônios motores (lei de Weiss), sem simular o motoneurônio. É o caso clínico.',
+    'FES de superfície: a corrente excita os axônios motores sob o eletrodo (lei de Weiss). Sem drive central, o motoneurônio não é simulado. Com drive central (ou tremor), os motoneurônios de Hodgkin–Huxley disparam pelo drive e os disparos centrais encontram os do FES no axônio: colidem, são bloqueados pelo período refratário ou reiniciam o soma (Formento 2018).',
   MOTONEURON_POOL:
-    'Modelo da dissertação: a corrente entra nos motoneurônios de dois compartimentos (Hodgkin–Huxley), que geram os disparos. Cerca de 3× mais lento.',
+    'Aplicação direta no pool: a corrente entra no soma dos motoneurônios de dois compartimentos (Hodgkin–Huxley), somada ao drive central quando ele está ligado; os disparos dos motoneurônios vão ao músculo.',
 };
 
 export const STIMULATOR_WAVEFORMS = [

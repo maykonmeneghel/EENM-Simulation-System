@@ -3,11 +3,13 @@ import type { Dispatch, FormEvent, ReactNode, SetStateAction } from 'react';
 import type { FieldPath, FormFlags, FormNotice, FormValues } from '../application/formModel';
 import {
   defaultFormValues,
+  driveActive,
   inactiveFields,
   outputStepAdvice,
   parseForm,
   partitionFieldErrors,
   stepNumber,
+  tremorActive,
 } from '../application/formModel';
 import { STIMULATOR_PATHS } from '../application/stimulatorForm';
 import { LITERATURE_AUTO_UNITS } from '../domain/defaults';
@@ -119,6 +121,8 @@ export function SimulationForm({
     touch(
       flag === 'manualUnits'
         ? ['unitsPerType', 'unitsPerType.S', 'unitsPerType.FR', 'unitsPerType.FF']
+        : flag === 'driveEnabled'
+        ? ['centralDrive']
         : ['stimulus.trainOnMs', 'stimulus.trainPeriodMs'],
     );
   };
@@ -304,8 +308,65 @@ export function SimulationForm({
     values.trainsEnabled ? `trens ${values['stimulus.trainOnMs']} / ${values['stimulus.trainOffMs']} ms` : 'contínuo',
   ].join(' · ');
 
+  const tremorOn = tremorActive(values);
+  const driveOn = driveActive(values);
+  const TREMOR_PRESETS = [
+    { hz: '4.4', label: '4,4 Hz · Dideriksen 2017', title: 'Punho, Parkinson, 4,4 ± 1,0 Hz (n = 5, texto completo)' },
+    { hz: '5.9', label: '5,9 Hz · Agapaki 2018', title: 'Repouso, acelerômetro na mão, 5,9 ± 0,8 Hz (n = 23, texto completo)' },
+  ];
+
   const groupExtras: Record<GroupId, { before?: ReactNode; after?: ReactNode }> = {
     model: {},
+    drive: {
+      before: isLiterature ? (
+        <div className="row">
+          <Switch
+            checked={values.driveEnabled || tremorOn}
+            disabled={running || tremorOn}
+            label="Ativar drive central"
+            description={
+              tremorOn
+                ? 'ligado pelo tremor de repouso (Parkinson)'
+                : 'corrente descendente nos motoneurônios (Gallego 2015)'
+            }
+            onChange={(on) => setFlag('driveEnabled', on)}
+          />
+          <HelpPopover label="Drive central">
+            Corrente que chega aos motoneurônios vinda do sistema nervoso central: fundo + comando voluntário +
+            oscilação do tremor + ruído independente por unidade (Gallego et al. 2015, mesmo motoneurônio de dois
+            compartimentos). A oscilação só entra com a condição Parkinson e o ajuste &quot;Tremor de repouso&quot;
+            ligados. Os valores em nA são convertidos pela área do soma de cada unidade. Nossa menor unidade tem
+            reobase 1,81 nA (a de Gallego, 4 nA): &quot;nA publicados&quot; usa os valores do artigo;
+            &quot;pela reobase&quot; os multiplica por 0,45 (com isso o tremor de repouso não faz nenhuma unidade
+            disparar).
+          </HelpPopover>
+          {driveOn ? (
+            <p className="inline-notice" role="note">
+              Limite conhecido: o motoneurônio herdado dispara a 50–95 Hz (o medido em Parkinson é 10,9 ± 2,9 Hz,
+              Agapaki 2018) e continua disparando depois que a corrente acaba (biestável). A frequência do tremor na
+              força confere; a frequência de cada unidade, não.
+            </p>
+          ) : null}
+        </div>
+      ) : null,
+      after:
+        isLiterature && tremorOn ? (
+          <div className="row preset-row" role="group" aria-label="Frequência do tremor por artigo">
+            {TREMOR_PRESETS.map((p) => (
+              <button
+                key={p.hz}
+                type="button"
+                className={`btn btn--small${values['centralDrive.tremor.frequencyHz'] === p.hz ? ' btn--selected' : ''}`}
+                disabled={running}
+                title={p.title}
+                onClick={() => update('centralDrive.tremor.frequencyHz', p.hz)}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        ) : null,
+    },
     condition: {
       before: (
         <ConditionPanel
@@ -391,7 +452,11 @@ export function SimulationForm({
 
   return (
     <form id={SIM_FORM_ID} className="inspector-form" onSubmit={submit} noValidate aria-label="Parâmetros da simulação">
-      {FIELD_GROUPS.filter((g) => g.id !== 'motoneuron' || values.stimulationSite === 'MOTONEURON_POOL').map((g) => (
+      {FIELD_GROUPS.filter(
+        (g) =>
+          (g.id !== 'motoneuron' || values.stimulationSite === 'MOTONEURON_POOL' || driveActive(values)) &&
+          (g.id !== 'drive' || isLiterature),
+      ).map((g) => (
         <details
           key={g.id}
           className="section"

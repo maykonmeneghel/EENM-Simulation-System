@@ -13,6 +13,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from enum import Enum
 
+from eenm_engine.domain.central_drive import CentralDrive, Tremor
 from eenm_engine.domain.fatigue import FatigueModel
 from eenm_engine.domain.model_options import ModelOptions
 from eenm_engine.domain.twitch import TwitchShape
@@ -87,8 +88,11 @@ def _chronaxie(options: ModelOptions) -> ModelOptions:
     return replace(options, axon_excitability=replace(current, chronaxie_ms=0.13))
 
 
-def _not_available(options: ModelOptions) -> ModelOptions:
-    raise ValueError("this adjustment needs the central layer (not implemented)")
+def _tremor(options: ModelOptions) -> ModelOptions:
+    """Adds the tremor oscillator to the descending drive (creating a resting drive if there is none); tremor
+    parameters already set (by the request) are kept."""
+    drive = options.central_drive or CentralDrive()
+    return replace(options, central_drive=drive if drive.tremor is not None else replace(drive, tremor=Tremor()))
 
 
 ADJUSTMENTS: tuple[Adjustment, ...] = (
@@ -203,18 +207,21 @@ ADJUSTMENTS: tuple[Adjustment, ...] = (
         id="PD_TREMOR",
         condition=Condition.PARKINSON,
         label="Tremor de repouso 4–6 Hz",
-        effect="Requer a camada central (drive descendente oscilatório nos motoneurônios); ainda não implementado.",
-        finding="Frequência típica do tremor de repouso 4–6 Hz (revisão).",
+        effect="Liga o drive descendente com uma oscilação senoidal comum a todos os motoneurônios (frequência e "
+        "amplitude no painel do drive central). Precisa dos motoneurônios: no modo não invasivo, os disparos "
+        "centrais encontram os do FES no axônio.",
+        finding="Frequência típica do tremor de repouso 4–6 Hz (revisão); no punho, 4,4 ± 1,0 Hz (Dideriksen 2017) "
+        "ou 5,9 ± 0,8 Hz em repouso (Agapaki 2018).",
         source=Source(
             "Zach et al. 2015",
             "The clinical evaluation of Parkinson's tremor",
             doi="10.3233/JPD-150650",
         ),
         evidence=Evidence.FULL_TEXT,
-        measured_in="revisão; sem amplitude em força",
+        measured_in="revisão; a amplitude em nA vem de um modelo de tremor essencial (Gallego 2015)",
         default=False,
-        available=False,
-        apply=_not_available,
+        available=True,
+        apply=_tremor,
     ),
 )
 

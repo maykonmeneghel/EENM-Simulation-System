@@ -67,7 +67,8 @@ public final class SimulationDefaults {
                 orDefault(source.somaGeometry(), SOMA_GEOMETRY),
                 orDefault(source.dendriteGeometry(), DENDRITE_GEOMETRY),
                 orDefault(source.seed(), SEED),
-                orDefault(source.outputStepMs(), OUTPUT_STEP_MS));
+                orDefault(source.outputStepMs(), OUTPUT_STEP_MS),
+                source.centralDrive());
     }
 
     private Stimulus resolve(StimulusDraft draft) {
