@@ -169,13 +169,46 @@ export const TWITCH_CALIBRATION: Record<
   },
 };
 
-/** Twitch exponent and time scale per variant and calibration target (§5a / §5b). */
+/**
+ * Wrist muscles' own twitch calibrations (muscle_profiles.py): FCR fitted to the wrist-flexor twitch (Behrens 2019),
+ * ECR scaled to the mean unit contraction time (Aimonetti 2000; HRT/CT of the soleus single-unit fit). Every other
+ * muscle and target uses TWITCH_CALIBRATION (inherited from the soleus).
+ */
+export const MUSCLE_TWITCH_CALIBRATION: Partial<
+  Record<MuscleId, Partial<Record<CalibrationTarget, (typeof TWITCH_CALIBRATION)[CalibrationTarget]>>>
+> = {
+  FLEXOR_CARPI_RADIALIS: {
+    WHOLE_MUSCLE: {
+      timeScale: 0.9524,
+      m: 3.6741,
+      ctMs: 67.31,
+      hrtMs: 57.63,
+      fittedTo: 'twitch dos flexores do punho (Behrens 2019)',
+    },
+  },
+  EXTENSOR_CARPI_RADIALIS: {
+    SINGLE_UNIT: {
+      timeScale: 0.50605,
+      m: 2.0862,
+      ctMs: 51.0,
+      hrtMs: 51.0 * (78.6 / 74.8),
+      fittedTo: 'tempo de contração médio das unidades do ECR (Aimonetti 2000; meia-relaxação herdada do sóleo)',
+    },
+  },
+};
+
+export function twitchCalibration(target: CalibrationTarget, muscle?: MuscleId) {
+  return (muscle && MUSCLE_TWITCH_CALIBRATION[muscle]?.[target]) ?? TWITCH_CALIBRATION[target];
+}
+
+/** Twitch exponent and time scale per variant, calibration target and muscle (§5a / §5b). */
 export function twitchShape(
   variant: ModelVariant,
   target: CalibrationTarget = 'WHOLE_MUSCLE',
+  muscle?: MuscleId,
 ): { m: number; timeScale: number } {
   if (variant === 'ORIGINAL') return { m: 1, timeScale: 1 };
-  const { m, timeScale } = TWITCH_CALIBRATION[target];
+  const { m, timeScale } = twitchCalibration(target, muscle);
   return { m, timeScale };
 }
 
@@ -256,6 +289,8 @@ export const POOL_SIZES: Record<MuscleId, UnitsPerType> = {
   GASTROCNEMIUS_MEDIAL: { S: 250, FR: 125, FF: 125 },
   GASTROCNEMIUS_LATERAL: { S: 200, FR: 100, FF: 100 },
   TIBIALIS_ANTERIOR: { S: 250, FR: 50, FF: 50 },
+  FLEXOR_CARPI_RADIALIS: { S: 368, FR: 267, FF: 265 },
+  EXTENSOR_CARPI_RADIALIS: { S: 800, FR: 50, FF: 50 },
 };
 
 /** Fatigue's weakest / strongest MT of the whole pool (same for every muscle in the table). */
@@ -332,8 +367,9 @@ export function typeParameterSpans(
   axonLengthPercent: number,
   durationMs: number,
   target: CalibrationTarget = 'WHOLE_MUSCLE',
+  muscle?: MuscleId,
 ): Record<MotorUnitType, TypeParameterSpans> {
-  const tScale = twitchShape(variant, target).timeScale;
+  const tScale = twitchShape(variant, target, muscle).timeScale;
   const x = axonLength(axonLengthPercent);
   const scale = variant === 'ORIGINAL' ? durationMs : 1000;
   const out = {} as Record<MotorUnitType, TypeParameterSpans>;

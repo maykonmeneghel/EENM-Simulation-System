@@ -12,11 +12,19 @@ import {
 import { STIMULATOR_PATHS } from '../application/stimulatorForm';
 import { LITERATURE_AUTO_UNITS } from '../domain/defaults';
 import { axonRecruitment } from '../domain/modelEquations';
-import type { ConditionInfo, FieldError, MusclePreset, SimulationRequest, UnitsPerType } from '../domain/simulation';
+import type {
+  CalibrationTarget,
+  ConditionInfo,
+  FieldError,
+  MusclePreset,
+  SimulationRequest,
+  UnitsPerType,
+} from '../domain/simulation';
 import { ConditionPanel } from './ConditionPanel';
 import type { FieldSpec, GroupId, NumberField } from './formFields';
 import { CALIBRATION_TARGET_HELP, FIELD_GROUPS, STIMULATOR_WAVEFORMS } from './formFields';
 import { HelpPopover } from './HelpPopover';
+import { MuscleSources } from './MuscleSources';
 import { SegmentedControl } from './SegmentedControl';
 import { Switch } from './Switch';
 
@@ -353,6 +361,12 @@ export function SimulationForm({
             </div>
           ) : null}
         </div>
+      ) : null,
+      after: isLiterature ? (
+        <MuscleSources
+          preset={muscles.find((m) => m.id === values.muscle)}
+          calibrationTarget={values.calibrationTarget as CalibrationTarget}
+        />
       ) : null,
     },
     simulation: {

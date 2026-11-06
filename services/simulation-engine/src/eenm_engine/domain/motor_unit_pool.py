@@ -35,6 +35,10 @@ class Muscle(Enum):
     GASTROCNEMIUS_MEDIAL = "GASTROCNEMIUS_MEDIAL"
     GASTROCNEMIUS_LATERAL = "GASTROCNEMIUS_LATERAL"
     TIBIALIS_ANTERIOR = "TIBIALIS_ANTERIOR"
+    FLEXOR_CARPI_RADIALIS = "FLEXOR_CARPI_RADIALIS"
+    """Wrist flexor (central layer, ``docs/design/central-layer.md``); preset data and gaps in ``muscle_profiles``."""
+    EXTENSOR_CARPI_RADIALIS = "EXTENSOR_CARPI_RADIALIS"
+    """Wrist extensor, ECRL and ECRB together (the human motor-unit studies do not separate the heads)."""
 
 
 class Geometry(Enum):
@@ -67,6 +71,19 @@ MUSCLE_PRESETS: dict[Muscle, MusclePreset] = {
             Muscle.TIBIALIS_ANTERIOR,
             "Tibial Anterior",
             {MotorUnitType.S: 250, MotorUnitType.FR: 50, MotorUnitType.FF: 50},
+        ),
+        # Wrist muscles: no human motor-unit count exists, so both keep the soleus total (900). FCR splits it in its
+        # measured fibre-type proportions (Mizuno 1994: slow 40.9, IIA 29.7, "fast-b" 29.4 %), taken as unit
+        # proportions (largest remainder); ECR has no adult data and keeps the soleus split. See ``muscle_profiles``.
+        MusclePreset(
+            Muscle.FLEXOR_CARPI_RADIALIS,
+            "Flexor Carpi Radialis (FCR)",
+            {MotorUnitType.S: 368, MotorUnitType.FR: 267, MotorUnitType.FF: 265},
+        ),
+        MusclePreset(
+            Muscle.EXTENSOR_CARPI_RADIALIS,
+            "Extensor Carpi Radialis (ECR)",
+            {MotorUnitType.S: 800, MotorUnitType.FR: 50, MotorUnitType.FF: 50},
         ),
     )
 }

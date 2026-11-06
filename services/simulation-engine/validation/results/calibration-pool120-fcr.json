@@ -1,0 +1,17 @@
+{
+  "target": "whole-muscle",
+  "targets": {
+    "contractionTimeMs": 67.31,
+    "halfRelaxationMs": 57.63
+  },
+  "fitted": {
+    "twitchTimeScale": 0.9524,
+    "twitchExponent": 3.6733
+  },
+  "achieved": {
+    "contractionTimeMs": 67.31,
+    "halfRelaxationMs": 57.63000000000001
+  },
+  "pipeline": "pool120",
+  "muscle": "fcr"
+}

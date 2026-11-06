@@ -4,6 +4,9 @@ import static org.mockito.Mockito.when;
 
 import com.meneghel.eenm.simulationapi.application.port.EngineUnavailableException;
 import com.meneghel.eenm.simulationapi.application.port.SimulationEngine;
+import com.meneghel.eenm.simulationapi.domain.muscle.MusclePreset;
+import com.meneghel.eenm.simulationapi.domain.muscle.PresetFieldSource;
+import com.meneghel.eenm.simulationapi.domain.simulation.MotorUnitCounts;
 import com.meneghel.eenm.simulationapi.support.SampleEvents;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -32,7 +35,24 @@ class MuscleControllerTest {
 
         client.get().uri("/api/v1/muscles").exchange()
                 .expectStatus().isOk()
-                .expectBody().json("[{\"id\":\"SOLEUS\",\"label\":\"Soleus\",\"poolSize\":{\"S\":800,\"FR\":50,\"FF\":50}}]");
+                .expectBody().json("[{\"id\":\"SOLEUS\",\"label\":\"Soleus\",\"poolSize\":{\"S\":800,\"FR\":50,\"FF\":50},"
+                        + "\"provenance\":[]}]");
+    }
+
+    @Test
+    void relaysWhereEachPresetValueComesFrom() {
+        var source = new PresetFieldSource("Composição S / FR / FF", "MEASURED", "368 / 267 / 265",
+                new PresetFieldSource.Reference("Mizuno et al. 1994", "T", "10.1152/jappl.1994.76.2.531", null),
+                "FULL_TEXT", null);
+        when(engine.listMuscles()).thenReturn(Mono.just(List.of(new MusclePreset("FLEXOR_CARPI_RADIALIS", "FCR",
+                new MotorUnitCounts(368, 267, 265), List.of(source)))));
+
+        client.get().uri("/api/v1/muscles").exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$[0].provenance[0].provenance").isEqualTo("MEASURED")
+                .jsonPath("$[0].provenance[0].source.doi").isEqualTo("10.1152/jappl.1994.76.2.531")
+                .jsonPath("$[0].provenance[0].calibrationTarget").doesNotExist();
     }
 
     @Test

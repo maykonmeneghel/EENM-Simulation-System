@@ -13,7 +13,9 @@ Only two numbers are fitted: a global multiplier of every unit's contraction tim
 proportions of the original table) and the twitch exponent m. Twitch parameters do not change the
 motoneuron spikes, so the ODE is integrated once and only the force pipeline is re-evaluated.
 
-Run: uv run --group validation python -m validation.calibrate [pipeline] [whole-muscle|single-unit]
+fcr whole-muscle — the twitch of the median-innervated wrist flexors (Behrens et al. 2019): CT 67.31, HRT 57.63 ms.
+
+Run: uv run --group validation python -m validation.calibrate [pipeline] [whole-muscle|single-unit] [soleus|fcr]
 """
 
 from __future__ import annotations
@@ -38,6 +40,13 @@ from validation.protocols import RESULTS, twitch_metrics
 TARGETS = {  # (contraction time, half-relaxation time) in ms
     "whole-muscle": ((112.4 + 129.0) / 2, (99.6 + 95.0) / 2),
     "single-unit": (74.8, 78.6),
+}
+
+MUSCLES = {"soleus": Muscle.SOLEUS, "fcr": Muscle.FLEXOR_CARPI_RADIALIS}
+MUSCLE_TARGETS = {
+    # FCR: twitch of the median-innervated wrist flexors, neutral wrist, single unpotentiated supramaximal stimulus
+    # (Behrens et al. 2019, doi:10.3389/fbioe.2019.00181, Table 1, full text): CT 67.31 ± 5.29, HRT 57.63 ± 7.67 ms
+    ("fcr", "whole-muscle"): (67.31, 57.63),
 }
 
 
@@ -150,16 +159,21 @@ PIPELINES = {
 }
 
 
-def main(pipeline: str, target: str = "whole-muscle") -> None:
-    target_ct, target_hrt = TARGETS[target]
+def main(pipeline: str, target: str = "whole-muscle", muscle: str = "soleus") -> None:
+    target_ct, target_hrt = TARGETS[target] if muscle == "soleus" else MUSCLE_TARGETS[(muscle, target)]
     chosen = PIPELINES[pipeline]
+    if muscle != "soleus" and chosen.units is not None:
+        chosen = replace(chosen, units=proportional_units(MUSCLES[muscle], sum(chosen.units.values())))
     protocol = StimulusProtocol(  # one pulse at t = 0 in a 1 s record
         duration_ms=1000.0, frequency_hz=1.0, duty_cycle_percent=chosen.pulse_ms / 10.0, amplitude=chosen.amplitude
     )
     extra = {"units_per_type": chosen.units} if chosen.units else {}
-    config = SimulationConfig(stimulus=protocol, model=chosen.model, **extra)
+    config = SimulationConfig(stimulus=protocol, model=chosen.model, muscle=MUSCLES[muscle], **extra)
     setup, voltage = single_twitch_voltage(config)
     time = protocol.time_grid()
+    fired = (voltage > 0).any(axis=0)  # soma spikes cross 0 mV; axon spike trains are 1 at each spike
+    if not fired.all():
+        raise ValueError(f"{int((~fired).sum())} units did not fire: the twitch would not be supramaximal")
 
     def timing(x: np.ndarray) -> tuple[float, float]:
         scale, shape = float(np.exp(x[0])), TwitchShape(float(np.exp(x[1])))
@@ -181,11 +195,16 @@ def main(pipeline: str, target: str = "whole-muscle") -> None:
         "fitted": {"twitchTimeScale": round(scale, 4), "twitchExponent": round(exponent, 4)},
         "achieved": {"contractionTimeMs": ct, "halfRelaxationMs": hrt},
         "pipeline": pipeline,
+        "muscle": muscle,
     }
-    suffix = "" if target == "whole-muscle" else f"-{target}"
+    suffix = ("" if target == "whole-muscle" else f"-{target}") + ("" if muscle == "soleus" else f"-{muscle}")
     (RESULTS / f"calibration-{pipeline}{suffix}.json").write_text(json.dumps(result, indent=2))
     print(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "step2", sys.argv[2] if len(sys.argv) > 2 else "whole-muscle")
+    main(
+        sys.argv[1] if len(sys.argv) > 1 else "step2",
+        sys.argv[2] if len(sys.argv) > 2 else "whole-muscle",
+        sys.argv[3] if len(sys.argv) > 3 else "soleus",
+    )

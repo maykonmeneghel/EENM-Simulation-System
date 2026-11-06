@@ -49,6 +49,8 @@ export const MUSCLES = [
   'GASTROCNEMIUS_MEDIAL',
   'GASTROCNEMIUS_LATERAL',
   'TIBIALIS_ANTERIOR',
+  'FLEXOR_CARPI_RADIALIS',
+  'EXTENSOR_CARPI_RADIALIS',
 ] as const;
 export type MuscleId = (typeof MUSCLES)[number];
 
@@ -110,10 +112,23 @@ export interface SimulationRequest {
   outputStepMs: number;
 }
 
+/** Where one value of a muscle preset comes from (GET /muscles, `provenance`). */
+export interface PresetFieldSource {
+  field: string;
+  provenance: 'MEASURED' | 'FITTED' | 'INHERITED';
+  value: string;
+  source: { citation: string; title: string; doi: string | null; pmid: string | null } | null;
+  evidence: 'FULL_TEXT' | 'ABSTRACT' | null;
+  /** Only for this calibration target; null = always. */
+  calibrationTarget: CalibrationTarget | null;
+}
+
 export interface MusclePreset {
   id: MuscleId;
   label: string;
   poolSize: UnitsPerType;
+  /** Empty for the original model's leg presets; older servers omit it. */
+  provenance?: PresetFieldSource[];
 }
 
 // ---- Stream events (section 2 of the contract) ----

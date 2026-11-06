@@ -1,11 +1,15 @@
 package com.meneghel.eenm.simulationapi.web.muscle;
 
 import com.meneghel.eenm.simulationapi.domain.muscle.MusclePreset;
+import com.meneghel.eenm.simulationapi.domain.muscle.PresetFieldSource;
 import com.meneghel.eenm.simulationapi.web.simulation.MotorUnitCountsPayload;
+import java.util.List;
 
-public record MusclePresetDto(String id, String label, MotorUnitCountsPayload poolSize) {
+public record MusclePresetDto(
+        String id, String label, MotorUnitCountsPayload poolSize, List<PresetFieldSource> provenance) {
 
     public static MusclePresetDto from(MusclePreset preset) {
-        return new MusclePresetDto(preset.id(), preset.label(), MotorUnitCountsPayload.from(preset.poolSize()));
+        return new MusclePresetDto(
+                preset.id(), preset.label(), MotorUnitCountsPayload.from(preset.poolSize()), preset.provenance());
     }
 }
