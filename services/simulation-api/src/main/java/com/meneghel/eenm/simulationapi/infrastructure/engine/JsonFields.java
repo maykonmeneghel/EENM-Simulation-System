@@ -59,6 +59,36 @@ final class JsonFields {
         return values;
     }
 
+    static List<Integer> integers(JsonNode parent, String field) {
+        JsonNode node = parent.path(field);
+        if (!node.isArray()) {
+            throw missing(field, "an array of integers");
+        }
+        List<Integer> values = new ArrayList<>(node.size());
+        for (JsonNode element : node.values()) {
+            if (!element.isIntegralNumber() || !element.canConvertToInt()) {
+                throw missing(field, "an array of integers");
+            }
+            values.add(element.intValue());
+        }
+        return values;
+    }
+
+    static List<String> texts(JsonNode parent, String field) {
+        JsonNode node = parent.path(field);
+        if (!node.isArray()) {
+            throw missing(field, "an array of strings");
+        }
+        List<String> values = new ArrayList<>(node.size());
+        for (JsonNode element : node.values()) {
+            if (!element.isString()) {
+                throw missing(field, "an array of strings");
+            }
+            values.add(element.stringValue());
+        }
+        return values;
+    }
+
     static MotorUnitCounts unitCounts(JsonNode parent, String field) {
         JsonNode node = object(parent, field);
         return new MotorUnitCounts(integer(node, "S"), integer(node, "FR"), integer(node, "FF"));

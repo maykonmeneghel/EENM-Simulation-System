@@ -75,11 +75,18 @@ Blender export step, and I did not verify where its meshes come from. BodyParts3
 
 ### 2.3 Asset pipeline
 
-A script (`apps/web/scripts/anatomy/`, run by hand and committed with its output) that downloads the zip, checks its
-SHA-256, extracts the seven files, crops the skin, decimates, centres the forearm (origin at the elbow's
-bi-epicondylar line, x along the forearm toward the wrist) and writes **one glTF binary** with meshopt compression.
-Budget: ≤ 1.5 MB for the 3D step, loaded only when the step opens. The script fails if a part is missing or a size
-differs from the table above by more than 1 %. That keeps the scale check above under test.
+**Implemented 2026-11-06** as `apps/web/scripts/anatomy/build-forearm.mjs`, run by hand, with its output committed. It
+downloads the zip (or takes a path) and checks its SHA-256. It then extracts the seven files and checks each size
+against the table above (1 %); the check fails when a size is changed by hand, which is the negative probe. It moves
+the parts into the forearm frame: metres, origin at the **elbow end of radius + ulna** (the mean of their vertices
+within 10 mm of the top; the meshes have no epicondyle landmark), x toward the wrist end, y toward the flexor side.
+It crops the skin (6 cm above to 4 cm past the bones, ≤ 7 cm from the axis) and the humerus (its distal 8 cm), and
+welds the vertices. Output:
+
+- `apps/web/public/anatomy/forearm.glb`, **0.20 MB** without compression, so no meshopt decoder is needed
+  (budget 1.5 MB), with `LICENSE.md` beside it;
+- `apps/web/src/domain/forearm.json`: frame, forearm length (0.249 m) and each muscle's cross-sections every 1 cm,
+  used by the layout and its tests.
 
 ## 3. Levels of zoom
 
@@ -162,7 +169,7 @@ means a second output array in that kernel. That costs time, so it needs measuri
 
 Request: `"output": { "unitEvents": true }` (default `false`: nothing changes for existing clients).
 
-`started` gains a `units` table, sent once:
+`started` gains a `units` table, sent once. **Implemented 2026-11-06 on every run, not opt-in**: it is ≈ 10 kB for 120 units, and the static scene (phase 2) needs it for any run. Only `unitEvents` stays opt-in. Implemented shape, in `docs/contracts.md` §2, column arrays:
 
 ```json
 "units": [ { "id": 0, "type": "S", "poolRank": 0, "somaDiameterUm": 77.5, "dendriteDiameterUm": 41.5,

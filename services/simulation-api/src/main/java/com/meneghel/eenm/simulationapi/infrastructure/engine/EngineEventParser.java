@@ -1,9 +1,11 @@
 package com.meneghel.eenm.simulationapi.infrastructure.engine;
 
+import static com.meneghel.eenm.simulationapi.infrastructure.engine.JsonFields.integers;
 import static com.meneghel.eenm.simulationapi.infrastructure.engine.JsonFields.number;
 import static com.meneghel.eenm.simulationapi.infrastructure.engine.JsonFields.numbers;
 import static com.meneghel.eenm.simulationapi.infrastructure.engine.JsonFields.object;
 import static com.meneghel.eenm.simulationapi.infrastructure.engine.JsonFields.text;
+import static com.meneghel.eenm.simulationapi.infrastructure.engine.JsonFields.texts;
 import static com.meneghel.eenm.simulationapi.infrastructure.engine.JsonFields.unitCounts;
 
 import com.meneghel.eenm.simulationapi.application.port.EngineProtocolException;
@@ -16,6 +18,8 @@ import com.meneghel.eenm.simulationapi.domain.event.SimulationEvent;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationFailed;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationStarted;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationSummary;
+import com.meneghel.eenm.simulationapi.domain.event.UnitAnatomy;
+import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,7 +73,33 @@ final class EngineEventParser {
                 number(node, "outputStepMs"),
                 unitCounts(node, "motorUnits"),
                 text(node, "muscle"),
-                optionalNumber(node, "maxForce"));
+                optionalNumber(node, "maxForce"),
+                optionalNumber(node, "electrodeFraction"),
+                units(node.get("units")));
+    }
+
+    /** Absent or {@code null} from an engine older than the field. */
+    private static UnitAnatomy units(JsonNode node) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        if (!node.isObject()) {
+            throw new EngineProtocolException("Engine field 'units' must be an object");
+        }
+        try {
+            return new UnitAnatomy(text(node, "motoneuron"), texts(node, "type"), integers(node, "poolIndex"),
+                    numbers(node, "somaDiameterUm"), numbers(node, "dendriteDiameterUm"),
+                    numbers(node, "dendriteLengthMm"), numbers(node, "conductionMs"),
+                    optionalNumbers(node, "toElectrodeMs"), optionalNumbers(node, "toMuscleMs"),
+                    numbers(node, "weight"), numbers(node, "axonRheobase"));
+        } catch (IllegalArgumentException inconsistent) {
+            throw new EngineProtocolException("Engine field 'units' is inconsistent: " + inconsistent.getMessage());
+        }
+    }
+
+    private static List<Double> optionalNumbers(JsonNode node, String field) {
+        JsonNode value = node.get(field);
+        return value == null || value.isNull() ? null : numbers(node, field);
     }
 
     private SimulationChunk chunk(JsonNode node) {

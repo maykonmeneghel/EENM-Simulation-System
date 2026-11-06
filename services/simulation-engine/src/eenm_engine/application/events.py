@@ -8,6 +8,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from eenm_engine.domain.motor_unit_pool import MotorUnitType, Muscle
+from eenm_engine.domain.unit_anatomy import UnitAnatomy
 
 
 @dataclass(frozen=True)
@@ -19,6 +20,10 @@ class SimulationStarted:
     muscle: Muscle
     max_force: float | None = None
     """Maximal force of the healthy muscle (``domain.max_force``): force ÷ this = fraction of maximum."""
+    units: UnitAnatomy | None = None
+    """Per-unit geometry and conduction times, for the 3D view (``domain.unit_anatomy``)."""
+    electrode_fraction: float | None = None
+    """Electrode position along the axon from the soma; ``None`` when the stimulus goes into the soma."""
 
 
 @dataclass(frozen=True)

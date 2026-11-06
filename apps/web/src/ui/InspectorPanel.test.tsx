@@ -101,7 +101,8 @@ describe('steps', () => {
     expect(stepOfField('centralDrive.voluntaryNa')).toBe('physiology');
     expect(stepOfField('muscle')).toBe('physiology');
     expect(nextStep('stimulator')?.id).toBe('physiology');
-    expect(nextStep('results')?.id).toBe('compare');
+    expect(nextStep('results')?.id).toBe('anatomy');
+    expect(nextStep('anatomy')?.id).toBe('compare');
     expect(nextStep('compare')).toBeNull();
   });
 });

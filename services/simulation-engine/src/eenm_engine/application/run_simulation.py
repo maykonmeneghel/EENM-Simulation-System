@@ -33,6 +33,7 @@ from eenm_engine.domain.simulation import (
     SimulationConfig,
 )
 from eenm_engine.domain.stimulus import stimulus_current, stimulus_series
+from eenm_engine.domain.unit_anatomy import unit_anatomy
 
 
 class RunSimulation:
@@ -75,6 +76,12 @@ class RunSimulation:
             motor_units={t: setup.groups[t].size for t in UNIT_TYPES},
             muscle=config.muscle,
             max_force=maximal_force(config, config.reference_model),
+            units=unit_anatomy(setup, config),
+            electrode_fraction=(
+                None
+                if config.model.stimulation_site is StimulationSite.MOTONEURON_SOMA
+                else config.model.electrode_fraction
+            ),
         )
 
         merge: list[DrivenPoolIntegration] = []  # the merged integration, once started (its axon-event totals)

@@ -5,7 +5,7 @@ import { tr } from '../i18n/locale';
 import { withTexts } from '../i18n/lazy';
 
 /** The steps of the app, in order: each one's settings live in the left sidebar, its visual in the centre. */
-export type StepId = 'stimulator' | 'physiology' | 'simulation' | 'results' | 'compare';
+export type StepId = 'stimulator' | 'physiology' | 'simulation' | 'results' | 'anatomy' | 'compare';
 
 export interface Step {
   id: StepId;
@@ -23,7 +23,8 @@ export const STEPS: readonly Step[] = [
   step({ id: 'physiology', number: 2 }, { 'pt-BR': 'Fisiologia', en: 'Physiology' }, { 'pt-BR': 'equações', en: 'equations' }),
   step({ id: 'simulation', number: 3 }, { 'pt-BR': 'Simulação', en: 'Simulation' }, { 'pt-BR': 'diagrama', en: 'diagram' }),
   step({ id: 'results', number: 4 }, { 'pt-BR': 'Resultados', en: 'Results' }, { 'pt-BR': 'gráficos', en: 'charts' }),
-  step({ id: 'compare', number: 5 }, { 'pt-BR': 'Comparar', en: 'Compare' }, { 'pt-BR': 'simulações salvas', en: 'saved simulations' }),
+  step({ id: 'anatomy', number: 5 }, { 'pt-BR': '3D', en: '3D' }, { 'pt-BR': 'anatomia em 3D', en: '3D anatomy' }),
+  step({ id: 'compare', number: 6 }, { 'pt-BR': 'Comparar', en: 'Compare' }, { 'pt-BR': 'simulações salvas', en: 'saved simulations' }),
 ];
 
 /** "Etapa 2 de 4" / "Step 2 of 4". */
@@ -39,6 +40,7 @@ export const GROUPS_BY_STEP: Record<StepId, readonly GroupId[]> = {
   physiology: ['condition', 'drive', 'motoneuron', 'muscle', 'model'],
   simulation: ['simulation'],
   results: [],
+  anatomy: [],
   compare: [],
 };
 
