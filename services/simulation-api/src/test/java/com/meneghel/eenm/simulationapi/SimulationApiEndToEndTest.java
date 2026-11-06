@@ -95,7 +95,7 @@ class SimulationApiEndToEndTest {
         @Override
         public MockResponse dispatch(RecordedRequest request) {
             String target = request.getTarget();
-            if ("/v1/muscles".equals(target)) {
+            if ("/v1/muscles?lang=pt-BR".equals(target)) { // the API asks in its default language
                 return new MockResponse.Builder()
                         .addHeader("Content-Type", "application/json")
                         .body("[{\"id\":\"SOLEUS\",\"label\":\"Soleus\",\"poolSize\":{\"S\":800,\"FR\":50,\"FF\":50}}]")

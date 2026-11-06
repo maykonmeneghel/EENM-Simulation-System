@@ -1,8 +1,9 @@
 import { render, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { twitchCalibration, twitchShape, TWITCH_CALIBRATION } from '../domain/modelEquations';
 import type { MusclePreset } from '../domain/simulation';
 import { MuscleSources } from './MuscleSources';
+import { setLocale } from '../i18n/locale';
 
 const FCR: MusclePreset = {
   id: 'FLEXOR_CARPI_RADIALIS',
@@ -80,5 +81,18 @@ describe('wrist twitch calibration (muscle_profiles.py)', () => {
     expect(twitchCalibration('SINGLE_UNIT', 'FLEXOR_CARPI_RADIALIS')).toBe(TWITCH_CALIBRATION.SINGLE_UNIT);
     expect(twitchCalibration('WHOLE_MUSCLE', 'EXTENSOR_CARPI_RADIALIS')).toBe(TWITCH_CALIBRATION.WHOLE_MUSCLE);
     expect(twitchShape('ORIGINAL', 'WHOLE_MUSCLE', 'FLEXOR_CARPI_RADIALIS')).toEqual({ m: 1, timeScale: 1 });
+  });
+});
+
+describe('MuscleSources in English', () => {
+  afterEach(() => setLocale('pt-BR'));
+  it('provenance and evidence badges are in English', () => {
+    setLocale('en');
+    render(<MuscleSources preset={FCR} calibrationTarget="SINGLE_UNIT" />);
+    expect(screen.getByText('Source of the values')).toBeInTheDocument();
+    const list = screen.getByRole('list', { name: 'Source of the values of Flexor Carpi Radialis (FCR)' });
+    expect(within(list).getByText('Measured')).toBeInTheDocument();
+    expect(within(list).getByText('Inherited')).toBeInTheDocument();
+    expect(within(list).getByText('Full text')).toBeInTheDocument();
   });
 });

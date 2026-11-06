@@ -1,5 +1,8 @@
 import type { FieldPath } from '../application/formModel';
 import type { GroupId } from './formFields';
+import type { Localized } from '../i18n/locale';
+import { tr } from '../i18n/locale';
+import { withTexts } from '../i18n/lazy';
 
 /** The four steps of the app, in order: each one's settings live in the left sidebar, its visual in the centre. */
 export type StepId = 'stimulator' | 'physiology' | 'simulation' | 'results';
@@ -12,12 +15,20 @@ export interface Step {
   visual: string;
 }
 
+const step = (base: Omit<Step, 'label' | 'visual'>, label: Localized, visual: Localized): Step => withTexts(base, { label, visual });
+
+/** Labels follow the current locale (read on access). */
 export const STEPS: readonly Step[] = [
-  { id: 'stimulator', number: 1, label: 'Estimulador', visual: 'osciloscópio' },
-  { id: 'physiology', number: 2, label: 'Fisiologia', visual: 'equações' },
-  { id: 'simulation', number: 3, label: 'Simulação', visual: 'diagrama' },
-  { id: 'results', number: 4, label: 'Resultados', visual: 'gráficos' },
+  step({ id: 'stimulator', number: 1 }, { 'pt-BR': 'Estimulador', en: 'Stimulator' }, { 'pt-BR': 'osciloscópio', en: 'oscilloscope' }),
+  step({ id: 'physiology', number: 2 }, { 'pt-BR': 'Fisiologia', en: 'Physiology' }, { 'pt-BR': 'equações', en: 'equations' }),
+  step({ id: 'simulation', number: 3 }, { 'pt-BR': 'Simulação', en: 'Simulation' }, { 'pt-BR': 'diagrama', en: 'diagram' }),
+  step({ id: 'results', number: 4 }, { 'pt-BR': 'Resultados', en: 'Results' }, { 'pt-BR': 'gráficos', en: 'charts' }),
 ];
+
+/** "Etapa 2 de 4" / "Step 2 of 4". */
+export function stepCounter(s: Step): string {
+  return tr({ 'pt-BR': `Etapa ${s.number} de ${STEPS.length}`, en: `Step ${s.number} of ${STEPS.length}` });
+}
 
 /** Sidebar groups of each step (the stimulus itself is the stimulator step's own panel). */
 export const GROUPS_BY_STEP: Record<StepId, readonly GroupId[]> = {

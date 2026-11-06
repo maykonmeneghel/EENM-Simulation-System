@@ -4,6 +4,7 @@
  * (`validation/stimulator_fixture.py`).
  */
 import { axonRecruitment } from './modelEquations';
+import { tr } from '../i18n/locale';
 
 export type StimulatorWaveform = 'MONOPHASIC' | 'BIPHASIC_SYMMETRIC';
 
@@ -54,14 +55,20 @@ export function stimulatorCurrent(t: number, s: StimulatorSettings): number {
   return level === 0 ? 0 : level * s.amplitude * carrier(t, s);
 }
 
-/** Problems that make the settings impossible (the API reports the same ones), in Portuguese. */
+/** Problems that make the settings impossible (the API reports the same ones), in the current locale. */
 export function stimulatorProblems(s: StimulatorSettings): string[] {
   const out: string[] = [];
   const phases = s.waveform === 'BIPHASIC_SYMMETRIC' ? 2 : 1;
   if (phases * s.pulseWidthUs >= periodMs(s) * 1000) {
-    out.push(phases === 2 ? 'As duas fases do pulso não cabem no período.' : 'O pulso não cabe no período.');
+    out.push(
+      phases === 2
+        ? tr({ 'pt-BR': 'As duas fases do pulso não cabem no período.', en: 'The two phases of the pulse do not fit in the period.' })
+        : tr({ 'pt-BR': 'O pulso não cabe no período.', en: 'The pulse does not fit in the period.' }),
+    );
   }
-  if (s.rampUpMs + s.rampDownMs > onTimeMs(s)) out.push('Rampa de subida + descida maior que o tempo ligado.');
+  if (s.rampUpMs + s.rampDownMs > onTimeMs(s)) {
+    out.push(tr({ 'pt-BR': 'Rampa de subida + descida maior que o tempo ligado.', en: 'Ramp up + ramp down longer than the on time.' }));
+  }
   return out;
 }
 

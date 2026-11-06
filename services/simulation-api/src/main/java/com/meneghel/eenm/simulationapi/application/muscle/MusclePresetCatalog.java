@@ -1,6 +1,7 @@
 package com.meneghel.eenm.simulationapi.application.muscle;
 
 import com.meneghel.eenm.simulationapi.application.port.SimulationEngine;
+import com.meneghel.eenm.simulationapi.domain.language.Language;
 import com.meneghel.eenm.simulationapi.domain.muscle.MusclePreset;
 import com.meneghel.eenm.simulationapi.domain.simulation.Muscle;
 import java.time.Duration;
@@ -17,7 +18,8 @@ public final class MusclePresetCatalog {
     private final Mono<List<MusclePreset>> presets;
 
     public MusclePresetCatalog(SimulationEngine engine, Duration timeToLive) {
-        this.presets = Mono.defer(engine::listMuscles)
+        // only ids and pool sizes are used here, which do not depend on the language
+        this.presets = Mono.defer(() -> engine.listMuscles(Language.PT_BR))
                 .cache(list -> timeToLive, error -> Duration.ZERO, () -> Duration.ZERO);
     }
 

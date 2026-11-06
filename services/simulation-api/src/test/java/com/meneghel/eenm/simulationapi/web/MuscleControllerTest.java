@@ -1,9 +1,11 @@
 package com.meneghel.eenm.simulationapi.web;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.meneghel.eenm.simulationapi.application.port.EngineUnavailableException;
 import com.meneghel.eenm.simulationapi.application.port.SimulationEngine;
+import com.meneghel.eenm.simulationapi.domain.language.Language;
 import com.meneghel.eenm.simulationapi.domain.muscle.MusclePreset;
 import com.meneghel.eenm.simulationapi.domain.muscle.PresetFieldSource;
 import com.meneghel.eenm.simulationapi.domain.simulation.MotorUnitCounts;
@@ -31,7 +33,7 @@ class MuscleControllerTest {
 
     @Test
     void relaysTheEnginePresets() {
-        when(engine.listMuscles()).thenReturn(Mono.just(List.of(SampleEvents.soleus())));
+        when(engine.listMuscles(any())).thenReturn(Mono.just(List.of(SampleEvents.soleus())));
 
         client.get().uri("/api/v1/muscles").exchange()
                 .expectStatus().isOk()
@@ -44,7 +46,7 @@ class MuscleControllerTest {
         var source = new PresetFieldSource("Composição S / FR / FF", "MEASURED", "368 / 267 / 265",
                 new PresetFieldSource.Reference("Mizuno et al. 1994", "T", "10.1152/jappl.1994.76.2.531", null),
                 "FULL_TEXT", null);
-        when(engine.listMuscles()).thenReturn(Mono.just(List.of(new MusclePreset("FLEXOR_CARPI_RADIALIS", "FCR",
+        when(engine.listMuscles(any())).thenReturn(Mono.just(List.of(new MusclePreset("FLEXOR_CARPI_RADIALIS", "FCR",
                 new MotorUnitCounts(368, 267, 265), List.of(source)))));
 
         client.get().uri("/api/v1/muscles").exchange()
@@ -56,8 +58,31 @@ class MuscleControllerTest {
     }
 
     @Test
+    void forwardsTheLanguageAndDefaultsToPortuguese() {
+        when(engine.listMuscles(Language.EN)).thenReturn(Mono.just(List.of(new MusclePreset("TIBIALIS_ANTERIOR",
+                "Tibialis Anterior", new MotorUnitCounts(250, 50, 50), List.of()))));
+        when(engine.listMuscles(Language.PT_BR)).thenReturn(Mono.just(List.of(new MusclePreset("TIBIALIS_ANTERIOR",
+                "Tibial Anterior", new MotorUnitCounts(250, 50, 50), List.of()))));
+
+        client.get().uri("/api/v1/muscles?lang=en").exchange()
+                .expectStatus().isOk()
+                .expectBody().jsonPath("$[0].label").isEqualTo("Tibialis Anterior");
+        client.get().uri("/api/v1/muscles").exchange()
+                .expectStatus().isOk()
+                .expectBody().jsonPath("$[0].label").isEqualTo("Tibial Anterior");
+    }
+
+    @Test
+    void unsupportedLanguageIsABadRequestProblem() {
+        client.get().uri("/api/v1/muscles?lang=pt").exchange()
+                .expectStatus().isBadRequest()
+                .expectHeader().contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .expectBody().jsonPath("$.errors[0].field").isEqualTo("lang");
+    }
+
+    @Test
     void unreachableEngineIsBadGateway() {
-        when(engine.listMuscles()).thenReturn(Mono.error(new EngineUnavailableException("connection refused")));
+        when(engine.listMuscles(any())).thenReturn(Mono.error(new EngineUnavailableException("connection refused")));
 
         client.get().uri("/api/v1/muscles").exchange()
                 .expectStatus().isEqualTo(502)
@@ -66,7 +91,7 @@ class MuscleControllerTest {
 
     @Test
     void allowsTheWebAppOrigin() {
-        when(engine.listMuscles()).thenReturn(Mono.just(List.of()));
+        when(engine.listMuscles(any())).thenReturn(Mono.just(List.of()));
 
         client.options().uri("/api/v1/simulations")
                 .header(HttpHeaders.ORIGIN, "http://localhost:5173")

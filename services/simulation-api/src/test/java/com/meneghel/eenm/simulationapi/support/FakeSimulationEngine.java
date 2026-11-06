@@ -2,6 +2,7 @@ package com.meneghel.eenm.simulationapi.support;
 
 import com.meneghel.eenm.simulationapi.application.port.SimulationEngine;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationEvent;
+import com.meneghel.eenm.simulationapi.domain.language.Language;
 import com.meneghel.eenm.simulationapi.domain.muscle.MusclePreset;
 import com.meneghel.eenm.simulationapi.domain.simulation.SimulationRequest;
 import java.util.ArrayList;
@@ -39,12 +40,12 @@ public final class FakeSimulationEngine implements SimulationEngine {
     }
 
     @Override
-    public Mono<List<MusclePreset>> listMuscles() {
+    public Mono<List<MusclePreset>> listMuscles(Language language) {
         return presets;
     }
 
     @Override
-    public Mono<String> conditionCatalogJson() {
+    public Mono<String> conditionCatalogJson(Language language) {
         return Mono.just("[{\"id\":\"NORMAL\",\"label\":\"Normal\",\"adjustments\":[]}]");
     }
 }

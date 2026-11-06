@@ -12,6 +12,7 @@ import type {
   UnitsPerType,
 } from './simulation';
 import { MOTOR_UNIT_TYPES } from './simulation';
+import type { Localized } from '../i18n/locale';
 
 export type StageId = '1' | '2a' | '2b' | '2c' | '3' | '4' | '5a' | '5b' | '6' | '7' | '8a' | '8b';
 
@@ -199,15 +200,15 @@ export function twitch(t: number, P: number, T: number, m: number): number {
 /** §5b fitted twitch per calibration target (model_options.TWITCH_CALIBRATION; model-equations.md §5b). */
 export const TWITCH_CALIBRATION: Record<
   CalibrationTarget,
-  { timeScale: number; m: number; ctMs: number; hrtMs: number; fittedTo: string }
+  { timeScale: number; m: number; ctMs: number; hrtMs: number; fittedTo: Localized }
 > = {
-  WHOLE_MUSCLE: { timeScale: 1.2772, m: 3.9461, ctMs: 120.7, hrtMs: 97.3, fittedTo: 'twitch do tríceps sural humano' },
+  WHOLE_MUSCLE: { timeScale: 1.2772, m: 3.9461, ctMs: 120.7, hrtMs: 97.3, fittedTo: { 'pt-BR': 'twitch do tríceps sural humano', en: 'human triceps surae twitch' } },
   SINGLE_UNIT: {
     timeScale: 0.7426,
     m: 2.0862,
     ctMs: 74.8,
     hrtMs: 78.6,
-    fittedTo: 'twitch médio de unidades motoras humanas (Macefield 1996)',
+    fittedTo: { 'pt-BR': 'twitch médio de unidades motoras humanas (Macefield 1996)', en: 'mean twitch of human motor units (Macefield 1996)' },
   },
 };
 
@@ -225,7 +226,7 @@ export const MUSCLE_TWITCH_CALIBRATION: Partial<
       m: 3.6741,
       ctMs: 67.31,
       hrtMs: 57.63,
-      fittedTo: 'twitch dos flexores do punho (Behrens 2019)',
+      fittedTo: { 'pt-BR': 'twitch dos flexores do punho (Behrens 2019)', en: 'wrist flexor twitch (Behrens 2019)' },
     },
   },
   EXTENSOR_CARPI_RADIALIS: {
@@ -234,7 +235,10 @@ export const MUSCLE_TWITCH_CALIBRATION: Partial<
       m: 2.0862,
       ctMs: 51.0,
       hrtMs: 51.0 * (78.6 / 74.8),
-      fittedTo: 'tempo de contração médio das unidades do ECR (Aimonetti 2000; meia-relaxação herdada do sóleo)',
+      fittedTo: {
+        'pt-BR': 'tempo de contração médio das unidades do ECR (Aimonetti 2000; meia-relaxação herdada do sóleo)',
+        en: 'mean contraction time of the ECR units (Aimonetti 2000; half-relaxation inherited from the soleus)',
+      },
     },
   },
 };

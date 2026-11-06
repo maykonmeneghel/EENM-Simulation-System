@@ -1,6 +1,7 @@
 package com.meneghel.eenm.simulationapi.application.port;
 
 import com.meneghel.eenm.simulationapi.domain.event.SimulationEvent;
+import com.meneghel.eenm.simulationapi.domain.language.Language;
 import com.meneghel.eenm.simulationapi.domain.muscle.MusclePreset;
 import com.meneghel.eenm.simulationapi.domain.simulation.SimulationRequest;
 import java.util.List;
@@ -19,9 +20,9 @@ public interface SimulationEngine {
     /** Streams the events of one simulation, in order, as the engine produces them. */
     Flux<SimulationEvent> stream(SimulationRequest request);
 
-    /** Lists the muscles the engine can simulate. */
-    Mono<List<MusclePreset>> listMuscles();
+    /** Lists the muscles the engine can simulate, with their texts in {@code language}. */
+    Mono<List<MusclePreset>> listMuscles(Language language);
 
-    /** The engine's catalog of conditions and their adjustments, as the JSON it sends. */
-    Mono<String> conditionCatalogJson();
+    /** The engine's catalog of conditions and their adjustments in {@code language}, as the JSON it sends. */
+    Mono<String> conditionCatalogJson(Language language);
 }

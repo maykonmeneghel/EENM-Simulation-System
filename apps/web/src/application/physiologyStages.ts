@@ -1,5 +1,7 @@
 import type { FormValues } from './formModel';
 import type { StageId } from '../domain/modelEquations';
+import type { Localized } from '../i18n/locale';
+import { decimalSeparator, tr } from '../i18n/locale';
 
 /**
  * Which equation a physiology setting changes, so the equations view can bring it to the centre when the setting is
@@ -41,47 +43,49 @@ const ADJUSTMENT_STAGES: Readonly<Record<string, StageId>> = {
   PD_TREMOR: '2c',
 };
 
-const FIELD_LABELS: Readonly<Record<string, string>> = {
-  driveEnabled: 'Drive central',
-  'centralDrive.backgroundNa': 'Corrente de fundo',
-  'centralDrive.voluntaryNa': 'Comando voluntário',
-  'centralDrive.noiseCv': 'Ruído',
-  'centralDrive.currentScale': 'Escala das correntes',
-  'centralDrive.thresholdRule': 'Limiar do motoneurônio',
-  'centralDrive.tremor.frequencyHz': 'Frequência do tremor',
-  'centralDrive.tremor.amplitudeNa': 'Amplitude do tremor',
-  'centralDrive.electrodeFraction': 'Posição do eletrodo',
-  injectionSite: 'Local de injeção',
-  somaGeometry: 'Geometria do soma',
-  dendriteGeometry: 'Geometria do dendrito',
-  temperatureCelsius: 'Temperatura',
-  axonLengthPercent: 'Comprimento do axônio',
-  muscle: 'Músculo',
-  manualUnits: 'Contagens manuais',
-  'unitsPerType.S': 'Unidades S',
-  'unitsPerType.FR': 'Unidades FR',
-  'unitsPerType.FF': 'Unidades FF',
-  calibrationTarget: 'Calibração do twitch',
-  condition: 'Condição',
+const FIELD_LABELS: Readonly<Record<string, Localized>> = {
+  driveEnabled: { 'pt-BR': 'Drive central', en: 'Central drive' },
+  'centralDrive.backgroundNa': { 'pt-BR': 'Corrente de fundo', en: 'Background current' },
+  'centralDrive.voluntaryNa': { 'pt-BR': 'Comando voluntário', en: 'Voluntary command' },
+  'centralDrive.noiseCv': { 'pt-BR': 'Ruído', en: 'Noise' },
+  'centralDrive.currentScale': { 'pt-BR': 'Escala das correntes', en: 'Current scale' },
+  'centralDrive.thresholdRule': { 'pt-BR': 'Limiar do motoneurônio', en: 'Motoneuron threshold' },
+  'centralDrive.tremor.frequencyHz': { 'pt-BR': 'Frequência do tremor', en: 'Tremor frequency' },
+  'centralDrive.tremor.amplitudeNa': { 'pt-BR': 'Amplitude do tremor', en: 'Tremor amplitude' },
+  'centralDrive.electrodeFraction': { 'pt-BR': 'Posição do eletrodo', en: 'Electrode position' },
+  injectionSite: { 'pt-BR': 'Local de injeção', en: 'Injection site' },
+  somaGeometry: { 'pt-BR': 'Geometria do soma', en: 'Soma geometry' },
+  dendriteGeometry: { 'pt-BR': 'Geometria do dendrito', en: 'Dendrite geometry' },
+  temperatureCelsius: { 'pt-BR': 'Temperatura', en: 'Temperature' },
+  axonLengthPercent: { 'pt-BR': 'Comprimento do axônio', en: 'Axon length' },
+  muscle: { 'pt-BR': 'Músculo', en: 'Muscle' },
+  manualUnits: { 'pt-BR': 'Contagens manuais', en: 'Manual counts' },
+  'unitsPerType.S': { 'pt-BR': 'Unidades S', en: 'S units' },
+  'unitsPerType.FR': { 'pt-BR': 'Unidades FR', en: 'FR units' },
+  'unitsPerType.FF': { 'pt-BR': 'Unidades FF', en: 'FF units' },
+  calibrationTarget: { 'pt-BR': 'Calibração do twitch', en: 'Twitch calibration' },
+  condition: { 'pt-BR': 'Condição', en: 'Condition' },
 };
 
-const VALUE_LABELS: Readonly<Record<string, string>> = {
-  true: 'ligado',
-  false: 'desligado',
-  WHOLE_MUSCLE: 'músculo inteiro',
-  SINGLE_UNIT: 'unidade isolada',
-  PUBLISHED: 'nA publicados',
-  RHEOBASE: 'pela reobase',
-  CISI_KOHN_2008: 'Cisi & Kohn 2008',
-  WATANABE_2013: 'Watanabe 2013',
-  SOMA: 'soma',
-  DENDRITE: 'dendrito',
-  CYLINDRICAL: 'cilíndrica',
-  SPHERICAL: 'esférica',
-  NORMAL: 'Normal',
-  PARKINSON: 'Doença de Parkinson',
-  SCI_CHRONIC: 'Lesão medular crônica',
+const VALUE_LABELS: Readonly<Record<string, Localized>> = {
+  true: { 'pt-BR': 'ligado', en: 'on' },
+  false: { 'pt-BR': 'desligado', en: 'off' },
+  WHOLE_MUSCLE: { 'pt-BR': 'músculo inteiro', en: 'whole muscle' },
+  SINGLE_UNIT: { 'pt-BR': 'unidade isolada', en: 'single unit' },
+  PUBLISHED: { 'pt-BR': 'nA publicados', en: 'published nA' },
+  RHEOBASE: { 'pt-BR': 'pela reobase', en: 'by rheobase' },
+  CISI_KOHN_2008: { 'pt-BR': 'Cisi & Kohn 2008', en: 'Cisi & Kohn 2008' },
+  WATANABE_2013: { 'pt-BR': 'Watanabe 2013', en: 'Watanabe 2013' },
+  SOMA: { 'pt-BR': 'soma', en: 'soma' },
+  DENDRITE: { 'pt-BR': 'dendrito', en: 'dendrite' },
+  CYLINDRICAL: { 'pt-BR': 'cilíndrica', en: 'cylindrical' },
+  SPHERICAL: { 'pt-BR': 'esférica', en: 'spherical' },
+  NORMAL: { 'pt-BR': 'Normal', en: 'Normal' },
+  PARKINSON: { 'pt-BR': 'Doença de Parkinson', en: 'Parkinson\'s disease' },
+  SCI_CHRONIC: { 'pt-BR': 'Lesão medular crônica', en: 'Chronic spinal cord injury' },
 };
+
+const label = (t: Localized | undefined): string | undefined => (t ? tr(t) : undefined);
 
 export interface PhysiologyChange {
   stage: StageId;
@@ -101,20 +105,20 @@ export function changedStage(
   const removed = a.filter((x) => !b.includes(x));
   if (before.condition === after.condition && added.length + removed.length > 0) {
     const id = (added[0] ?? removed[0])!;
-    return { stage: ADJUSTMENT_STAGES[id] ?? '8b', change: `${adjustmentLabel(id)}: ${added.length ? 'ligado' : 'desligado'}` };
+    return { stage: ADJUSTMENT_STAGES[id] ?? '8b', change: `${adjustmentLabel(id)}: ${tr(added.length ? VALUE_LABELS.true! : VALUE_LABELS.false!)}` };
   }
   if (before.condition !== after.condition) {
     const first = added[0];
     return {
       stage: first ? (ADJUSTMENT_STAGES[first] ?? '8b') : '8b',
-      change: `Condição: ${VALUE_LABELS[after.condition] ?? after.condition}`,
+      change: `${tr(FIELD_LABELS.condition!)}: ${label(VALUE_LABELS[after.condition]) ?? after.condition}`,
     };
   }
   for (const key of Object.keys(FIELD_STAGES)) {
     const v = after[key as keyof FormValues];
     if (before[key as keyof FormValues] !== v) {
       const text = String(v);
-      return { stage: FIELD_STAGES[key]!, change: `${FIELD_LABELS[key] ?? key}: ${VALUE_LABELS[text] ?? text.replace('.', ',')}` };
+      return { stage: FIELD_STAGES[key]!, change: `${label(FIELD_LABELS[key]) ?? key}: ${label(VALUE_LABELS[text]) ?? text.replace('.', decimalSeparator())}` };
     }
   }
   return null;

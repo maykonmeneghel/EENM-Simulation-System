@@ -5,6 +5,7 @@ import { FatigueBuffer } from './fatigue';
 import { SeriesBuffer } from './seriesBuffer';
 import type { SessionAction, SessionError, SessionState } from './session';
 import { initialSessionState, sessionReducer } from './session';
+import { tr } from '../i18n/locale';
 
 type Listener = () => void;
 
@@ -126,7 +127,7 @@ export function toSessionError(err: unknown): SessionError {
   const message = err instanceof Error ? err.message : String(err);
   return {
     kind: 'network',
-    message: `Falha de comunicação com a API: ${message}`,
+    message: `${tr({ 'pt-BR': 'Falha de comunicação com a API', en: 'Communication with the API failed' })}: ${message}`,
     fieldErrors: [],
   };
 }

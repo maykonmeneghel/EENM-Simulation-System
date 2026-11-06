@@ -4,6 +4,7 @@ import static org.mockito.Mockito.when;
 
 import com.meneghel.eenm.simulationapi.application.port.EngineUnavailableException;
 import com.meneghel.eenm.simulationapi.application.port.SimulationEngine;
+import com.meneghel.eenm.simulationapi.domain.language.Language;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -28,7 +29,7 @@ class ConditionControllerTest {
 
     @Test
     void relaysTheEngineCatalogVerbatim() {
-        when(engine.conditionCatalogJson()).thenReturn(Mono.just(CATALOG));
+        when(engine.conditionCatalogJson(Language.PT_BR)).thenReturn(Mono.just(CATALOG));
 
         client.get().uri("/api/v1/conditions").exchange()
                 .expectStatus().isOk()
@@ -38,10 +39,27 @@ class ConditionControllerTest {
 
     @Test
     void unreachableEngineIsBadGateway() {
-        when(engine.conditionCatalogJson()).thenReturn(Mono.error(new EngineUnavailableException("connection refused")));
+        when(engine.conditionCatalogJson(Language.PT_BR)).thenReturn(Mono.error(new EngineUnavailableException("connection refused")));
 
         client.get().uri("/api/v1/conditions").exchange()
                 .expectStatus().isEqualTo(502)
                 .expectHeader().contentType(MediaType.APPLICATION_PROBLEM_JSON);
+    }
+
+    @Test
+    void forwardsTheRequestedLanguage() {
+        when(engine.conditionCatalogJson(Language.EN)).thenReturn(Mono.just("[]"));
+
+        client.get().uri("/api/v1/conditions?lang=en").exchange().expectStatus().isOk().expectBody().json("[]", true);
+    }
+
+    @Test
+    void unsupportedLanguageIsABadRequestProblem() {
+        client.get().uri("/api/v1/conditions?lang=fr").exchange()
+                .expectStatus().isBadRequest()
+                .expectHeader().contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .expectBody()
+                .jsonPath("$.errors[0].field").isEqualTo("lang")
+                .jsonPath("$.errors[0].message").isEqualTo("must be pt-BR or en");
     }
 }

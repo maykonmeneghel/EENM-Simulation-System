@@ -8,9 +8,11 @@ export interface ChartSource {
 import type { ChartTheme } from './theme';
 import { InfoIcon } from './InfoIcon';
 import type { ZoomSync } from './zoomSync';
+import { fmtNumber, tr } from '../i18n/locale';
+import { useLocale } from '../i18n/useLocale';
 
 const LONG_RUN_MS = 2_000;
-const formatTick = (v: number) => v.toLocaleString('pt-BR', { maximumFractionDigits: 3 });
+const formatTick = (v: number) => fmtNumber(v, { maximumFractionDigits: 3 });
 
 export interface LiveSeriesSpec {
   key: string;
@@ -80,6 +82,11 @@ export function LiveChart({
   const yRangeRef = useRef(yRange);
   /** Amplitude zoom of this chart only; cleared when the shared zoom is reset. */
   const yZoomRef = useRef<[number, number] | null>(null);
+  const locale = useLocale();
+  // series labels follow the locale: the chart is recreated when it changes (below)
+  useEffect(() => {
+    specRef.current = series;
+  });
 
   // Create / destroy.
   useEffect(() => {
@@ -123,7 +130,7 @@ export function LiveChart({
       },
       axes: [
         {
-          label: 'tempo',
+          label: tr({ 'pt-BR': 'tempo', en: 'time' }),
           font: fonts.ticks,
           labelFont: fonts.label,
           space: 72,
@@ -215,7 +222,7 @@ export function LiveChart({
       plot.destroy();
       plotRef.current = null;
     };
-  }, [buffer, height, yLabel, stepped, theme, zoom]);
+  }, [buffer, height, yLabel, stepped, theme, zoom, locale]);
 
   // Push new data (also on new run, which resets to an empty buffer).
   useEffect(() => {
@@ -234,7 +241,7 @@ export function LiveChart({
     <figure className="chart">
       <figcaption>
         {onInspect ? (
-          <button type="button" className="caption-button" onClick={onInspect} aria-label={`${title} — ver explicação`}>
+          <button type="button" className="caption-button" onClick={onInspect} aria-label={`${title} — ${tr({ 'pt-BR': 'ver explicação', en: 'see explanation' })}`}>
             <span>{title}</span>
             <InfoIcon />
           </button>

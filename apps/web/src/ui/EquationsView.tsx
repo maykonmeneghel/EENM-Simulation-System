@@ -7,6 +7,10 @@ import { REFERENCES, scholarUrl, sourceUrl } from '../domain/references';
 import { STAGE_EXPLANATIONS } from './stageExplanations';
 import { buildStageContents } from './stageTex';
 import { Tex } from './Tex';
+import { tr } from '../i18n/locale';
+import { useLocale } from '../i18n/useLocale';
+
+const L = (pt: string, en: string): string => tr({ 'pt-BR': pt, en });
 
 export interface StageFocus {
   stage: StageId;
@@ -30,7 +34,10 @@ export function EquationsView({
   /** Clicking a stage card opens its explanation and sources in the right sidebar. */
   onInspect?(topic: InspectorTopic): void;
 }) {
-  const stages = useMemo(() => buildStageContents(snapshot), [snapshot]);
+  const locale = useLocale();
+  // the texts read the locale when built, so a new locale rebuilds them
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stages = useMemo(() => buildStageContents(snapshot), [snapshot, locale]);
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -49,8 +56,11 @@ export function EquationsView({
   return (
     <div className="equations" ref={rootRef}>
       <p className="muted equations-intro">
-        Modelo {snapshot.variant === 'ORIGINAL' ? 'original (MATLAB fiel)' : 'corrigido pela literatura'} — etapas{' '}
-        {snapshot.stages.join(', ')} de <code>docs/model-equations.md</code>. Os valores abaixo acompanham o formulário.
+        {snapshot.variant === 'ORIGINAL'
+          ? L('Modelo original (MATLAB fiel)', 'Original model (faithful to the MATLAB code)')
+          : L('Modelo corrigido pela literatura', 'Model corrected by the literature')}{' '}
+        — {L('etapas', 'stages')} {snapshot.stages.join(', ')} {L('de', 'of')} <code>docs/model-equations.md</code>.{' '}
+        {L('Os valores abaixo acompanham o formulário.', 'The values below follow the form.')}
       </p>
       {stages.map((st) => (
         <article
@@ -78,7 +88,7 @@ export function EquationsView({
               <button
                 type="button"
                 className="icon-button"
-                aria-label={`Etapa ${st.id} — ver explicação`}
+                aria-label={L(`Etapa ${st.id} — ver explicação`, `Stage ${st.id} — show explanation`)}
                 onClick={() => onInspect({ kind: 'stage', stage: st.id })}
               >
                 <InfoIcon />
@@ -86,7 +96,7 @@ export function EquationsView({
             ) : null}
           </header>
           <p className="stage-plain">
-            <span className="stage-label">Em palavras</span>
+            <span className="stage-label">{L('Em palavras', 'In words')}</span>
             {STAGE_EXPLANATIONS[st.id].plain}
           </p>
           <div className="stage-math stage-math--symbolic">
@@ -94,15 +104,15 @@ export function EquationsView({
               <Tex key={i} tex={t} display />
             ))}
           </div>
-          <div className="stage-math stage-math--values" aria-label="Com os valores atuais">
-            <span className="stage-label">Com os valores atuais</span>
+          <div className="stage-math stage-math--values" aria-label={L('Com os valores atuais', 'With the current values')}>
+            <span className="stage-label">{L('Com os valores atuais', 'With the current values')}</span>
             {st.substituted.map((t, i) => (
               <Tex key={i} tex={t} display />
             ))}
           </div>
           {st.condition ? (
             <div className="stage-condition" role="note">
-              <span className="stage-label">Efeito da condição</span>
+              <span className="stage-label">{L('Efeito da condição', 'Effect of the condition')}</span>
               {st.condition.map((t) => (
                 <p key={t}>{t}</p>
               ))}
@@ -132,8 +142,8 @@ function StageSources({ id }: { id: StageId }) {
   const ex = STAGE_EXPLANATIONS[id];
   if (ex.refs.length === 0 && !ex.inherited) return null;
   return (
-    <footer className="stage-sources" aria-label="Fontes">
-      <span className="stage-label">Fontes</span>
+    <footer className="stage-sources" aria-label={L('Fontes', 'Sources')}>
+      <span className="stage-label">{L('Fontes', 'Sources')}</span>
       {ex.refs.length > 0 ? (
         <ol className="stage-refs">
           {ex.refs.map(({ id: refId, supports }) => {
@@ -156,7 +166,7 @@ function StageSources({ id }: { id: StageId }) {
           })}
         </ol>
       ) : null}
-      {ex.inherited ? <p className="stage-inherited">Do modelo original, sem fonte publicada: {ex.inherited}</p> : null}
+      {ex.inherited ? <p className="stage-inherited">{L('Do modelo original, sem fonte publicada:', 'From the original model, with no published source:')} {ex.inherited}</p> : null}
     </footer>
   );
 }

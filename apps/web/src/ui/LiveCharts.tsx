@@ -7,16 +7,17 @@ import type { LiveSeriesSpec } from './LiveChart';
 import { LiveChart } from './LiveChart';
 import { CHART_THEMES, useColorScheme } from './theme';
 import type { ZoomSync } from './zoomSync';
+import { tr } from '../i18n/locale';
 
 
-const FORCE: LiveSeriesSpec[] = [
+const force = (): LiveSeriesSpec[] => [
   { key: 'total', label: 'Total', color: 'blue', width: 2 },
   { key: 'S', label: 'S', color: 'orange' },
   { key: 'FR', label: 'FR', color: 'aqua' },
   { key: 'FF', label: 'FF', color: 'yellow' },
 ];
-const STIMULUS: LiveSeriesSpec[] = [{ key: 'stimulus', label: 'Corrente', color: 'blue' }];
-const EMG: LiveSeriesSpec[] = [{ key: 'emg', label: 'MUAP médio', color: 'blue' }];
+const stimulus = (): LiveSeriesSpec[] => [{ key: 'stimulus', label: tr({ 'pt-BR': 'Corrente', en: 'Current' }), color: 'blue' }];
+const emg = (): LiveSeriesSpec[] => [{ key: 'emg', label: tr({ 'pt-BR': 'MUAP médio', en: 'Mean MUAP' }), color: 'blue' }];
 
 export function LiveCharts({
   state,
@@ -47,19 +48,32 @@ export function LiveCharts({
         key={maxForce ? 'percent' : 'model-units'}
         title={
           maxForce
-            ? 'Força muscular — % da força máxima do músculo saudável (total e por tipo de unidade motora)'
-            : 'Força muscular (total e por tipo de unidade motora)'
+            ? tr({
+                'pt-BR': 'Força muscular — % da força máxima do músculo saudável (total e por tipo de unidade motora)',
+                en: 'Muscle force — % of the maximum force of the healthy muscle (total and per motor unit type)',
+              })
+            : tr({ 'pt-BR': 'Força muscular (total e por tipo de unidade motora)', en: 'Muscle force (total and per motor unit type)' })
         }
-        yLabel={maxForce ? 'força (% da máxima)' : 'força (unidades do modelo)'}
-        series={FORCE}
+        yLabel={
+          maxForce
+            ? tr({ 'pt-BR': 'força (% da máxima)', en: 'force (% of maximum)' })
+            : tr({ 'pt-BR': 'força (unidades do modelo)', en: 'force (model units)' })
+        }
+        series={force()}
         height={280}
         {...common}
         {...(forceSource ? { buffer: forceSource } : {})}
         {...(maxForce ? { yRange: [0, 105] as [number, number] } : {})}
         {...inspect('force')}
       />
-      <LiveChart title="Corrente de estímulo" yLabel="µA/cm²" series={STIMULUS} stepped {...common} {...inspect('stimulus')} />
-      <LiveChart title="EMG — potencial de ação médio das unidades motoras" yLabel="EMG (unidades do modelo)" series={EMG} {...common} {...inspect('emg')} />
+      <LiveChart title={tr({ 'pt-BR': 'Corrente de estímulo', en: 'Stimulus current' })} yLabel="µA/cm²" series={stimulus()} stepped {...common} {...inspect('stimulus')} />
+      <LiveChart
+        title={tr({ 'pt-BR': 'EMG — potencial de ação médio das unidades motoras', en: 'EMG — mean motor unit action potential' })}
+        yLabel={tr({ 'pt-BR': 'EMG (unidades do modelo)', en: 'EMG (model units)' })}
+        series={emg()}
+        {...common}
+        {...inspect('emg')}
+      />
     </div>
   );
 }

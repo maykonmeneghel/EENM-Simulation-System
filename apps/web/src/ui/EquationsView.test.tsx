@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { defaultFormValues } from '../application/formModel';
 import { buildModelSnapshot } from '../application/modelView';
 import { defaultRequest } from '../domain/defaults';
@@ -8,6 +8,9 @@ import type { MusclePreset } from '../domain/simulation';
 import { DiagramView } from './DiagramView';
 import { EquationsView } from './EquationsView';
 import { buildStageContents, texNum } from './stageTex';
+import { STAGE_EXPLANATIONS, STAGE_TITLES } from './stageExplanations';
+import { setLocale } from '../i18n/locale';
+import type { FormValues } from '../application/formModel';
 
 const soleus: MusclePreset = { id: 'SOLEUS', label: 'Sóleo', poolSize: { S: 800, FR: 50, FF: 50 } };
 const stageIds = (container: HTMLElement) =>
@@ -130,5 +133,77 @@ describe('DiagramView', () => {
     expect(scholar.some((h) => h?.startsWith('https://scholar.google.com/scholar?q=%22A%20motor%20unit-based'))).toBe(true);
     const muap = document.querySelector('[data-stage="4"]') as HTMLElement;
     expect(muap).toHaveTextContent('Do modelo original, sem fonte publicada');
+  });
+});
+
+describe('equations in English', () => {
+  afterEach(() => setLocale('pt-BR'));
+
+  const PORTUGUESE = /[ãõçáéíóúâêôàÃÕÇÁÉÍÓÚÂÊÔ]|\b(de|da|dos|das|com|para|não|em|unidades|quando|caso)\b/;
+  const lit = defaultFormValues();
+  const configurations: FormValues[] = [
+    lit,
+    { ...defaultFormValues('ORIGINAL') },
+    { ...defaultFormValues('ORIGINAL'), 'stimulus.modulation.target': 'FREQUENCY' },
+    { ...defaultFormValues('ORIGINAL'), 'stimulus.waveform': 'MONOPHASIC', trainsEnabled: true, 'stimulus.trainOnMs': '330', 'stimulus.trainOffMs': '670' },
+    { ...lit, trainsEnabled: true, 'stimulus.trainOnMs': '330', 'stimulus.trainOffMs': '670', 'stimulus.amplitude': '70' },
+    { ...lit, 'stimulus.amplitude': '10', 'stimulus.waveform': 'MONOPHASIC' },
+    { ...lit, stimulationSite: 'MOTONEURON_POOL' },
+    { ...lit, driveEnabled: true },
+    { ...lit, driveEnabled: true, stimulationSite: 'MOTONEURON_POOL', 'centralDrive.thresholdRule': 'WATANABE_2013', 'centralDrive.currentScale': 'RHEOBASE' },
+    { ...lit, condition: 'PARKINSON', conditionAdjustments: ['PD_MOTOR_UNIT_LOSS', 'PD_NEUROPATHY', 'PD_TREMOR'] },
+    { ...lit, condition: 'SCI_CHRONIC', conditionAdjustments: ['SCI_FATIGABILITY', 'SCI_FAST_TWITCH', 'SCI_ATROPHY', 'SCI_CHRONAXIE'] },
+    { ...lit, manualUnits: true, 'unitsPerType.S': '10', 'unitsPerType.FR': '5', 'unitsPerType.FF': '5', calibrationTarget: 'SINGLE_UNIT' },
+  ];
+
+  const texts = (values: FormValues, muscles: MusclePreset[]) =>
+    buildStageContents(buildModelSnapshot({ values, muscles })).flatMap((st) => [
+      st.title,
+      ...st.symbolic,
+      ...st.substituted,
+      ...st.notes,
+      ...(st.condition ?? []),
+      ...(st.status ? [st.status.text] : []),
+    ]);
+
+  it('every stage text of every mode has no Portuguese and uses decimal points', () => {
+    setLocale('en');
+    for (const values of configurations) {
+      for (const muscles of [[soleus], []]) {
+        for (const t of texts(values, muscles)) {
+          expect(t, t).not.toMatch(PORTUGUESE);
+          expect(t, t).not.toContain('{,}');
+          expect(t, t).not.toMatch(/\d,\d/);
+        }
+      }
+    }
+    // a value the user set shows with a point: 0.3 ms pulse, 0.459 ms in the Weiss law
+    const weiss = buildStageContents(buildModelSnapshot({ values: lit, muscles: [soleus] })).find((st) => st.id === '2b')!;
+    expect(weiss.symbolic.join(' ')).toContain('0.459');
+  });
+
+  it('the plain explanations, sources and titles are in English', () => {
+    setLocale('en');
+    for (const [id, ex] of Object.entries(STAGE_EXPLANATIONS)) {
+      for (const t of [ex.plain, ex.inherited ?? '', ...ex.refs.map((r) => r.supports), STAGE_TITLES[id as keyof typeof STAGE_TITLES]]) {
+        expect(t, t).not.toMatch(PORTUGUESE);
+      }
+    }
+    expect(STAGE_TITLES['7']).toBe('Peripheral fatigue');
+    setLocale('pt-BR');
+    expect(STAGE_TITLES['7']).toBe('Fadiga periférica');
+  });
+
+  it('the equations view switches its labels and rebuilds the equations', () => {
+    setLocale('en');
+    render(<EquationsView snapshot={buildModelSnapshot({ values: lit, muscles: [soleus] })} focus={null} onInspect={vi.fn()} />);
+    const fatigue = document.querySelector('[data-stage="7"]') as HTMLElement;
+    expect(fatigue).toHaveTextContent('In words');
+    expect(fatigue).toHaveTextContent('With the current values');
+    expect(fatigue).toHaveTextContent('Sources');
+    expect(fatigue).toHaveTextContent('Peripheral fatigue');
+    expect(screen.getByText(/Model corrected by the literature/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Stage 7 — show explanation' })).toBeInTheDocument();
+    expect(document.querySelector('[data-stage="4"]')).toHaveTextContent('From the original model, with no published source');
   });
 });

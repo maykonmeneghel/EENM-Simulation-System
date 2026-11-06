@@ -1,6 +1,7 @@
 package com.meneghel.eenm.simulationapi.application.muscle;
 
 import com.meneghel.eenm.simulationapi.application.port.SimulationEngine;
+import com.meneghel.eenm.simulationapi.domain.language.Language;
 import com.meneghel.eenm.simulationapi.domain.muscle.MusclePreset;
 import java.util.List;
 import reactor.core.publisher.Mono;
@@ -14,7 +15,7 @@ public final class ListMusclesUseCase {
         this.engine = engine;
     }
 
-    public Mono<List<MusclePreset>> list() {
-        return engine.listMuscles();
+    public Mono<List<MusclePreset>> list(Language language) {
+        return engine.listMuscles(language);
     }
 }

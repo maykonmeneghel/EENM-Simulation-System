@@ -27,6 +27,8 @@ import { ConditionPanel } from './ConditionPanel';
 import type { FieldSpec, GroupId, NumberField } from './formFields';
 import { CALIBRATION_TARGET_HELP, FIELD_GROUPS, STIMULATOR_WAVEFORMS } from './formFields';
 import { HelpButton } from './HelpButton';
+import { fmtNumber, tr } from '../i18n/locale';
+import { useLocale } from '../i18n/useLocale';
 import { MuscleSources } from './MuscleSources';
 import { SegmentedControl } from './SegmentedControl';
 import { StimulatorControls } from './StimulatorView';
@@ -70,7 +72,18 @@ const HIDDEN_WHEN_INACTIVE: ReadonlySet<FieldPath> = new Set([
   'unitsPerType.FR',
   'unitsPerType.FF',
 ]);
-const fmt = (x: number) => x.toLocaleString('pt-BR', { maximumFractionDigits: 4 });
+const fmt = (x: number) => fmtNumber(x, { maximumFractionDigits: 4 });
+
+const trainsText = (values: FormValues) =>
+  values.trainsEnabled
+    ? tr({
+        'pt-BR': `trens ${values['stimulus.trainOnMs']} / ${values['stimulus.trainOffMs']} ms`,
+        en: `trains ${values['stimulus.trainOnMs']} / ${values['stimulus.trainOffMs']} ms`,
+      })
+    : tr({ 'pt-BR': 'contínuo', en: 'continuous' });
+
+const recruitedText = (percent: number) =>
+  tr({ 'pt-BR': `≈ ${percent} % das unidades recrutadas no platô`, en: `≈ ${percent} % of the units recruited at the plateau` });
 
 export function SimulationForm({
   step,
@@ -99,6 +112,21 @@ export function SimulationForm({
     setLastServerErrors(serverErrors);
     setEdited(new Set());
   }
+  // Client messages are texts in the language of the submit: on a language change, validate again and keep the
+  // errors of the fields still shown (the notices of the last submit are dropped).
+  const locale = useLocale();
+  const [lastLocale, setLastLocale] = useState(locale);
+  if (lastLocale !== locale) {
+    setLastLocale(locale);
+    if (clientErrors.length > 0) {
+      const shown = new Set(clientErrors.map((e) => e.field));
+      const result = parseForm(values, muscles);
+      const again = result.ok ? [] : result.errors.filter((e) => shown.has(e.field));
+      setClientErrors(again);
+      onClientErrors?.(again);
+    }
+    if (notices.length > 0) setNotices([]);
+  }
 
   const { byField, general } = useMemo(
     () =>
@@ -113,6 +141,7 @@ export function SimulationForm({
   const isLiterature = values.modelVariant === 'LITERATURE';
   const stimulatorErrors = STIMULATOR_PATHS.flatMap((p) => (byField[p] ?? []).map((m) => ({ path: p, message: m })));
   const muscleOptions = muscles.map((m) => ({ value: m.id, label: m.label }));
+  const rangeTitle = (hint: string) => tr({ 'pt-BR': `Intervalo: ${hint}`, en: `Range: ${hint}` });
 
   const touch = (paths: readonly string[]) => {
     setClientErrors((errs) => errs.filter((e) => !paths.includes(e.field)));
@@ -182,7 +211,7 @@ export function SimulationForm({
           className="num-input"
           value={values[spec.path]}
           disabled={disabled}
-          title={spec.hint ? `Intervalo: ${spec.hint}` : undefined}
+          title={spec.hint ? rangeTitle(spec.hint) : undefined}
           aria-invalid={invalid || undefined}
           aria-describedby={describedBy}
           onChange={(e) => update(spec.path, e.target.value)}
@@ -221,8 +250,8 @@ export function SimulationForm({
           type="button"
           className="seed-button"
           disabled={disabled}
-          aria-label="Sortear outra semente"
-          title="Sortear outra semente"
+          aria-label={tr({ 'pt-BR': 'Sortear outra semente', en: 'Draw another seed' })}
+          title={tr({ 'pt-BR': 'Sortear outra semente', en: 'Draw another seed' })}
           onClick={() => update('seed', randomSeed())}
         >
           <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
@@ -257,21 +286,24 @@ export function SimulationForm({
       >
         <div className="row-main">
           <div className="row-label">
-            <label htmlFor={segmented ? undefined : id} id={`${id}-label`} title={hasHint ? `Intervalo: ${spec.hint}` : undefined}>
+            <label htmlFor={segmented ? undefined : id} id={`${id}-label`} title={hasHint && spec.kind === 'number' && spec.hint ? rangeTitle(spec.hint) : undefined}>
               {spec.label}
             </label>
             {spec.path === 'calibrationTarget' ? (
-              <HelpButton label="Calibração do twitch">
-                Os dados humanos verificados não podem ser atendidos ao mesmo tempo; escolha qual o modelo reproduz.
+              <HelpButton label={tr({ 'pt-BR': 'Calibração do twitch', en: 'Twitch calibration' })}>
+                {tr({
+                  'pt-BR': 'Os dados humanos verificados não podem ser atendidos ao mesmo tempo; escolha qual o modelo reproduz.',
+                  en: 'The verified human data cannot all be met at once; choose which one the model reproduces.',
+                })}
                 <br />
-                <strong>Músculo inteiro:</strong> {CALIBRATION_TARGET_HELP.WHOLE_MUSCLE}
+                <strong>{tr({ 'pt-BR': 'Músculo inteiro:', en: 'Whole muscle:' })}</strong> {CALIBRATION_TARGET_HELP.WHOLE_MUSCLE}
                 <br />
-                <strong>Unidade isolada:</strong> {CALIBRATION_TARGET_HELP.SINGLE_UNIT}
+                <strong>{tr({ 'pt-BR': 'Unidade isolada:', en: 'Single unit:' })}</strong> {CALIBRATION_TARGET_HELP.SINGLE_UNIT}
               </HelpButton>
             ) : null}
             {hasHint ? (
               <span id={`${id}-hint`} className="visually-hidden">
-                Intervalo {spec.kind === 'number' ? spec.hint : ''}
+                {tr({ 'pt-BR': 'Intervalo', en: 'Range' })} {spec.kind === 'number' ? spec.hint : ''}
               </span>
             ) : null}
           </div>
@@ -334,19 +366,30 @@ export function SimulationForm({
   const waveformLabel = STIMULATOR_WAVEFORMS.find((w) => w.value === values['stimulus.waveform'])?.label ?? '—';
   const pool = values.stimulationSite === 'MOTONEURON_POOL';
   const stimulusSummary = [
-    pool ? 'no pool de motoneurônios' : 'na pele',
+    pool ? tr({ 'pt-BR': 'no pool de motoneurônios', en: 'in the motoneuron pool' }) : tr({ 'pt-BR': 'na pele', en: 'on the skin' }),
     `${values['stimulus.frequencyHz']} Hz`,
     `${values['stimulus.pulseWidthUs']} µs`,
     waveformLabel.toLowerCase(),
     `amplitude ${values['stimulus.amplitude']}`,
-    values.trainsEnabled ? `trens ${values['stimulus.trainOnMs']} / ${values['stimulus.trainOffMs']} ms` : 'contínuo',
+    trainsText(values),
   ].join(' · ');
 
   const tremorOn = tremorActive(values);
   const driveOn = driveActive(values);
   const TREMOR_PRESETS = [
-    { hz: '4.4', label: '4,4 Hz · Dideriksen 2017', title: 'Punho, Parkinson, 4,4 ± 1,0 Hz (n = 5, texto completo)' },
-    { hz: '5.9', label: '5,9 Hz · Agapaki 2018', title: 'Repouso, acelerômetro na mão, 5,9 ± 0,8 Hz (n = 23, texto completo)' },
+    {
+      hz: '4.4',
+      label: tr({ 'pt-BR': '4,4 Hz · Dideriksen 2017', en: '4.4 Hz · Dideriksen 2017' }),
+      title: tr({ 'pt-BR': 'Punho, Parkinson, 4,4 ± 1,0 Hz (n = 5, texto completo)', en: 'Wrist, Parkinson, 4.4 ± 1.0 Hz (n = 5, full text)' }),
+    },
+    {
+      hz: '5.9',
+      label: tr({ 'pt-BR': '5,9 Hz · Agapaki 2018', en: '5.9 Hz · Agapaki 2018' }),
+      title: tr({
+        'pt-BR': 'Repouso, acelerômetro na mão, 5,9 ± 0,8 Hz (n = 23, texto completo)',
+        en: 'Rest, accelerometer on the hand, 5.9 ± 0.8 Hz (n = 23, full text)',
+      }),
+    },
   ];
 
   const groupExtras: Record<GroupId, { before?: ReactNode; after?: ReactNode }> = {
@@ -357,34 +400,51 @@ export function SimulationForm({
           <Switch
             checked={values.driveEnabled || tremorOn}
             disabled={running || tremorOn}
-            label="Ativar drive central"
+            label={tr({ 'pt-BR': 'Ativar drive central', en: 'Turn on the central drive' })}
             description={
               tremorOn
-                ? 'ligado pelo tremor de repouso (Parkinson)'
-                : 'corrente descendente nos motoneurônios (Gallego 2015)'
+                ? tr({ 'pt-BR': 'ligado pelo tremor de repouso (Parkinson)', en: 'on because of the rest tremor (Parkinson)' })
+                : tr({ 'pt-BR': 'corrente descendente nos motoneurônios (Gallego 2015)', en: 'descending current into the motoneurons (Gallego 2015)' })
             }
             onChange={(on) => setFlag('driveEnabled', on)}
           />
-          <HelpButton label="Drive central">
-            Corrente que chega aos motoneurônios vinda do sistema nervoso central: fundo + comando voluntário +
-            oscilação do tremor + ruído independente por unidade (Gallego et al. 2015, mesmo motoneurônio de dois
-            compartimentos). A oscilação só entra com a condição Parkinson e o ajuste &quot;Tremor de repouso&quot;
-            ligados. A corrente entra em motoneurônios de Cisi &amp; Kohn (2008), em nA, como no artigo. &quot;Pela
-            reobase&quot; reescala as correntes pela razão entre a nossa menor reobase e a de Gallego (4 nA). O limiar
-            segue Cisi &amp; Kohn 2008 (reobase × resistência de entrada: menor unidade 3,5 nA) ou Watanabe 2013
-            (limiar direto em mV: menor unidade 5,6 nA).
+          <HelpButton label={tr({ 'pt-BR': 'Drive central', en: 'Central drive' })}>
+            {tr({
+              'pt-BR':
+                'Corrente que chega aos motoneurônios vinda do sistema nervoso central: fundo + comando voluntário + ' +
+                'oscilação do tremor + ruído independente por unidade (Gallego et al. 2015, mesmo motoneurônio de dois ' +
+                'compartimentos). A oscilação só entra com a condição Parkinson e o ajuste "Tremor de repouso" ' +
+                'ligados. A corrente entra em motoneurônios de Cisi & Kohn (2008), em nA, como no artigo. "Pela ' +
+                'reobase" reescala as correntes pela razão entre a nossa menor reobase e a de Gallego (4 nA). O limiar ' +
+                'segue Cisi & Kohn 2008 (reobase × resistência de entrada: menor unidade 3,5 nA) ou Watanabe 2013 ' +
+                '(limiar direto em mV: menor unidade 5,6 nA).',
+              en:
+                'Current reaching the motoneurons from the central nervous system: background + voluntary command + ' +
+                'tremor oscillation + independent noise per unit (Gallego et al. 2015, the same two-compartment ' +
+                'motoneuron). The oscillation is added only with the Parkinson condition and the "Rest tremor" ' +
+                'adjustment on. The current goes into Cisi & Kohn (2008) motoneurons, in nA, as in the paper. "By ' +
+                'rheobase" rescales the currents by the ratio between our smallest rheobase and Gallego\'s (4 nA). The ' +
+                'threshold follows Cisi & Kohn 2008 (rheobase × input resistance: smallest unit 3.5 nA) or Watanabe 2013 ' +
+                '(threshold given directly in mV: smallest unit 5.6 nA).',
+            })}
           </HelpButton>
           {driveOn ? (
             <p className="inline-notice" role="note">
-              O drive vai a motoneurônios de Cisi & Kohn (2008), os do modelo de Gallego: perto do limiar disparam a
-              7–11 Hz, como as unidades em Parkinson (10,9 ± 2,9 Hz, Agapaki 2018).
+              {tr({
+                'pt-BR':
+                  'O drive vai a motoneurônios de Cisi & Kohn (2008), os do modelo de Gallego: perto do limiar disparam a ' +
+                  '7–11 Hz, como as unidades em Parkinson (10,9 ± 2,9 Hz, Agapaki 2018).',
+                en:
+                  'The drive goes into Cisi & Kohn (2008) motoneurons, those of Gallego\'s model: near threshold they fire at ' +
+                  '7–11 Hz, like the units in Parkinson (10.9 ± 2.9 Hz, Agapaki 2018).',
+              })}
             </p>
           ) : null}
         </div>
       ) : null,
       after:
         isLiterature && tremorOn ? (
-          <div className="row preset-row" role="group" aria-label="Frequência do tremor por artigo">
+          <div className="row preset-row" role="group" aria-label={tr({ 'pt-BR': 'Frequência do tremor por artigo', en: 'Tremor frequency by paper' })}>
             {TREMOR_PRESETS.map((p) => (
               <button
                 key={p.hz}
@@ -417,9 +477,9 @@ export function SimulationForm({
           <p className="stimulus-summary-text">{stimulusSummary}</p>
           <p className="stimulus-summary-recruit" aria-live="polite">
             {pool
-              ? 'recrutamento definido pelos motoneurônios (veja após simular)'
+              ? tr({ 'pt-BR': 'recrutamento definido pelos motoneurônios (veja após simular)', en: 'recruitment set by the motoneurons (see after simulating)' })
               : recruitment
-              ? `≈ ${Math.round((recruitment.status === 'none' ? 0 : recruitment.fraction) * 100)} % das unidades recrutadas no platô`
+              ? recruitedText(Math.round((recruitment.status === 'none' ? 0 : recruitment.fraction) * 100))
               : '—'}
           </p>
           {stimulatorErrors.length > 0 ? (
@@ -432,7 +492,7 @@ export function SimulationForm({
             </ul>
           ) : null}
           <button type="button" className="btn btn--small" onClick={onOpenStimulator} disabled={!onOpenStimulator}>
-            Abrir estimulador
+            {tr({ 'pt-BR': 'Abrir estimulador', en: 'Open stimulator' })}
           </button>
         </div>
       ),
@@ -443,13 +503,21 @@ export function SimulationForm({
         <div className="row">
           {toggle(
             'manualUnits',
-            'Definir contagens manualmente',
-            values.manualUnits ? undefined : `automático (${LITERATURE_AUTO_UNITS} unidades na proporção do músculo)`,
+            tr({ 'pt-BR': 'Definir contagens manualmente', en: 'Set counts manually' }),
+            values.manualUnits
+              ? undefined
+              : tr({
+                  'pt-BR': `automático (${LITERATURE_AUTO_UNITS} unidades na proporção do músculo)`,
+                  en: `automatic (${LITERATURE_AUTO_UNITS} units in the muscle's proportions)`,
+                }),
           )}
           {!values.manualUnits ? (
             <div className="row-main readonly-row" aria-live="polite">
-              <span className="row-label">Unidades simuladas</span>
-              <span className="readonly-value" title="Informado pelo servidor na última simulação deste músculo">
+              <span className="row-label">{tr({ 'pt-BR': 'Unidades simuladas', en: 'Simulated units' })}</span>
+              <span
+                className="readonly-value"
+                title={tr({ 'pt-BR': 'Informado pelo servidor na última simulação deste músculo', en: 'Reported by the server in the last run of this muscle' })}
+              >
                 {autoUnitCounts ? `S ${autoUnitCounts.S} · FR ${autoUnitCounts.FR} · FF ${autoUnitCounts.FF}` : '—'}
               </span>
             </div>
@@ -467,15 +535,15 @@ export function SimulationForm({
       after: advice ? (
         <div className="row">
           <div className="inline-notice" role="status">
-            ≈ {advice.points.toLocaleString('pt-BR')} pontos por série.{' '}
+            {tr({ 'pt-BR': `≈ ${fmtNumber(advice.points)} pontos por série.`, en: `≈ ${fmtNumber(advice.points)} points per series.` })}{' '}
             <button
               type="button"
               className="btn btn--small"
               disabled={running}
-              title="Será ajustado automaticamente ao simular se não for alterado"
+              title={tr({ 'pt-BR': 'Será ajustado automaticamente ao simular se não for alterado', en: 'Adjusted automatically when simulating if left unchanged' })}
               onClick={() => update('outputStepMs', String(advice.suggestedMs))}
             >
-              Usar {fmt(advice.suggestedMs)} ms
+              {tr({ 'pt-BR': 'Usar', en: 'Use' })} {fmt(advice.suggestedMs)} ms
             </button>
           </div>
         </div>
@@ -486,7 +554,7 @@ export function SimulationForm({
   const next = step ? nextStep(step) : null;
   const allErrors = [...clientErrors, ...serverErrors];
   return (
-    <form id={SIM_FORM_ID} className="inspector-form" onSubmit={submit} noValidate aria-label="Parâmetros da simulação">
+    <form id={SIM_FORM_ID} className="inspector-form" onSubmit={submit} noValidate aria-label={tr({ 'pt-BR': 'Parâmetros da simulação', en: 'Simulation parameters' })}>
       {step === 'stimulator' ? (
         <StimulatorControls values={values} onValuesChange={setValues} errors={allErrors} running={running} />
       ) : null}
@@ -543,16 +611,16 @@ export function SimulationForm({
 
       <div className="inspector-footer">
         <button type="button" className="btn" onClick={reset} disabled={running}>
-          Restaurar padrões
+          {tr({ 'pt-BR': 'Restaurar padrões', en: 'Restore defaults' })}
         </button>
         {step && next && next.id !== 'results' && onGoToStep ? (
           <button type="button" className="btn btn--primary" onClick={() => onGoToStep(next.id)}>
-            Continuar
+            {tr({ 'pt-BR': 'Continuar', en: 'Continue' })}
           </button>
         ) : null}
         {step === 'simulation' ? (
           <button type="submit" className="btn btn--primary" disabled={running}>
-            Simular
+            {tr({ 'pt-BR': 'Simular', en: 'Simulate' })}
           </button>
         ) : null}
       </div>
@@ -572,26 +640,41 @@ function RunRecap({
 }) {
   const muscle = muscles.find((m) => m.id === values.muscle)?.label ?? values.muscle;
   const invasive = values.stimulationSite === 'MOTONEURON_POOL';
+  // the condition's name from the engine catalog when loaded (it follows the language), else a local fallback
   const conditionLabel: Record<string, string> = {
-    NORMAL: 'Normal',
-    PARKINSON: 'Doença de Parkinson',
-    SCI_CHRONIC: 'Lesão medular crônica',
+    NORMAL: tr({ 'pt-BR': 'Normal', en: 'Normal' }),
+    PARKINSON: tr({ 'pt-BR': 'Doença de Parkinson', en: "Parkinson's disease" }),
+    SCI_CHRONIC: tr({ 'pt-BR': 'Lesão medular crônica', en: 'Chronic spinal cord injury' }),
   };
   const rows: Record<Exclude<StepId, 'results'>, string[]> = {
     stimulator: [
-      invasive ? 'Invasivo (pool de motoneurônios)' : 'Não invasivo (pele)',
+      invasive
+        ? tr({ 'pt-BR': 'Invasivo (pool de motoneurônios)', en: 'Invasive (motoneuron pool)' })
+        : tr({ 'pt-BR': 'Não invasivo (pele)', en: 'Non-invasive (skin)' }),
       `${values['stimulus.frequencyHz']} Hz · ${values['stimulus.pulseWidthUs']} µs · amplitude ${values['stimulus.amplitude']}`,
-      values.trainsEnabled ? `trens ${values['stimulus.trainOnMs']} / ${values['stimulus.trainOffMs']} ms` : 'contínuo',
+      trainsText(values),
     ],
     physiology: [
       conditionLabel[values.condition] ?? values.condition,
       muscle,
-      driveActive(values) ? (tremorActive(values) ? `drive central com tremor a ${values['centralDrive.tremor.frequencyHz']} Hz` : 'drive central') : 'sem drive central',
+      driveActive(values)
+        ? tremorActive(values)
+          ? tr({
+              'pt-BR': `drive central com tremor a ${values['centralDrive.tremor.frequencyHz']} Hz`,
+              en: `central drive with tremor at ${values['centralDrive.tremor.frequencyHz']} Hz`,
+            })
+          : tr({ 'pt-BR': 'drive central', en: 'central drive' })
+        : tr({ 'pt-BR': 'sem drive central', en: 'no central drive' }),
     ],
-    simulation: [`${values['stimulus.durationMs']} ms · passo ${values['stimulus.stepMs']} ms · saída ${values.outputStepMs} ms`],
+    simulation: [
+      tr({
+        'pt-BR': `${values['stimulus.durationMs']} ms · passo ${values['stimulus.stepMs']} ms · saída ${values.outputStepMs} ms`,
+        en: `${values['stimulus.durationMs']} ms · step ${values['stimulus.stepMs']} ms · output ${values.outputStepMs} ms`,
+      }),
+    ],
   };
   return (
-    <div className="recap" aria-label="Resumo da configuração">
+    <div className="recap" aria-label={tr({ 'pt-BR': 'Resumo da configuração', en: 'Configuration summary' })}>
       {STEPS.filter((s): s is (typeof STEPS)[number] & { id: Exclude<StepId, 'results'> } => s.id !== 'results').map((s) => (
         <section key={s.id} className="recap-group">
           <header className="recap-head">
@@ -599,7 +682,7 @@ function RunRecap({
             <h3>{s.label}</h3>
             {onGoToStep ? (
               <button type="button" className="btn btn--small btn--link" onClick={() => onGoToStep(s.id)}>
-                Editar
+                {tr({ 'pt-BR': 'Editar', en: 'Edit' })}
               </button>
             ) : null}
           </header>
