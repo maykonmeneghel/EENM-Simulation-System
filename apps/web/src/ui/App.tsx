@@ -3,10 +3,12 @@ import type { FormValues } from '../application/formModel';
 import { defaultFormValues } from '../application/formModel';
 import type { InspectorTopic } from '../application/inspectorTopics';
 import { changedStage } from '../application/physiologyStages';
+import { driveActive } from '../application/formModel';
+import { stagesFor } from '../domain/modelEquations';
 import { buildModelSnapshot } from '../application/modelView';
 import type { SimulationController } from '../application/simulationController';
 import type { StageId } from '../domain/modelEquations';
-import type { FieldError, SimulationRequest } from '../domain/simulation';
+import type { FieldError, ModelVariant, SimulationRequest, StimulationSite } from '../domain/simulation';
 import type { ApiClient } from '../infrastructure/apiClient';
 import { DiagramView } from './DiagramView';
 import type { StageFocus } from './EquationsView';
@@ -88,8 +90,17 @@ export function App({ api, controller }: { api: ApiClient; controller: Simulatio
   const [seenValues, setSeenValues] = useState(values);
   if (values !== seenValues) {
     setSeenValues(values);
-    const stage = step === 'physiology' ? changedStage(seenValues, values) : null;
-    if (stage) setFocus((f) => ({ stage, nonce: (f?.nonce ?? 0) + 1, takeFocus: false }));
+    const label = (id: string) =>
+      conditionCatalog.conditions.flatMap((c) => c.adjustments).find((a) => a.id === id)?.label ?? id;
+    const found = step === 'physiology' ? changedStage(seenValues, values, label) : null;
+    if (found) {
+      // a stage that the change removes (e.g. the drive switched off) points at the stage that takes its place
+      const shown = stagesFor(values.modelVariant as ModelVariant, values.stimulationSite as StimulationSite, driveActive(values));
+      const stage = shown.includes(found.stage)
+        ? found.stage
+        : (['2c', '2a', '2b'] as const).find((s) => shown.includes(s)) ?? shown[0]!;
+      setFocus((f) => ({ stage, nonce: (f?.nonce ?? 0) + 1, takeFocus: false, change: found.change }));
+    }
   }
 
   const snapshot = useMemo(

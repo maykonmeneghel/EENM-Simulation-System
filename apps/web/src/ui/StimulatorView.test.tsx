@@ -38,8 +38,7 @@ describe('StimulatorView', () => {
   it('shows the device controls, both scopes and the recruitment meter with the defaults', () => {
     setup();
     expect(screen.getByLabelText('Frequência')).toHaveValue('40');
-    expect(screen.getByLabelText('Largura de pulso')).toHaveValue('1,2'); // % of the 25 000 µs period
-    expect(screen.getByText(/= 300 µs · % do período/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Largura de pulso')).toHaveValue('300'); // µs, absolute
     expect(screen.getByLabelText('Amplitude')).toHaveValue('153');
     expect(screen.getByRole('radio', { name: 'Bifásica simétrica' })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByRole('img', { name: /Pulso bifásico de 300 µs/ })).toBeInTheDocument();
@@ -58,7 +57,7 @@ describe('StimulatorView', () => {
     expect(partial).toBeLessThan(100);
     const pw = screen.getByLabelText('Largura de pulso');
     await user.clear(pw);
-    await user.type(pw, '2,4'); // 2,4 % of the period = 600 µs
+    await user.type(pw, '600');
     expect(Number(meter.getAttribute('aria-valuenow'))).toBeGreaterThan(partial); // longer pulse, lower threshold
     expect(request().stimulus).toMatchObject({ pulseWidthUs: 600, amplitude: 80 });
   });

@@ -16,6 +16,7 @@ import {
   pulseOutline,
   pulseRecruitment,
   stimulatorProblems,
+  stepped,
 } from '../domain/stimulator';
 import type { StimulatorControl } from './formFields';
 import {
@@ -126,7 +127,7 @@ function EnvelopeScope({ s }: { s: StimulatorSettings }) {
   const sx = scale([0, windowMs], [PAD.l, W - PAD.r]);
   const sy = scale([0, ampRange(s) * 1.15], [H - PAD.b, PAD.t]);
   const sr = scale([0, 1.15], [H - PAD.b, PAD.t]);
-  const recruitPts: Point[] = recruit.map((p) => [p.tMs, p.fraction]);
+  const recruitPts: Point[] = stepped(recruit.map((p) => [p.tMs, p.fraction]));
   const showPulses = windowMs / periodMs(s) <= 160;
   return (
     <figure className="scope" aria-label="Envelope do estímulo">
@@ -322,11 +323,9 @@ function useStimulator(values: FormValues, errors: readonly FieldError[]) {
 /** The device's controls (left sidebar, step 1): mode, dials, waveform, trains and ramps. */
 export function StimulatorControls({ values, onValuesChange: setValues, errors, running }: StimulatorViewProps) {
   const { byField, settings, plateau, plateauPct } = useStimulator(values, errors);
-  const frequency = parse(values['stimulus.frequencyHz']);
   const duration = parse(values['stimulus.durationMs']);
   const onTime = parse(values['stimulus.trainOnMs']);
   const positive = (x: number) => (Number.isFinite(x) && x > 0 ? x : null);
-  const periodUs = positive(frequency) ? 1e6 / frequency : null;
   const rampWhole = values.trainsEnabled ? positive(onTime) : positive(duration);
   const percent = (c: StimulatorControl, spec: Omit<PercentSpec, 'control'>) => (
     <PercentDial
@@ -367,7 +366,7 @@ export function StimulatorControls({ values, onValuesChange: setValues, errors, 
 
       <div className="dial-grid">
         {dial(C.frequency)}
-        {percent(C.pulseWidth, { whole: periodUs, wholeLabel: 'do período', pctMin: 0.1, pctMax: 50, pctStep: 0.1, decimals: 0 })}
+        {dial(C.pulseWidth)}
         {dial(C.amplitude)}
         <div className="dial dial--wide">
           <span className="dial-label" id="stim-waveform-label">

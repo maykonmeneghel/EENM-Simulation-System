@@ -20,6 +20,8 @@ export interface StageContent {
   substituted: string[];
   notes: string[];
   status?: StageStatus;
+  /** What the chosen condition changes in this stage (shown highlighted). */
+  condition?: string[];
 }
 
 /** Number for TeX in pt-BR (decimal comma as `{,}`); NaN → em dash. */
@@ -186,6 +188,14 @@ function stage2c(s: ModelSnapshot): StageContent {
         ? 'V_{th} = I_{rh} \\cdot R_{in},\\quad I_{rh} = 3{,}5 \\to 6{,}5\\ (S),\\ 6{,}5 \\to 17{,}5\\ (FR),\\ 17{,}5 \\to 25{,}1\\ (FF)\\ \\text{nA}'
         : 'V_{th} = 12{,}35 \\to 16{,}45\\ (S),\\ 16{,}45 \\to 19{,}30\\ (FR),\\ 19{,}30 \\to 20{,}90\\ (FF)\\ \\text{mV}',
       drive,
+      ...(d
+        ? [
+            `\\eta_k:\\ \\text{ruído independente por unidade}, < 100\\ \\text{Hz},\\quad \\sigma = ${texNum(d.noiseCv, 2)} \\times ${texNum((d.backgroundNa + d.voluntaryNa) * factor, 3)}\\ \\text{nA}`,
+          ]
+        : []),
+      ...(d && !d.invasive
+        ? [`\\text{eletrodo a } ${texNum(d.electrodeFraction * 100, 0)}\\,\\%\\ \\text{do caminho soma} \\to \\text{músculo (encontro dos disparos no axônio)}`]
+        : []),
       d?.invasive ? 'I(t) = I_{drive}(t) + I_{FES}(t) \\cdot C_s \\quad (\\mu A/cm^2 \\to nA)' : 'I(t) = I_{drive}(t)\\quad (\\text{o FES age no axônio})',
     ],
     notes: [
@@ -201,7 +211,8 @@ function stage2c(s: ModelSnapshot): StageContent {
 function stage2b(s: ModelSnapshot): StageContent {
   const st = s.stimulus;
   const r = s.recruitment;
-  const sd = 1 + CONSTANTS.tauSdMs / st.pwMs;
+  const tau = s.condition.effects.tauSdMs;
+  const sd = 1 + tau / st.pwMs;
   let status: StageStatus | undefined;
   if (r) {
     const lo = txtNum(r.thresholdMin, 1);
@@ -227,7 +238,12 @@ function stage2b(s: ModelSnapshot): StageContent {
   if (st.modulationTarget !== 'AMPLITUDE') {
     notes.push('Com modulação de frequência ou largura de pulso, PW e o limiar variam ao longo do tempo.');
   }
+  const condition =
+    tau !== CONSTANTS.tauSdMs
+      ? [`Constante intensidade–duração menor (lesão medular, Lin 2007): τ = ${txtNum(tau, 2)} ms em vez de ${txtNum(CONSTANTS.tauSdMs, 3)} ms — muda os limiares acima.`]
+      : undefined;
   return {
+    ...(condition ? { condition } : {}),
     id: '2b',
     title: 'Axônio motor (Weiss)',
     source: 'domain/axon_stimulation.py',
@@ -328,9 +344,17 @@ function stage5(s: ModelSnapshot): StageContent {
     };
   }
   const fit = twitchCalibration(s.calibrationTarget, s.muscle);
-  const k = fit.timeScale;
+  const fast = s.condition.effects.twitchTimeFactor;
+  const k = fit.timeScale * fast;
   const m = fit.m;
   return {
+    ...(fast !== 1
+      ? {
+          condition: [
+            `Abalo mais rápido (lesão medular, Scott 2006): tempo de contração × ${txtNum(fast, 2)} (T_k ← ${txtNum(fit.timeScale, 4)} × ${txtNum(fast, 2)} = ${txtNum(k, 4)} × MTTP) e meia-relaxação × 0,62 (m recalculado no motor).`,
+          ],
+        }
+      : {}),
     id: '5b',
     title: 'Twitch generalizado',
     source: 'domain/twitch.py',
@@ -370,6 +394,13 @@ function stage6(s: ModelSnapshot): StageContent {
 
 function stage7(s: ModelSnapshot): StageContent {
   return {
+    ...(s.condition.effects.fastShift
+      ? {
+          condition: [
+            `Fadigabilidade lenta → rápida (lesão medular, Chang & Shields 2011): o expoente de cada unidade anda ${txtNum(s.condition.effects.fastShift * 100, 1)} % do caminho até o da unidade mais fatigável — f_k ← f_k + ${txtNum(s.condition.effects.fastShift, 3)}·(1 − f_k).`,
+          ],
+        }
+      : {}),
     id: '7',
     title: 'Fadiga periférica',
     source: 'domain/fatigue.py (Potvin & Fuglevand 2017, Eqs 9–11, 14)',
@@ -378,6 +409,9 @@ function stage7(s: ModelSnapshot): StageContent {
     ],
     substituted: [
       `FAT_k = 0{,}0125\\cdot 180^{\\frac{\\ln(P_k/${texNum(s.poolMt.min, 3)})}{\\ln(${texNum(s.poolMt.max, 3)}/${texNum(s.poolMt.min, 3)})}}\\ \\%/\\text{s}`,
+      ...(s.condition.effects.fastShift
+        ? [`FAT_k = 0{,}0125\\cdot 180^{\\,f_k + ${texNum(s.condition.effects.fastShift, 3)}(1 - f_k)}, \\quad f_k = \\frac{\\ln(P_k/P_{\\min})}{\\ln(P_{\\max}/P_{\\min})}`]
+        : []),
       ...perType(s, (t) => `P_k = ${texSpan(s.typeSpans[t].mt, 4)} \\;\\Rightarrow\\; FAT_k = ${texSpan(s.typeSpans[t].fatigue, 3)}\\ \\%/\\text{s}`),
       `t \\in [0,\\ ${texNum(s.stimulus.durationMs / 1000, 3)}]\\ \\text{s}, \\qquad NR < 0{,}25 \\iff T_k < ${texNum(s.rate.pauseTkMs, 2)}\\ \\text{ms}\\ \\text{(pausa)}`,
     ],
@@ -426,7 +460,25 @@ function stage8(s: ModelSnapshot): StageContent {
     );
     notes.push('Automático: 120 unidades na proporção do músculo; os pesos aparecem após a primeira simulação.');
   }
+  const eff = s.condition.effects;
+  if (eff.forceFactors.length) {
+    substituted.push(
+      `F(t) \\leftarrow s\\,F(t), \\qquad s = ${eff.forceFactors.map((f) => f.tex).join(' \\cdot ')} = ${texNum(eff.forceScale, 3)}`,
+    );
+  }
+  const FORCE_LABELS: Record<string, string> = {
+    SCI_ATROPHY: 'atrofia (Modlesky 2004)',
+    PD_MOTOR_UNIT_LOSS: 'perda de unidades motoras (Krenovsky 2020)',
+    PD_NEUROPATHY: 'polineuropatia (Kwon 2024)',
+  };
   return {
+    ...(eff.forceFactors.length
+      ? {
+          condition: [
+            `Força do músculo × ${txtNum(eff.forceScale, 3)}: ${eff.forceFactors.map((f) => `${FORCE_LABELS[f.id] ?? f.id} × ${txtNum(f.factor, 3)}`).join(', ')}.`,
+          ],
+        }
+      : {}),
     id: '8b',
     title: 'Força muscular (ponderada pelo pool)',
     source: 'domain/simulation.py',

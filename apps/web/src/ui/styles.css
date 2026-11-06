@@ -703,3 +703,16 @@ body { overflow: hidden; }
 .badge { display: inline-block; margin-right: 0.3rem; padding: 0 0.35rem; border-radius: 4px; font-size: var(--fs-2xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
 .badge--good { background: var(--good-bg); color: var(--success); }
 .badge--warn { background: var(--warn-bg); color: var(--warning); }
+
+/* what the sidebar just changed, on the stage it changes */
+.stage-change {
+  margin-left: auto; padding: 0.1rem 0.55rem; border-radius: 999px; font-size: var(--fs-xs); font-weight: 600;
+  color: #fff; background: var(--accent); animation: stage-change 4s var(--ease) forwards;
+}
+@keyframes stage-change { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+.stage-condition {
+  margin: 0.5rem 0; padding: 0.5rem 0.75rem; border-radius: 10px; font-size: var(--fs-sm);
+  background: var(--warn-bg); border-left: 3px solid var(--warning);
+}
+.stage-condition p { margin: 0.15rem 0 0; }
+@media (prefers-reduced-motion: reduce) { .stage-change { animation: none; } }
