@@ -283,10 +283,12 @@ class RunSimulation:
 
 
 def _force_setup(setup: MotorUnitSetup, config: SimulationConfig) -> MotorUnitSetup:
-    """The setup the force pipeline delays spikes with. In the non-invasive mode with a central drive the spikes are
-    taken where they leave the electrode, so only the electrode → muscle part of the conduction delay remains (the
-    soma → electrode part is in the axon merge)."""
-    if config.model.central_drive is None or config.model.stimulation_site is StimulationSite.MOTONEURON_SOMA:
+    """The setup the force pipeline delays spikes with. In the non-invasive mode the spikes are taken where they leave
+    the electrode, so only the electrode → muscle part of the conduction delay remains: with a central drive the
+    soma → electrode part is in the axon merge, and without one the FES spikes start at the electrode. (Until
+    2026-11-06 the FES-only mode applied the whole soma → muscle delay after the electrode: ≈ 18 ms instead of
+    ≈ 1.8 ms; e9decea had fixed the same error for the drive mode only.)"""
+    if config.model.stimulation_site is StimulationSite.MOTONEURON_SOMA:
         return setup
     fraction = config.model.electrode_fraction
     groups = {

@@ -97,7 +97,7 @@ def test_merge_events_add_up_to_the_axon_counters() -> None:
     assert started.units is not None
 
 
-def test_fes_only_fires_the_recruited_axons_and_they_reach_the_muscle_after_the_electrode_delay() -> None:
+def test_fes_only_fires_the_recruited_axons_and_they_reach_the_muscle_after_the_electrode_to_muscle_delay() -> None:
     started, chunks = _run(_config(StimulationSite.MOTOR_AXONS, drive=False))
     sample, unit, kind, _ = _all(chunks)
     assert set(kind.tolist()) == {K.FES_FIRE, K.MUSCLE_ARRIVAL}
@@ -110,8 +110,10 @@ def test_fes_only_fires_the_recruited_axons_and_they_reach_the_muscle_after_the_
     arrival = {}
     for s, u in sorted(zip(sample[~fires], unit[~fires], strict=True), reverse=True):
         arrival[int(u)] = int(s)
-    for u, s in first.items():  # FES-only mode applies the whole soma → muscle delay after the axon fires
-        assert arrival[u] - s == conduction[u]
+    to_muscle = np.round(np.asarray(started.units.to_muscle_ms) / STEP).astype(int)
+    assert (to_muscle < conduction).all()  # the check below can tell the two delays apart
+    for u, s in first.items():  # the FES spike starts at the electrode: only the electrode → muscle delay remains
+        assert arrival[u] - s == to_muscle[u]
 
 
 def test_invasive_drive_streams_soma_spikes() -> None:
