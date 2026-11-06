@@ -196,6 +196,18 @@ units is proportional to the step (tetanus peak / step = 517.54 for the soleus).
   "axonEvents": null }
 ```
 
+`unitEvents` — only when the request has `"output": { "unitEvents": true }` (else `null`; at most 30 s of simulated
+time, longer requests are rejected with 422): the per-unit events for the 3D replay since the previous chunk, sorted
+by sample, as parallel integer arrays `{ "sample", "unit", "kind", "origin" }`. `sample` × `started.stepMs` is the
+time in ms; `unit` is the column in `started.units`; `origin` is a related sample or -1. Kinds
+(`domain/unit_events.py`): 0 `SOMA_SPIKE`, 1 `FES_FIRE`, 2 `FES_BLOCKED`, 3 `COLLISION` (origin = birth sample of the
+central spike the FES pulse annihilated), 4 `ANTIDROMIC_RESET` (origin = arrival sample at the soma),
+5 `CENTRAL_PASSED` (origin = birth sample), 6 `SOMA_COLLISION` (origin = arrival sample of the antidromic spike),
+7 `MUSCLE_ARRIVAL` (the spike as the force pipeline reads it at the muscle), 8 `CENTRAL_BLOCKED` (origin = birth
+sample). Which kinds occur depends on the mode: FES only → 1 and 7; the axon merge → all; current into the soma → 0
+(with a drive) and 7. In the merge, the counts per kind equal the final `axonEvents` (`collisions` = 3 + 6).
+`started.stepMs` is the integration step.
+
 `axonEvents` — cumulative counts of the axon merge (non-invasive mode with a central drive), else `null`:
 `{ "central", "centralTransmitted", "fesTransmitted", "collisions", "fesBlocked", "resets" }` (integers).
 All arrays in one chunk have the same length. `progress` ∈ (0, 1]. `force.total = S + FR + FF`

@@ -3,6 +3,7 @@ import type { ApiClient } from '../infrastructure/apiClient';
 import { ApiHttpError, StreamProtocolError } from '../infrastructure/apiClient';
 import { FatigueBuffer } from './fatigue';
 import { SeriesBuffer } from './seriesBuffer';
+import { UnitEventLog } from './unitEventLog';
 import type { SessionAction, SessionError, SessionState } from './session';
 import { initialSessionState, sessionReducer } from './session';
 import { tr } from '../i18n/locale';
@@ -16,6 +17,8 @@ type Listener = () => void;
 export class SimulationController {
   readonly series = new SeriesBuffer();
   readonly fatigue = new FatigueBuffer();
+  /** Per-unit events of the run, for the 3D replay (only when the request asked for them). */
+  readonly unitEvents = new UnitEventLog();
   /** Latest axon-merge counts of the run (non-invasive mode with a central drive), else null. */
   axonEvents: AxonEvents | null = null;
   private state: SessionState = initialSessionState;
@@ -48,6 +51,7 @@ export class SimulationController {
     this.abortController = abort;
     this.series.reset(estimateSamples(request));
     this.fatigue.reset();
+    this.unitEvents.reset();
     this.axonEvents = null;
     this.dispatch({ type: 'start', request });
 
@@ -62,6 +66,7 @@ export class SimulationController {
           case 'chunk': {
             const samples = this.series.append(event);
             this.fatigue.append(event);
+            this.unitEvents.append(event);
             this.axonEvents = event.axonEvents ?? null;
             this.dispatch({ type: 'chunk', progress: event.progress, samples });
             break;

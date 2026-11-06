@@ -316,6 +316,9 @@ export function App({
               <Suspense fallback={<div className="card three-empty">{tr({ 'pt-BR': 'Carregando a vista 3D…', en: 'Loading the 3D view…' })}</div>}>
                 <ThreeDView
                   run={state.run}
+                  running={running}
+                  series={controller.series}
+                  unitEvents={controller.unitEvents}
                   axonLengthPercent={state.request?.axonLengthPercent ?? Number(values.axonLengthPercent)}
                   muscleLabel={muscleLabel}
                   onUseMuscle={(id) => setValues((v) => ({ ...v, muscle: id }))}
