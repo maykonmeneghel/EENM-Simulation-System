@@ -173,6 +173,31 @@ export interface StartedEvent {
   muscle: MuscleId;
   /** Maximal force of the healthy muscle (fused 100 Hz tetanus, all units, rested); null for ORIGINAL. */
   maxForce?: number | null;
+  /** Electrode position along the axon from the soma; null when the stimulus goes into the soma. */
+  electrodeFraction?: number | null;
+  /** Per-unit geometry and conduction times, for the 3D step; older servers omit it. */
+  units?: UnitAnatomy | null;
+}
+
+/** One entry per simulated unit in every column, S then FR then FF (contract §2, `started.units`). */
+export interface UnitAnatomy {
+  motoneuron: 'BOOTH_1997' | 'CISI_KOHN_2008';
+  type: MotorUnitType[];
+  /** Position within the type in the muscle pool (0 = the smallest). */
+  poolIndex: number[];
+  /** The soma is a cylinder as long as it is wide. */
+  somaDiameterUm: number[];
+  /** The dendrite is one equivalent cylinder, not a branched tree. */
+  dendriteDiameterUm: number[];
+  dendriteLengthMm: number[];
+  conductionMs: number[];
+  /** Null when the stimulus goes into the soma (no electrode on the axon). */
+  toElectrodeMs: number[] | null;
+  toMuscleMs: number[] | null;
+  /** Pool units this simulated unit stands for. */
+  weight: number[];
+  /** Rheobase of the axon at the electrode, in the stimulus's units. */
+  axonRheobase: number[];
 }
 
 export interface ForceSeries {

@@ -613,7 +613,7 @@ export function SimulationForm({
         <button type="button" className="btn" onClick={reset} disabled={running}>
           {tr({ 'pt-BR': 'Restaurar padrões', en: 'Restore defaults' })}
         </button>
-        {step && next && next.id !== 'results' && next.id !== 'compare' && onGoToStep ? (
+        {step && next && next.id !== 'results' && next.id !== 'anatomy' && next.id !== 'compare' && onGoToStep ? (
           <button type="button" className="btn btn--primary" onClick={() => onGoToStep(next.id)}>
             {tr({ 'pt-BR': 'Continuar', en: 'Continue' })}
           </button>
@@ -646,7 +646,7 @@ function RunRecap({
     PARKINSON: tr({ 'pt-BR': 'Doença de Parkinson', en: "Parkinson's disease" }),
     SCI_CHRONIC: tr({ 'pt-BR': 'Lesão medular crônica', en: 'Chronic spinal cord injury' }),
   };
-  const rows: Record<Exclude<StepId, 'results' | 'compare'>, string[]> = {
+  const rows: Record<Exclude<StepId, 'results' | 'anatomy' | 'compare'>, string[]> = {
     stimulator: [
       invasive
         ? tr({ 'pt-BR': 'Invasivo (pool de motoneurônios)', en: 'Invasive (motoneuron pool)' })
@@ -675,7 +675,7 @@ function RunRecap({
   };
   return (
     <div className="recap" aria-label={tr({ 'pt-BR': 'Resumo da configuração', en: 'Configuration summary' })}>
-      {STEPS.filter((s): s is (typeof STEPS)[number] & { id: Exclude<StepId, 'results' | 'compare'> } => s.id !== 'results' && s.id !== 'compare').map((s) => (
+      {STEPS.filter((s): s is (typeof STEPS)[number] & { id: Exclude<StepId, 'results' | 'anatomy' | 'compare'> } => s.id !== 'results' && s.id !== 'anatomy' && s.id !== 'compare').map((s) => (
         <section key={s.id} className="recap-group">
           <header className="recap-head">
             <span className="recap-number">{s.number}</span>

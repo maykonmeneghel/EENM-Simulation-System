@@ -731,3 +731,30 @@ body { overflow: hidden; }
 .compare-table thead th { color: var(--text-2); font-weight: 500; }
 .compare-table tbody th { font-weight: 500; }
 .compare-table .saved-swatch { margin: 0 0.3rem 0 0; }
+
+/* ---- 3D step (docs/design/3d-view.md) ---- */
+.three-view { display: flex; flex-direction: column; gap: 0.5rem; height: 100%; min-height: 520px; }
+.three-toolbar { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.three-legend { margin-left: auto; display: inline-flex; gap: 0.8rem; font-size: var(--fs-sm); color: var(--text-2); }
+.three-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: -1px; }
+.three-canvas { position: relative; height: clamp(440px, calc(100vh - 260px), 1100px); border-radius: 10px; overflow: hidden; background: #14161a; }
+.three-canvas canvas { display: block; }
+.three-scale {
+  position: absolute; left: 14px; bottom: 12px; color: #f5f5f7; font-size: var(--fs-xs);
+  display: flex; flex-direction: column; gap: 3px; pointer-events: none;
+}
+.three-scale span { display: block; height: 4px; border: 1px solid #f5f5f7; border-top: 0; }
+.three-info { position: absolute; right: 12px; top: 12px; max-width: 300px; font-size: var(--fs-sm); padding: 0.7rem 0.8rem; }
+.three-info h4 { margin: 0 0 0.4rem; font-size: var(--fs-md); }
+.three-info dl { margin: 0; display: grid; gap: 0.15rem; }
+.three-info dt { color: var(--text-2); font-size: var(--fs-xs); margin-top: 0.25rem; }
+.three-info dd { margin: 0; }
+.three-info em { font-style: normal; font-size: var(--fs-2xs); color: var(--text-3); margin-left: 0.3rem; }
+.three-label {
+  color: #f5f5f7; font-size: var(--fs-xs); white-space: nowrap; pointer-events: none;
+  background: rgba(20, 22, 26, 0.6); padding: 1px 6px; border-radius: 4px;
+}
+.three-label--gap { border: 1px dashed rgba(245, 245, 247, 0.5); }
+.three-notes, .three-credit { margin: 0; font-size: var(--fs-xs); }
+.three-empty { display: flex; flex-direction: column; align-items: flex-start; gap: 0.6rem; }
+.three-label--hidden { visibility: hidden; }

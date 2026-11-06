@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormValues } from '../application/formModel';
 import { defaultFormValues, toFormValues } from '../application/formModel';
 import { SavedSimulations } from '../application/savedSimulations';
@@ -28,6 +28,8 @@ import { SegmentedControl } from './SegmentedControl';
 import type { Locale } from '../i18n/locale';
 import { APP_NAME, setLocale, tr } from '../i18n/locale';
 import { useLocale } from '../i18n/useLocale';
+
+const ThreeDView = lazy(() => import('./three/ThreeDView'));
 
 const LANGUAGE_OPTIONS = [
   { value: 'pt-BR' as const, label: 'PT' },
@@ -310,6 +312,15 @@ export function App({
               <EquationsView snapshot={snapshot} focus={focus} onInspect={inspect} />
             ) : step === 'simulation' ? (
               <DiagramView snapshot={snapshot} running={running} onSelectStage={inspectStage} />
+            ) : step === 'anatomy' ? (
+              <Suspense fallback={<div className="card three-empty">{tr({ 'pt-BR': 'Carregando a vista 3D…', en: 'Loading the 3D view…' })}</div>}>
+                <ThreeDView
+                  run={state.run}
+                  axonLengthPercent={state.request?.axonLengthPercent ?? Number(values.axonLengthPercent)}
+                  muscleLabel={muscleLabel}
+                  onUseMuscle={(id) => setValues((v) => ({ ...v, muscle: id }))}
+                />
+              </Suspense>
             ) : step === 'compare' ? (
               <CompareView saved={saved} muscleLabel={muscleLabel} />
             ) : (

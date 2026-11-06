@@ -159,8 +159,25 @@ object's `type` as the SSE `event:` name and the whole object as `data:`.
 ### `started` (exactly once, first)
 ```json
 { "type": "started", "simulationId": "6f1c…", "durationMs": 1000, "outputStepMs": 0.1,
-  "motorUnits": { "S": 5, "FR": 2, "FF": 2 }, "muscle": "SOLEUS", "maxForce": 5.1754 }
+  "motorUnits": { "S": 5, "FR": 2, "FF": 2 }, "muscle": "SOLEUS", "maxForce": 5.1754,
+  "electrodeFraction": 0.9,
+  "units": { "motoneuron": "BOOTH_1997", "type": ["S", "S", …], "poolIndex": [0, 89, …],
+             "somaDiameterUm": [77.5, …], "dendriteDiameterUm": [41.5, …], "dendriteLengthMm": [5.5, …],
+             "conductionMs": [18.18, …], "toElectrodeMs": [16.36, …], "toMuscleMs": [1.82, …],
+             "weight": [7.55, …], "axonRheobase": [30.1, …] } }
 ```
+
+`electrodeFraction` — electrode position along the motor axon from the soma; `null` when the stimulus goes into the
+soma (`stimulationSite = MOTONEURON_POOL`).
+
+`units` — what each simulated unit looks like, for the 3D step (`domain/unit_anatomy.py`, docs/design/3d-view.md §4):
+column arrays with one entry per simulated unit, S then FR then FF (the column order of the engine). `motoneuron` is
+the model that ran (`CISI_KOHN_2008` with a central drive, else `BOOTH_1997`) and the geometry is that model's: soma
+diameter (= its length; µm), the dendrite's equivalent cylinder (µm × mm), `poolIndex` the unit's position within its
+type in the muscle pool. `conductionMs` is the soma → muscle delay the run applies; `toElectrodeMs` / `toMuscleMs` its
+two parts at the electrode (`null` without an electrode on the axon). `weight` = pool units the simulated unit stands
+for (1 without pool representation); `axonRheobase` in the stimulus's units. Sent on every run (≈ 10 kB for 120
+units); clients older than the field ignore it.
 
 `maxForce` is the maximal force of the **healthy** muscle in the same units as `force` (`domain/max_force.py`): the
 peak of a fused tetanus with every simulated unit firing at 100 Hz, rested (no fatigue), same muscle, units, axon
