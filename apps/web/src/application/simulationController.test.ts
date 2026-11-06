@@ -17,6 +17,7 @@ const chunk = (t: number[], progress: number): ChunkEvent => ({
 function fakeApi(events: SimulationEvent[] | (() => AsyncGenerator<SimulationEvent>)): ApiClient {
   return {
     getMuscles: async () => [],
+    getConditions: async () => [],
     streamSimulation:
       typeof events === 'function'
         ? events
@@ -66,6 +67,7 @@ describe('SimulationController', () => {
     let signal: AbortSignal | undefined;
     const api: ApiClient = {
       getMuscles: async () => [],
+      getConditions: async () => [],
       async *streamSimulation(_req, s) {
         signal = s;
         yield chunk([0], 0.1);

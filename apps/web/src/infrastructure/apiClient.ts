@@ -1,9 +1,4 @@
-import type {
-  FieldError,
-  MusclePreset,
-  SimulationEvent,
-  SimulationRequest,
-} from '../domain/simulation';
+import type { ConditionInfo, FieldError, MusclePreset, SimulationEvent, SimulationRequest } from '../domain/simulation';
 import { readSseStream } from './sseParser';
 
 /** RFC 9457 problem details, with the contract's `errors` extension. */
@@ -45,6 +40,8 @@ export class StreamProtocolError extends Error {
 
 export interface ApiClient {
   getMuscles(signal?: AbortSignal): Promise<MusclePreset[]>;
+  /** Conditions and their per-article adjustments (engine catalog). */
+  getConditions(signal?: AbortSignal): Promise<ConditionInfo[]>;
   /** Starts a simulation and yields stream events as they arrive. Abort via `signal`. */
   streamSimulation(request: SimulationRequest, signal?: AbortSignal): AsyncGenerator<SimulationEvent>;
 }
@@ -71,6 +68,14 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
         throw new StreamProtocolError('BAD_RESPONSE', 'Resposta inesperada de /api/v1/muscles');
       }
       return body as MusclePreset[];
+    },
+
+    async getConditions(signal) {
+      const res = await doFetch(`${baseUrl}/api/v1/conditions`, { headers: { Accept: 'application/json' }, signal });
+      if (!res.ok) throw await toHttpError(res);
+      const body: unknown = await res.json();
+      if (!Array.isArray(body)) throw new Error('unexpected conditions body');
+      return body as ConditionInfo[];
     },
 
     async *streamSimulation(request, signal) {

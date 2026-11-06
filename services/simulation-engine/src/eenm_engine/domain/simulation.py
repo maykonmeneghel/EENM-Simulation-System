@@ -147,6 +147,7 @@ class IncrementalForce:
         self._known = 0
         self._released = 0
         self._aggregation = config.model.force_aggregation
+        self._force_scale = config.model.force_scale
         pool = MUSCLE_PRESETS[config.muscle].pool_size
         self._weights = {
             t: pool[t] / setup.groups[t].size if config.model.represent_pool and setup.groups[t].size else 1.0
@@ -229,9 +230,10 @@ class IncrementalForce:
         force, emg = {}, np.zeros(stop - start)
         for t, columns in self._setup.column_slices().items():
             signals = self._types[t].compute(self._voltage[:, columns], start, stop, self._offset)
+            scale = self._force_scale
             if self._aggregation is ForceAggregation.SUM:
-                force[t] = signals.summed_force() * self._weights[t]
+                force[t] = signals.summed_force() * (self._weights[t] * scale)
             else:
-                force[t] = signals.mean_force()
+                force[t] = signals.mean_force() * scale
             emg += signals.mean_muap()
         return ForceSeries(start=start, stop=stop, force_by_type=force, emg=emg)

@@ -16,6 +16,8 @@ final class SimulationRequestDtoMapper {
                 dto.modelVariant(),
                 dto.calibrationTarget(),
                 dto.stimulationSite(),
+                dto.condition(),
+                dto.conditionAdjustments(),
                 dto.muscle(),
                 toDraft(dto.unitsPerType()),
                 dto.axonLengthPercent(),

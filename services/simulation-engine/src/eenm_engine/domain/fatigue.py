@@ -47,10 +47,16 @@ class FatigueModel:
     """Strongest / weakest fatigability (Eq 9)."""
     contraction_time_gain: float = 0.379
     """% increase in contraction time per % force loss (Eq 11)."""
+    fast_shift: float = 0.0
+    """Slow-to-fast transformation of fatigability (condition adjustment, not in the paper): every unit's
+    log-fatigability moves this fraction of the way to the most fatigable unit's (0 = normal, 1 = all units as
+    fatigable as the strongest). Twitch force is unchanged (fibre force is preserved after SCI, Malisoux 2007)."""
 
     def __post_init__(self) -> None:
         if self.weakest_fatigability < 0 or self.fatigability_range < 1 or self.contraction_time_gain < 0:
             raise ValueError("invalid fatigue parameters")
+        if not 0.0 <= self.fast_shift <= 1.0:
+            raise ValueError("fast_shift must be between 0 and 1")
 
     PAUSE_RATE = 0.25
     """Normalised rate below which an interval counts as a pause (no fatigue accrued)."""
@@ -58,16 +64,20 @@ class FatigueModel:
     def nominal(self, pool_rank: NDArray[np.int64], pool_size: int) -> NDArray[np.float64]:
         """Eq 9 for units ranked ``0 … pool_size−1`` (%/s)."""
         fraction = pool_rank / max(1, pool_size - 1)
-        return self.weakest_fatigability * np.exp(math.log(self.fatigability_range) * fraction)
+        return self._eq9(fraction)
+
+    def _eq9(self, fraction: NDArray[np.float64]) -> NDArray[np.float64]:
+        shifted = fraction + self.fast_shift * (1.0 - fraction)
+        return self.weakest_fatigability * np.exp(math.log(self.fatigability_range) * shifted)
 
     def nominal_from_force(
         self, twitch_peak: NDArray[np.float64], weakest: float, strongest: float
     ) -> NDArray[np.float64]:
         """Eq 9 expressed through twitch force: log-fatigability linear in log-force across the pool (%/s)."""
         if strongest <= weakest:
-            return np.full(twitch_peak.size, self.weakest_fatigability)
+            return self._eq9(np.zeros(twitch_peak.size))
         fraction = np.log(twitch_peak / weakest) / math.log(strongest / weakest)
-        return self.weakest_fatigability * np.exp(math.log(self.fatigability_range) * fraction)
+        return self._eq9(fraction)
 
 
 class UnitFatigue:

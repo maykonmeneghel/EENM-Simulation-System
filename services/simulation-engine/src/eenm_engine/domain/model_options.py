@@ -100,10 +100,15 @@ class ModelOptions:
     represent_pool: bool = False
     """Weight each simulated unit by the number of pool units it stands for (pool size / simulated units of
     its type), so the summed force has the composition and scale of the whole muscle. Requires ``SUM``."""
+    force_scale: float = 1.0
+    """Multiplies the muscle force (condition adjustments: atrophy, loss of motor units or of excitable axons).
+    Applied to the output only, so recruitment, fatigability and rate saturation are unchanged."""
 
     def __post_init__(self) -> None:
         if self.twitch_time_scale <= 0:
             raise ValueError("twitch_time_scale must be positive")
+        if not 0 < self.force_scale <= 1:
+            raise ValueError("force_scale must be in (0, 1]")
         if self.represent_pool and self.force_aggregation is not ForceAggregation.SUM:
             raise ValueError("represent_pool weights a sum of unit forces (force_aggregation = SUM)")
         if self.fatigue is not None and (not self.rate_gain or self.twitch_shape.is_original):

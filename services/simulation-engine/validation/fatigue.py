@@ -35,7 +35,8 @@ def run(
     frequency_hz: float, seconds: float, variant: str = "axons"
 ) -> tuple[np.ndarray, np.ndarray, dict[MotorUnitType, np.ndarray]]:
     base = VARIANTS[variant]
-    model = replace(base.model, fatigue=FatigueModel(), fixed_conduction_delay=True)
+    # the variant's own fatigue if it sets one (condition fits), else the published defaults
+    model = replace(base.model, fatigue=base.model.fatigue or FatigueModel(), fixed_conduction_delay=True)
     protocol = StimulusProtocol(
         duration_ms=seconds * 1000.0,
         step_ms=STEP_MS,

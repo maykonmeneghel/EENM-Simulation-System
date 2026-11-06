@@ -73,6 +73,8 @@ class WebClientSimulationEngineTest {
         assertThat(body.path("modelVariant").stringValue()).isEqualTo("ORIGINAL");
         assertThat(body.path("calibrationTarget").stringValue()).isEqualTo("WHOLE_MUSCLE");
         assertThat(body.path("stimulationSite").stringValue()).isEqualTo("SKIN_SURFACE");
+        assertThat(body.path("condition").stringValue()).isEqualTo("NORMAL");
+        assertThat(body.has("conditionAdjustments")).as("left to the engine's defaults").isFalse();
         assertThat(body.path("stimulus").path("trainOnMs").isNull()).isTrue();
         assertThat(body.path("stimulus").path("trainPeriodMs").isNull()).isTrue();
         assertThat(body.path("stimulus").has("pulseWidthUs")).as("duty cycle mode leaves it out").isFalse();

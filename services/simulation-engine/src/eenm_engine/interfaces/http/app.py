@@ -12,7 +12,13 @@ from fastapi.responses import StreamingResponse
 from eenm_engine.application.run_simulation import RunSimulation
 from eenm_engine.domain.motor_unit_pool import MUSCLE_PRESETS
 from eenm_engine.infrastructure.scipy_solver import ScipyBdfSolver
-from eenm_engine.interfaces.http.schemas import MusclePresetDto, SimulationRequest, event_to_json
+from eenm_engine.interfaces.http.schemas import (
+    ConditionDto,
+    MusclePresetDto,
+    SimulationRequest,
+    condition_catalog,
+    event_to_json,
+)
 
 NDJSON = "application/x-ndjson"
 
@@ -31,6 +37,10 @@ def create_app(run_simulation: RunSimulation | None = None) -> FastAPI:
     @app.get("/v1/muscles", response_model=list[MusclePresetDto], response_model_by_alias=True)
     def muscles() -> list[MusclePresetDto]:
         return [MusclePresetDto.of(p) for p in MUSCLE_PRESETS.values()]
+
+    @app.get("/v1/conditions", response_model=list[ConditionDto], response_model_by_alias=True)
+    def conditions() -> list[ConditionDto]:
+        return condition_catalog()
 
     @app.post("/v1/simulations/stream")
     def simulate(request: SimulationRequest) -> StreamingResponse:

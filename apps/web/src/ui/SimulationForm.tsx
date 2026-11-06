@@ -12,7 +12,8 @@ import {
 import { STIMULATOR_PATHS } from '../application/stimulatorForm';
 import { LITERATURE_AUTO_UNITS } from '../domain/defaults';
 import { axonRecruitment } from '../domain/modelEquations';
-import type { FieldError, MusclePreset, SimulationRequest, UnitsPerType } from '../domain/simulation';
+import type { ConditionInfo, FieldError, MusclePreset, SimulationRequest, UnitsPerType } from '../domain/simulation';
+import { ConditionPanel } from './ConditionPanel';
 import type { FieldSpec, GroupId, NumberField } from './formFields';
 import { CALIBRATION_TARGET_HELP, FIELD_GROUPS, STIMULATOR_WAVEFORMS } from './formFields';
 import { HelpPopover } from './HelpPopover';
@@ -37,6 +38,9 @@ export interface SimulationFormProps {
   onOpenStimulator?(): void;
   /** Client-side validation errors of the last submit (the Estimulador view shows those of its fields). */
   onClientErrors?(errors: readonly FieldError[]): void;
+  /** Conditions and their adjustments (engine catalog). */
+  conditions?: readonly ConditionInfo[];
+  conditionsError?: string | null;
 }
 
 
@@ -58,6 +62,8 @@ export function SimulationForm({
   autoUnitCounts = null,
   onOpenStimulator,
   onClientErrors,
+  conditions = [],
+  conditionsError = null,
 }: SimulationFormProps) {
   const [clientErrors, setClientErrors] = useState<FieldError[]>([]);
   const [notices, setNotices] = useState<FormNotice[]>([]);
@@ -292,6 +298,17 @@ export function SimulationForm({
 
   const groupExtras: Record<GroupId, { before?: ReactNode; after?: ReactNode }> = {
     model: {},
+    condition: {
+      before: (
+        <ConditionPanel
+          values={values}
+          onChange={(next) => setValues(next)}
+          conditions={conditions}
+          error={conditionsError}
+          disabled={running}
+        />
+      ),
+    },
     stimulus: {
       before: (
         <div className="row stimulus-summary">

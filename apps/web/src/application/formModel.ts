@@ -1,6 +1,8 @@
 import { defaultRequest, MAX_OUTPUT_STEP_MS, MAX_POINTS_PER_SERIES, STIMULATOR_DEFAULTS } from '../domain/defaults';
 import type {
   CalibrationTarget,
+  ConditionId,
+  ConditionInfo,
   FieldError,
   Geometry,
   InjectionSite,
@@ -24,6 +26,7 @@ export const FIELD_PATHS = [
   'modelVariant',
   'calibrationTarget',
   'stimulationSite',
+  'condition',
   'stimulus.durationMs',
   'stimulus.stepMs',
   'stimulus.frequencyHz',
@@ -59,7 +62,11 @@ export interface FormFlags {
   /** Send `trainOnMs` / `trainPeriodMs`. */
   trainsEnabled: boolean;
 }
-export type FormValues = Record<FieldPath, string> & FormFlags;
+/** Chosen adjustments of the condition; null = leave them to the engine's defaults. */
+export interface FormExtras {
+  conditionAdjustments: readonly string[] | null;
+}
+export type FormValues = Record<FieldPath, string> & FormFlags & FormExtras;
 
 /** Example train shown when the user enables intermittent trains (Burke's 330 ms every 1 s). */
 export const DEFAULT_TRAIN = { onMs: 330, offMs: 670 };
@@ -80,6 +87,8 @@ export function toFormValues(r: SimulationRequest = defaultRequest()): FormValue
     modelVariant: r.modelVariant,
     calibrationTarget: r.calibrationTarget,
     stimulationSite: r.stimulationSite,
+    condition: r.condition,
+    conditionAdjustments: r.conditionAdjustments ?? null,
     'stimulus.durationMs': String(s.durationMs),
     'stimulus.stepMs': String(s.stepMs),
     'stimulus.frequencyHz': String(s.frequencyHz),
@@ -232,6 +241,8 @@ export function parseForm(values: FormValues, muscles: readonly MusclePreset[] =
     modelVariant: variant,
     calibrationTarget: values.calibrationTarget as CalibrationTarget,
     stimulationSite: values.stimulationSite as StimulationSite,
+    condition: values.condition as ConditionId,
+    ...(values.conditionAdjustments !== null ? { conditionAdjustments: [...values.conditionAdjustments] } : {}),
     muscle: values.muscle as MuscleId,
     ...(sendUnits
       ? {
@@ -305,4 +316,27 @@ export function stepNumber(raw: string, delta: number, min = 0): string {
   const digits = Math.max(decimals(base), decimals(Math.abs(delta)));
   const next = Math.max(min, base + delta);
   return String(Number(next.toFixed(digits)));
+}
+
+/** Switch condition: its default adjustments (from the engine catalog) become the explicit choice. */
+export function changeCondition(values: FormValues, condition: ConditionId, catalog: readonly ConditionInfo[]): FormValues {
+  const info = catalog.find((c) => c.id === condition);
+  const chosen = info ? info.adjustments.filter((a) => a.default && a.available).map((a) => a.id) : null;
+  return { ...values, condition, conditionAdjustments: chosen };
+}
+
+/** Turn one adjustment on or off (starting from the condition's defaults when nothing was chosen yet). */
+export function toggleAdjustment(
+  values: FormValues,
+  id: string,
+  on: boolean,
+  catalog: readonly ConditionInfo[],
+): FormValues {
+  const info = catalog.find((c) => c.id === values.condition);
+  const current =
+    values.conditionAdjustments ?? (info?.adjustments.filter((a) => a.default && a.available).map((a) => a.id) ?? []);
+  const next = on ? [...new Set([...current, id])] : current.filter((x) => x !== id);
+  // keep the catalog order
+  const order = info?.adjustments.map((a) => a.id) ?? next;
+  return { ...values, conditionAdjustments: order.filter((x) => next.includes(x)) };
 }

@@ -23,7 +23,7 @@ export interface SelectField {
 }
 export type FieldSpec = NumberField | SelectField;
 
-export type GroupId = 'model' | 'stimulus' | 'muscle' | 'motoneuron' | 'simulation';
+export type GroupId = 'model' | 'condition' | 'stimulus' | 'muscle' | 'motoneuron' | 'simulation';
 
 export interface FieldGroup {
   id: GroupId;
@@ -61,6 +61,7 @@ export const FIELD_GROUPS: FieldGroup[] = [
       },
     ],
   },
+  { id: 'condition', title: 'Condição', fields: [] },
   { id: 'stimulus', title: 'Estímulo', fields: [] },
   {
     id: 'muscle',

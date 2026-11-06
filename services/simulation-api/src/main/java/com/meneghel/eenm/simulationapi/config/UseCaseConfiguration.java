@@ -1,5 +1,6 @@
 package com.meneghel.eenm.simulationapi.config;
 
+import com.meneghel.eenm.simulationapi.application.condition.ListConditionsUseCase;
 import com.meneghel.eenm.simulationapi.application.muscle.ListMusclesUseCase;
 import com.meneghel.eenm.simulationapi.application.muscle.MusclePresetCatalog;
 import com.meneghel.eenm.simulationapi.application.port.SimulationEngine;
@@ -20,6 +21,11 @@ public class UseCaseConfiguration {
     @Bean
     RunSimulationUseCase runSimulationUseCase(SimulationEngine engine, MusclePresetCatalog catalog) {
         return new RunSimulationUseCase(engine, catalog);
+    }
+
+    @Bean
+    ListConditionsUseCase listConditionsUseCase(SimulationEngine engine) {
+        return new ListConditionsUseCase(engine);
     }
 
     @Bean

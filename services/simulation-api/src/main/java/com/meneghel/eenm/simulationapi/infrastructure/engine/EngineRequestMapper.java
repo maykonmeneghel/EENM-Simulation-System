@@ -13,6 +13,8 @@ final class EngineRequestMapper {
                 request.modelVariant().name(),
                 request.calibrationTarget().name(),
                 request.stimulationSite().name(),
+                request.condition().name(),
+                request.conditionAdjustments(),
                 request.muscle().name(),
                 request.requestedUnits().map(this::toBody).orElse(null),
                 request.axonLengthPercent(),

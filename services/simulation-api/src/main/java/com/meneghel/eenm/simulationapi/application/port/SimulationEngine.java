@@ -21,4 +21,7 @@ public interface SimulationEngine {
 
     /** Lists the muscles the engine can simulate. */
     Mono<List<MusclePreset>> listMuscles();
+
+    /** The engine's catalog of conditions and their adjustments, as the JSON it sends. */
+    Mono<String> conditionCatalogJson();
 }

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.meneghel.eenm.simulationapi.domain.simulation.CalibrationTarget;
 import com.meneghel.eenm.simulationapi.domain.simulation.StimulationSite;
+import com.meneghel.eenm.simulationapi.domain.simulation.Condition;
 import com.meneghel.eenm.simulationapi.domain.simulation.CompartmentGeometry;
 import com.meneghel.eenm.simulationapi.domain.simulation.InjectionSite;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModelVariant;
@@ -16,6 +17,7 @@ import com.meneghel.eenm.simulationapi.domain.simulation.Muscle;
 import com.meneghel.eenm.simulationapi.domain.simulation.SimulationRequest;
 import com.meneghel.eenm.simulationapi.domain.simulation.Stimulus;
 import com.meneghel.eenm.simulationapi.domain.simulation.Waveform;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -32,6 +34,8 @@ class SimulationDefaultsTest {
                 ModelVariant.ORIGINAL,
                 CalibrationTarget.WHOLE_MUSCLE,
                 StimulationSite.SKIN_SURFACE,
+                Condition.NORMAL,
+                null,
                 Muscle.SOLEUS,
                 new MotorUnitCounts(5, 2, 2),
                 80, 6.3,
@@ -73,6 +77,8 @@ class SimulationDefaultsTest {
                 null,
                 CalibrationTarget.SINGLE_UNIT,
                 StimulationSite.MOTONEURON_POOL,
+                Condition.SCI_CHRONIC,
+                List.of("SCI_FAST_TWITCH"),
                 Muscle.TIBIALIS_ANTERIOR,
                 new MotorUnitCountsDraft(null, 7, null),
                 null, 37.0, InjectionSite.DENDRITE, null, CompartmentGeometry.SPHERICAL, 42L, null);
@@ -84,6 +90,8 @@ class SimulationDefaultsTest {
         assertThat(request.modelVariant()).isEqualTo(ModelVariant.ORIGINAL);
         assertThat(request.calibrationTarget()).isEqualTo(CalibrationTarget.SINGLE_UNIT);
         assertThat(request.stimulationSite()).isEqualTo(StimulationSite.MOTONEURON_POOL);
+        assertThat(request.condition()).isEqualTo(Condition.SCI_CHRONIC);
+        assertThat(request.conditionAdjustments()).containsExactly("SCI_FAST_TWITCH");
         assertThat(request.muscle()).isEqualTo(Muscle.TIBIALIS_ANTERIOR);
         assertThat(request.unitsPerType()).isEqualTo(new MotorUnitCounts(5, 7, 2));
         assertThat(request.axonLengthPercent()).isEqualTo(80);

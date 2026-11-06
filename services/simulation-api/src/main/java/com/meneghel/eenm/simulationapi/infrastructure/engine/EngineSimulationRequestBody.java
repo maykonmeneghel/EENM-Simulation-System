@@ -2,6 +2,7 @@ package com.meneghel.eenm.simulationapi.infrastructure.engine;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
 
 /**
  * JSON body of {@code POST /v1/simulations/stream}, mirroring the shared {@code SimulationRequest}.
@@ -12,6 +13,8 @@ record EngineSimulationRequestBody(
         String modelVariant,
         String calibrationTarget,
         String stimulationSite,
+        String condition,
+        @JsonInclude(JsonInclude.Include.NON_NULL) List<String> conditionAdjustments,
         String muscle,
         @JsonInclude(JsonInclude.Include.NON_NULL) UnitCounts unitsPerType,
         double axonLengthPercent,

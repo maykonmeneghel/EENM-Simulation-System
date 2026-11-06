@@ -1,5 +1,6 @@
 package com.meneghel.eenm.simulationapi.domain.simulation;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -13,6 +14,8 @@ public record SimulationRequest(
         ModelVariant modelVariant,
         CalibrationTarget calibrationTarget,
         StimulationSite stimulationSite,
+        Condition condition,
+        List<String> conditionAdjustments,
         Muscle muscle,
         MotorUnitCounts unitsPerType,
         double axonLengthPercent,
@@ -28,6 +31,8 @@ public record SimulationRequest(
         Objects.requireNonNull(modelVariant, "modelVariant");
         Objects.requireNonNull(calibrationTarget, "calibrationTarget");
         Objects.requireNonNull(stimulationSite, "stimulationSite");
+        Objects.requireNonNull(condition, "condition");
+        conditionAdjustments = conditionAdjustments == null ? null : List.copyOf(conditionAdjustments);
         Objects.requireNonNull(muscle, "muscle");
         Objects.requireNonNull(injectionSite, "injectionSite");
         Objects.requireNonNull(somaGeometry, "somaGeometry");

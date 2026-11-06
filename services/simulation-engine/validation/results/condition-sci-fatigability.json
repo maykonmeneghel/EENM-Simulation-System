@@ -1,0 +1,16 @@
+{
+  "adjustment": "SCI_CHRONIC slow-to-fast fatigability shift",
+  "target": {
+    "fatigueIndex": 0.19,
+    "protocol": "20 Hz, 330 ms every 1000 ms, 120 trains"
+  },
+  "fitted": {
+    "fastShift": 0.997
+  },
+  "achieved": {
+    "fatigueIndex": 0.19197330158858622
+  },
+  "normal": {
+    "fatigueIndex": 0.9156857533699235
+  }
+}

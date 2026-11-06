@@ -608,3 +608,17 @@ body { overflow: hidden; }
 .stage-refs a { color: var(--accent); text-decoration: none; white-space: nowrap; }
 .stage-refs a:hover { text-decoration: underline; }
 .stage-inherited { margin: 0.35rem 0 0; font-size: var(--fs-sm); color: var(--warning); }
+
+/* ---------- Condição ---------- */
+.condition { display: flex; flex-direction: column; gap: 0.4rem; }
+.adjustments { list-style: none; margin: 0; padding: 0 1rem 0.4rem; display: flex; flex-direction: column; gap: 0.55rem; }
+.adjustment { padding: 0.45rem 0.6rem; border-radius: var(--radius-sm); background: var(--surface-2); }
+.adjustment--unavailable { opacity: 0.6; }
+.adjustment p { margin: 0.2rem 0 0; font-size: var(--fs-xs); line-height: 1.4; }
+.adjustment-effect { color: var(--text); }
+.adjustment-finding, .adjustment-source { color: var(--text-2); }
+.adjustment-source a { color: var(--accent); text-decoration: none; }
+.adjustment-source a:hover { text-decoration: underline; }
+.badge { display: inline-block; margin-right: 0.3rem; padding: 0 0.35rem; border-radius: 4px; font-size: var(--fs-2xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+.badge--good { background: var(--good-bg); color: var(--success); }
+.badge--warn { background: var(--warn-bg); color: var(--warning); }
