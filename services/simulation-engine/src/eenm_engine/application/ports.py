@@ -8,6 +8,8 @@ from typing import Protocol
 import numpy as np
 from numpy.typing import NDArray
 
+from eenm_engine.domain.motoneuron import MotoneuronPool
+
 Derivatives = Callable[[float, NDArray[np.float64]], NDArray[np.float64]]
 
 
@@ -37,3 +39,18 @@ class OdeSolver(Protocol):
     ) -> OdeIntegration:
         """``max_step`` bounds the internal step, so that no stimulus pulse can be stepped over."""
         ...
+
+
+class PoolIntegration(Protocol):
+    """One ongoing integration of a motoneuron pool, one sample interval per call row."""
+
+    def advance(self, current: NDArray[np.float64]) -> NDArray[np.float64]:
+        """Integrate one sample interval per row of ``current`` (``(rows,)`` shared by every unit, or
+        ``(rows, units)``) and return the soma voltage at the end of each interval, ``(rows, units)``."""
+        ...
+
+
+class PoolIntegrator(Protocol):
+    """Factory of fixed-step integrations of the motoneuron pool (faster than a generic ODE solver)."""
+
+    def start(self, pool: MotoneuronPool, step_ms: float) -> PoolIntegration: ...

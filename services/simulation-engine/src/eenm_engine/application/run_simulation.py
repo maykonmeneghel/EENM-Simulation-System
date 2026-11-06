@@ -17,7 +17,7 @@ from eenm_engine.application.events import (
     SimulationStarted,
     SimulationSummary,
 )
-from eenm_engine.application.ports import OdeSolver
+from eenm_engine.application.ports import OdeSolver, PoolIntegrator
 from eenm_engine.domain.axon_stimulation import axon_spike_events, spikes_in
 from eenm_engine.domain.max_force import maximal_force
 from eenm_engine.domain.model_options import StimulationSite
@@ -41,11 +41,13 @@ class RunSimulation:
     exact (see ``IncrementalForce``).
     """
 
-    def __init__(self, solver: OdeSolver, block_ms: float = 5.0) -> None:
+    def __init__(self, solver: OdeSolver, block_ms: float = 5.0, pool_integrator: PoolIntegrator | None = None) -> None:
+        """``pool_integrator``, when given, integrates the motoneuron pool instead of the generic ``solver``."""
         if block_ms <= 0:
             raise ValueError("block_ms must be positive")
         self._solver = solver
         self._block_ms = block_ms
+        self._pool_integrator = pool_integrator
 
     def execute(self, config: SimulationConfig) -> Iterator[SimulationEvent]:
         clock = time.perf_counter()
@@ -66,6 +68,8 @@ class RunSimulation:
 
         if config.model.stimulation_site is StimulationSite.MOTOR_AXONS:
             blocks = self._axon_blocks(setup, config, stimulus, force)
+        elif self._pool_integrator is not None:
+            blocks = self._pool_blocks(setup.motoneurons, config, stimulus, force)
         else:
             blocks = self._integrate_in_blocks(setup.motoneurons, config, times, force)
         totals: list[NDArray[np.float64]] = []
@@ -108,6 +112,27 @@ class RunSimulation:
         for start in range(0, stimulus.size, block):
             # dense spike rows only for this block: memory does not grow with the duration
             released = force.add(spikes_in(index, fires, start, min(start + block, stimulus.size)))
+            if released is not None:
+                yield released
+
+    def _pool_blocks(
+        self,
+        motoneurons: MotoneuronPool,
+        config: SimulationConfig,
+        stimulus: NDArray[np.float64],
+        force: IncrementalForce,
+    ) -> Iterator[ForceSeries]:
+        """Fixed-step pool integration: the interval ending at sample ``n`` uses the current of sample ``n - 1``."""
+        assert self._pool_integrator is not None
+        protocol = config.stimulus
+        integration = self._pool_integrator.start(motoneurons, protocol.step_ms)
+        released = force.add(MotoneuronPool.soma_voltage(motoneurons.initial_state()[:, None], motoneurons.n_units))
+        if released is not None:
+            yield released
+        block = max(1, round(self._block_ms / protocol.step_ms))
+        for start in range(1, stimulus.size, block):
+            stop = min(start + block, stimulus.size)
+            released = force.add(integration.advance(stimulus[start - 1 : stop - 1]))
             if released is not None:
                 yield released
 
