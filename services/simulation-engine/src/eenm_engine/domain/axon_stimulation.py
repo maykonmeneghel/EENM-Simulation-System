@@ -85,16 +85,38 @@ def pulses(stimulus: NDArray[np.float64]) -> list[Pulse]:
     return out
 
 
+def axon_spike_events(
+    stimulus: NDArray[np.float64],
+    step_ms: float,
+    rheobase: NDArray[np.float64],
+    excitability: AxonExcitability,
+) -> tuple[NDArray[np.int64], NDArray[np.bool_]]:
+    """Sparse axon firing: the sample of every pulse's end and which units it fires, ``(pulses,)`` and
+    ``(pulses, units)``. Memory grows with the number of pulses, not with the number of samples."""
+    found = pulses(stimulus)
+    index = np.empty(len(found), dtype=np.int64)
+    fires = np.zeros((len(found), rheobase.size), dtype=bool)
+    for i, pulse in enumerate(found):
+        index[i] = min(pulse.onset + pulse.samples, stimulus.size - 1)
+        fires[i] = pulse.amplitude >= excitability.threshold(rheobase, pulse.samples * step_ms)
+    return index, fires
+
+
+def spikes_in(index: NDArray[np.int64], fires: NDArray[np.bool_], start: int, stop: int) -> NDArray[np.float64]:
+    """Dense spike rows ``[start, stop)`` (1 = the axon fires) from ``axon_spike_events``."""
+    out = np.zeros((stop - start, fires.shape[1]))
+    inside = (index >= start) & (index < stop)
+    out[index[inside] - start] = fires[inside]  # pulses end on distinct samples
+    return out
+
+
 def axon_spikes(
     stimulus: NDArray[np.float64],
     step_ms: float,
     rheobase: NDArray[np.float64],
     excitability: AxonExcitability,
 ) -> NDArray[np.bool_]:
-    """``(samples, units)``: True where a unit's axon fires (end of each suprathreshold pulse)."""
-    out = np.zeros((stimulus.size, rheobase.size), dtype=bool)
-    for pulse in pulses(stimulus):
-        width_ms = pulse.samples * step_ms
-        fires = pulse.amplitude >= excitability.threshold(rheobase, width_ms)
-        out[min(pulse.onset + pulse.samples, stimulus.size - 1), fires] = True
-    return out
+    """``(samples, units)``: True where a unit's axon fires (end of each suprathreshold pulse). Dense: for short
+    records and validation; long runs use ``axon_spike_events`` block by block."""
+    index, fires = axon_spike_events(stimulus, step_ms, rheobase, excitability)
+    return spikes_in(index, fires, 0, stimulus.size) > 0
