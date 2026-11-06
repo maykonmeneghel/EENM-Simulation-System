@@ -21,6 +21,7 @@ from numpy.typing import NDArray
 
 from eenm_engine.domain.cisi_kohn import E_K_MV, E_NA_MV, PULSE_MS, REFRACTORY_MS, CisiKohnPool
 from eenm_engine.infrastructure.axon_merge import AxonMerge, electrode_events, soma_events
+from eenm_engine.parallel import NUMBA_PARALLEL_LOCK
 
 QUIET_SUBSTEPS = 2
 PULSE_SUBSTEPS = 10
@@ -164,11 +165,12 @@ class CisiKohnIntegration:
         """Soma current (nA) per sample and unit, ``(rows, units)``; returns the spike train, ``(rows, units)``."""
         rows = current_na.shape[0]
         spikes = np.zeros((rows, self._params.shape[0]))
-        _integrate(
-            self._state, self._pulse_end, self._last_spike, self._params,
-            np.ascontiguousarray(current_na, dtype=np.float64), self._next, self._step, self._pulse,
-            self._refractory, spikes,
-        )  # fmt: skip
+        with NUMBA_PARALLEL_LOCK:
+            _integrate(
+                self._state, self._pulse_end, self._last_spike, self._params,
+                np.ascontiguousarray(current_na, dtype=np.float64), self._next, self._step, self._pulse,
+                self._refractory, spikes,
+            )  # fmt: skip
         self._next += rows
         return spikes
 
@@ -185,13 +187,14 @@ class CisiKohnIntegration:
             raise ValueError("call enable_merge first")
         rows = drive_na.shape[0]
         spikes = np.zeros((rows, self._params.shape[0]))
-        _integrate_merged(
-            self._state, self._pulse_end, self._last_spike, self._params,
-            np.ascontiguousarray(drive_na, dtype=np.float64), np.ascontiguousarray(recruit, dtype=np.bool_),
-            self._next, self._step, self._pulse, self._refractory, merge.to_electrode, merge.refractory,
-            merge.inflight, merge.n_inflight, merge.antidromic, merge.n_antidromic, merge.unit_state,
-            merge.counters, spikes,
-        )  # fmt: skip
+        with NUMBA_PARALLEL_LOCK:
+            _integrate_merged(
+                self._state, self._pulse_end, self._last_spike, self._params,
+                np.ascontiguousarray(drive_na, dtype=np.float64), np.ascontiguousarray(recruit, dtype=np.bool_),
+                self._next, self._step, self._pulse, self._refractory, merge.to_electrode, merge.refractory,
+                merge.inflight, merge.n_inflight, merge.antidromic, merge.n_antidromic, merge.unit_state,
+                merge.counters, spikes,
+            )  # fmt: skip
         self._next += rows
         merge.next_sample = self._next
         return spikes

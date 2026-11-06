@@ -154,15 +154,16 @@ export function InspectorPanel({ topic, values, axonEvents, onShowEquation }: In
 
       {view.drive && drive ? (
         <section className="explain-section explain-section--warn" aria-labelledby="explain-limits">
-          <h3 id="explain-limits">Limites conhecidos</h3>
+          <h3 id="explain-limits">Validação e limites</h3>
           <ul>
             <li>
-              O motoneurônio herdado (Booth et al. 1997, feito para gerar platôs) dispara a 50–95 Hz e continua
-              disparando depois que a corrente acaba. Em Parkinson as unidades disparam a 10,9 ± 2,9 Hz e os dupletos
-              têm 41,6 ms; aqui os intervalos curtos têm ≈ 17 ms.
+              O drive vai a motoneurônios de Cisi & Kohn (2008). No teste da fase 2 (FCR, 120 unidades), em repouso com
+              tremor as unidades disparam a 7,0 Hz (2,9–10,8) em salvas, com intervalos curtos de 49,7 ms — em Parkinson,
+              10,9 ± 2,9 Hz (faixa 6–18,5) e dupletos de 41,6 ± 5,1 ms (30–50) (Agapaki 2018). O CV no disparo tônico é
+              0,15 (alvo 10–30 %) e a força oscila a 4,33 Hz para um drive de 4,4 Hz.
             </li>
-            <li>A frequência do tremor na força confere com a do drive (4,33 Hz para 4,4 Hz no teste de validação, FCR com 120 unidades).</li>
             <li>A amplitude de 3 nA vem de um modelo de tremor essencial; não há valor medido em Parkinson.</li>
+            <li>As unidades FF têm pós-hiperpolarização menor que a publicada (≈ 1–2 contra 3,0 mV): condutância Ks do código, não da tabela de 2013.</li>
           </ul>
         </section>
       ) : null}

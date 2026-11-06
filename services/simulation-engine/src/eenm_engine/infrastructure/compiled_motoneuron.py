@@ -26,6 +26,7 @@ from eenm_engine.domain.motoneuron import (
     InjectionSite,
     MotoneuronPool,
 )
+from eenm_engine.parallel import NUMBA_PARALLEL_LOCK
 
 _PARAMS = (
     "vna", "vk", "vl", "vca", "vrest", "gls", "gld", "cd", "cs", "gc", "p", "kd", "f", "kca", "alpha", "sgna", "sgk",
@@ -165,19 +166,20 @@ class CompiledPoolIntegration:
         n_units = self._area.size
         per_unit = current if current.ndim == 2 else np.repeat(current[:, None], n_units, axis=1)
         out = np.empty((per_unit.shape[0], n_units))
-        _integrate(
-            self._state,
-            self._area,
-            np.ascontiguousarray(per_unit, dtype=np.float64),
-            self._params,
-            self._step,
-            self._substeps,
-            self._temp,
-            self._soma,
-            out,
-            self._active_substeps,
-            self._active_dv,
-        )
+        with NUMBA_PARALLEL_LOCK:
+            _integrate(
+                self._state,
+                self._area,
+                np.ascontiguousarray(per_unit, dtype=np.float64),
+                self._params,
+                self._step,
+                self._substeps,
+                self._temp,
+                self._soma,
+                out,
+                self._active_substeps,
+                self._active_dv,
+            )
         return out
 
 

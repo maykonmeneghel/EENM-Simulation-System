@@ -344,16 +344,15 @@ export function SimulationForm({
             Corrente que chega aos motoneurônios vinda do sistema nervoso central: fundo + comando voluntário +
             oscilação do tremor + ruído independente por unidade (Gallego et al. 2015, mesmo motoneurônio de dois
             compartimentos). A oscilação só entra com a condição Parkinson e o ajuste &quot;Tremor de repouso&quot;
-            ligados. Os valores em nA são convertidos pela área do soma de cada unidade. Nossa menor unidade tem
-            reobase 1,81 nA (a de Gallego, 4 nA): &quot;nA publicados&quot; usa os valores do artigo;
-            &quot;pela reobase&quot; os multiplica por 0,45 (com isso o tremor de repouso não faz nenhuma unidade
-            disparar).
+            ligados. A corrente entra em motoneurônios de Cisi &amp; Kohn (2008), em nA, como no artigo. &quot;Pela
+            reobase&quot; reescala as correntes pela razão entre a nossa menor reobase e a de Gallego (4 nA). O limiar
+            segue Cisi &amp; Kohn 2008 (reobase × resistência de entrada: menor unidade 3,5 nA) ou Watanabe 2013
+            (limiar direto em mV: menor unidade 5,6 nA).
           </HelpPopover>
           {driveOn ? (
             <p className="inline-notice" role="note">
-              Limite conhecido: o motoneurônio herdado dispara a 50–95 Hz (o medido em Parkinson é 10,9 ± 2,9 Hz,
-              Agapaki 2018) e continua disparando depois que a corrente acaba (biestável). A frequência do tremor na
-              força confere; a frequência de cada unidade, não.
+              O drive vai a motoneurônios de Cisi & Kohn (2008), os do modelo de Gallego: perto do limiar disparam a
+              7–11 Hz, como as unidades em Parkinson (10,9 ± 2,9 Hz, Agapaki 2018).
             </p>
           ) : null}
         </div>
@@ -469,7 +468,7 @@ export function SimulationForm({
       {step === 'results' ? <RunRecap values={values} muscles={muscles} onGoToStep={onGoToStep} /> : null}
       {(step ? GROUPS_BY_STEP[step].map((id) => FIELD_GROUPS.find((g) => g.id === id)!) : FIELD_GROUPS).filter(
         (g) =>
-          (g.id !== 'motoneuron' || values.stimulationSite === 'MOTONEURON_POOL' || driveActive(values)) &&
+          (g.id !== 'motoneuron' || (values.stimulationSite === 'MOTONEURON_POOL' && !driveActive(values))) &&
           (g.id !== 'drive' || isLiterature),
       ).map((g) => (
         <details

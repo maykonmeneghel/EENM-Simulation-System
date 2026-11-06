@@ -47,7 +47,7 @@ record EngineSimulationRequestBody(
     /** Unset fields are left out, so the engine applies its defaults. */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     record CentralDrive(Boolean enabled, Double backgroundNa, Double voluntaryNa, Double noiseCv, String currentScale,
-            Tremor tremor, Double electrodeFraction) {
+            String thresholdRule, Tremor tremor, Double electrodeFraction) {
     }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)

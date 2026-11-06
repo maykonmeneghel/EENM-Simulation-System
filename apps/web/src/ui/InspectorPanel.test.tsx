@@ -27,13 +27,13 @@ describe('central drive in the form', () => {
     expect(inactiveFields(on).has('centralDrive.voluntaryNa')).toBe(false);
   });
 
-  it('the Parkinson tremor turns the drive on by itself and activates its fields and the motoneuron group', () => {
+  it('the Parkinson tremor turns the drive on by itself and activates its fields (Cisi & Kohn, not Booth, settings)', () => {
     const pd = parkinsonTremor({ ...base, 'centralDrive.tremor.frequencyHz': '5.9' });
     expect(tremorActive(pd) && driveActive(pd)).toBe(true);
     const inactive = inactiveFields(pd);
     expect(inactive.has('centralDrive.tremor.frequencyHz')).toBe(false);
-    expect(inactive.has('temperatureCelsius')).toBe(false); // the motoneurons are simulated
-    expect(inactive.has('injectionSite')).toBe(true); // ... but the drive always enters the soma here
+    expect(inactive.has('centralDrive.thresholdRule')).toBe(false);
+    expect(inactive.has('temperatureCelsius')).toBe(true); // Booth 1997 settings do not apply to the drive's motoneurons
     const parsed = parseForm(pd);
     expect(parsed.ok && parsed.request.centralDrive).toMatchObject({ enabled: false, tremor: { frequencyHz: 5.9 } });
   });
@@ -76,7 +76,7 @@ describe('InspectorPanel', () => {
       'href',
       'https://doi.org/10.1038/s41593-018-0262-6',
     );
-    expect(screen.getByRole('heading', { name: 'Limites conhecidos' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Validação e limites' })).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'Google Scholar' }).length).toBeGreaterThan(3);
   });
 

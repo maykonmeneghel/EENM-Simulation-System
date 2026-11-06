@@ -3,17 +3,18 @@ import type { StageId } from '../domain/modelEquations';
 
 /**
  * Which equation a physiology setting changes, so the equations view can bring it to the centre when the setting is
- * edited. The sidebar groups follow the same order as the equations (drive and motoneuron → 2a, muscle → 3 and 8b,
+ * edited. The sidebar groups follow the same order as the equations (drive → 2c, motoneuron → 2a, muscle → 3 and 8b,
  * twitch calibration → 5b, condition → its adjustment's stage).
  */
 const FIELD_STAGES: Readonly<Record<string, StageId>> = {
-  driveEnabled: '2a',
-  'centralDrive.backgroundNa': '2a',
-  'centralDrive.voluntaryNa': '2a',
-  'centralDrive.noiseCv': '2a',
-  'centralDrive.currentScale': '2a',
-  'centralDrive.tremor.frequencyHz': '2a',
-  'centralDrive.tremor.amplitudeNa': '2a',
+  driveEnabled: '2c',
+  'centralDrive.backgroundNa': '2c',
+  'centralDrive.voluntaryNa': '2c',
+  'centralDrive.noiseCv': '2c',
+  'centralDrive.currentScale': '2c',
+  'centralDrive.thresholdRule': '2c',
+  'centralDrive.tremor.frequencyHz': '2c',
+  'centralDrive.tremor.amplitudeNa': '2c',
   'centralDrive.electrodeFraction': '3',
   injectionSite: '2a',
   somaGeometry: '2a',
@@ -37,7 +38,7 @@ const ADJUSTMENT_STAGES: Readonly<Record<string, StageId>> = {
   SCI_CHRONAXIE: '2b',
   PD_MOTOR_UNIT_LOSS: '8b',
   PD_NEUROPATHY: '8b',
-  PD_TREMOR: '2a',
+  PD_TREMOR: '2c',
 };
 
 /** The stage of the first setting that differs between ``before`` and ``after``, if it is a physiology setting. */

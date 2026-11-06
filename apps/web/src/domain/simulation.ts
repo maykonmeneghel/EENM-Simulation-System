@@ -91,6 +91,8 @@ export interface Stimulus {
 
 export const CURRENT_SCALES = ['PUBLISHED', 'RHEOBASE'] as const;
 export type CurrentScale = (typeof CURRENT_SCALES)[number];
+export const THRESHOLD_RULES = ['CISI_KOHN_2008', 'WATANABE_2013'] as const;
+export type ThresholdRule = (typeof THRESHOLD_RULES)[number];
 
 /** Descending drive into the motoneurons (central_drive.py); the tremor applies only with PD_TREMOR. */
 export interface CentralDrive {
@@ -99,6 +101,8 @@ export interface CentralDrive {
   voluntaryNa: number;
   noiseCv: number;
   currentScale: CurrentScale;
+  /** Thresholds of the Cisi & Kohn motoneurons that receive the drive. */
+  thresholdRule: ThresholdRule;
   tremor: { frequencyHz: number; amplitudeNa: number };
   /** Electrode position along the axon from the soma (non-invasive mode). */
   electrodeFraction: number;

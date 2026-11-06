@@ -1,5 +1,5 @@
 import type { FieldPath } from '../application/formModel';
-import { CALIBRATION_TARGETS, CURRENT_SCALES, GEOMETRIES, INJECTION_SITES, STIMULATION_SITES } from '../domain/simulation';
+import { CALIBRATION_TARGETS, CURRENT_SCALES, GEOMETRIES, INJECTION_SITES, STIMULATION_SITES, THRESHOLD_RULES } from '../domain/simulation';
 
 /** Presentation metadata for each input (labels in Portuguese). */
 export interface NumberField {
@@ -75,6 +75,13 @@ export const FIELD_GROUPS: FieldGroup[] = [
         segmented: true,
         label: 'Escala das correntes',
         options: opts(CURRENT_SCALES, { PUBLISHED: 'nA publicados', RHEOBASE: 'pela reobase' }),
+      },
+      {
+        path: 'centralDrive.thresholdRule',
+        kind: 'select',
+        segmented: true,
+        label: 'Limiar do motoneurônio',
+        options: opts(THRESHOLD_RULES, { CISI_KOHN_2008: 'Cisi & Kohn 2008', WATANABE_2013: 'Watanabe 2013' }),
       },
       { path: 'centralDrive.tremor.frequencyHz', kind: 'number', stepBy: 0.1, label: 'Frequência do tremor', unit: 'Hz', step: 'any', hint: '0,1 – 20' },
       { path: 'centralDrive.tremor.amplitudeNa', kind: 'number', stepBy: 0.5, label: 'Amplitude do tremor', unit: 'nA', step: 'any', hint: '0 – 20' },

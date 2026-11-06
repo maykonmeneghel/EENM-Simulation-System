@@ -35,7 +35,7 @@ import type {
   Waveform,
 } from '../domain/simulation';
 import type { FormValues } from './formModel';
-import { driveActive } from './formModel';
+import { driveActive, tremorActive } from './formModel';
 
 /**
  * Live view-model of the model for the "Equações" and "Diagrama" views: every number the
@@ -46,6 +46,16 @@ export interface ModelSnapshot {
   variant: ModelVariant;
   calibrationTarget: CalibrationTarget;
   muscle: MuscleId;
+  /** Central drive into Cisi & Kohn motoneurons; null without a drive. */
+  drive: {
+    backgroundNa: number;
+    voluntaryNa: number;
+    noiseCv: number;
+    scale: 'PUBLISHED' | 'RHEOBASE';
+    thresholdRule: 'CISI_KOHN_2008' | 'WATANABE_2013';
+    tremor: { frequencyHz: number; amplitudeNa: number } | null;
+    invasive: boolean;
+  } | null;
   stimulationSite: StimulationSite;
   stages: readonly StageId[];
   stimulus: {
@@ -192,6 +202,19 @@ export function buildModelSnapshot({ values, muscles, lastRequest, lastStarted }
     rate: { isiMs, ...rateRegimeLimits(isiMs) },
     units,
     muscle: values.muscle as MuscleId,
+    drive: driveActive(values)
+      ? {
+          backgroundNa: num(values['centralDrive.backgroundNa']),
+          voluntaryNa: num(values['centralDrive.voluntaryNa']),
+          noiseCv: num(values['centralDrive.noiseCv']),
+          scale: values['centralDrive.currentScale'] === 'RHEOBASE' ? 'RHEOBASE' : 'PUBLISHED',
+          thresholdRule: values['centralDrive.thresholdRule'] === 'WATANABE_2013' ? 'WATANABE_2013' : 'CISI_KOHN_2008',
+          tremor: tremorActive(values)
+            ? { frequencyHz: num(values['centralDrive.tremor.frequencyHz']), amplitudeNa: num(values['centralDrive.tremor.amplitudeNa']) }
+            : null,
+          invasive: stimulationSite === 'MOTONEURON_POOL',
+        }
+      : null,
     muscleLabel: preset?.label ?? values.muscle,
     pool,
     weights: pool && units.counts ? forceWeights(pool, units.counts) : null,

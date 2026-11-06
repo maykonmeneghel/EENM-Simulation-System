@@ -160,6 +160,44 @@ function stage2a(s: ModelSnapshot): StageContent {
   };
 }
 
+/** Cisi & Kohn (2008) motoneuron, which receives the central drive (domain/cisi_kohn.py). */
+function stage2c(s: ModelSnapshot): StageContent {
+  const d = s.drive;
+  const rule2008 = d?.thresholdRule !== 'WATANABE_2013';
+  const factor = d?.scale === 'RHEOBASE' ? (rule2008 ? 3.5 / 4 : 5.63 / 4) : 1;
+  const drive = d
+    ? `I_{drive}(t) = ${texNum(d.backgroundNa * factor, 3)} + ${texNum(d.voluntaryNa * factor, 3)}${
+        d.tremor ? ` + ${texNum(d.tremor.amplitudeNa * factor, 3)}\\,\\sin(2\\pi\\,${texNum(d.tremor.frequencyHz, 2)}\\,t)` : ''
+      } + \\eta_k(t)\\ \\text{nA}`
+    : 'I_{drive} = 0';
+  return {
+    id: '2c',
+    title: 'Motoneurônio de Cisi & Kohn (drive central)',
+    source: 'domain/cisi_kohn.py · infrastructure/compiled_cisi_kohn.py',
+    symbolic: [
+      'C_s \\frac{dV_s}{dt} = -g_{L,s} V_s - g_c (V_s - V_d) - \\bar g_{Na}\\, m^3 h\\,(V_s - E_{Na}) - \\bar g_{Kf}\\, n^4 (V_s - E_K) - \\bar g_{Ks}\\, q^2 (V_s - E_K) + I(t)',
+      'C_d \\frac{dV_d}{dt} = -g_{L,d} V_d - g_c (V_d - V_s), \\qquad g_c = \\frac{2}{\\frac{R_i l_d}{\\pi r_d^2} + \\frac{R_i l_s}{\\pi r_s^2}}',
+      '\\text{pulso de } 0{,}6\\ \\text{ms após } V_s > V_{th}: \\ x \\to 1 + (x_0 - 1)e^{-\\alpha_x t}\\ (m, n, q), \\ h \\to h_0 e^{-\\beta_h t}; \\ \\text{fora do pulso: } x \\to x_0 e^{-\\beta_x t},\\ h \\to 1 + (h_0 - 1) e^{-\\alpha_h t}',
+    ],
+    substituted: [
+      'E_{Na} = 120,\\ E_K = -10,\\ E_L = 0\\ \\text{mV (repouso = 0)},\\quad C_m = 1\\ \\mu F/cm^2,\\quad R_i = 70\\ \\Omega\\,cm',
+      '\\bar g_{Na} = 30,\\quad \\bar g_{Kf} = 4 / 4 / 0{,}5,\\quad \\bar g_{Ks} = 17 / 37{,}5 / 8\\ \\text{mS/cm}^2\\ (S / FR / FF)',
+      rule2008
+        ? 'V_{th} = I_{rh} \\cdot R_{in},\\quad I_{rh} = 3{,}5 \\to 6{,}5\\ (S),\\ 6{,}5 \\to 17{,}5\\ (FR),\\ 17{,}5 \\to 25{,}1\\ (FF)\\ \\text{nA}'
+        : 'V_{th} = 12{,}35 \\to 16{,}45\\ (S),\\ 16{,}45 \\to 19{,}30\\ (FR),\\ 19{,}30 \\to 20{,}90\\ (FF)\\ \\text{mV}',
+      drive,
+      d?.invasive ? 'I(t) = I_{drive}(t) + I_{FES}(t) \\cdot C_s \\quad (\\mu A/cm^2 \\to nA)' : 'I(t) = I_{drive}(t)\\quad (\\text{o FES age no axônio})',
+    ],
+    notes: [
+      'Período refratário de 5 ms; um disparo antidrômico que chega ao soma conta como disparo do soma e não desce pelo axônio.',
+      rule2008
+        ? 'Limiares pela regra de 2008: a reobase de cada unidade é a publicada (menor unidade 3,5 nA, perto dos 4 nA de Gallego).'
+        : 'Limiares de Watanabe 2013: as reobases saem ≈ 1,6× maiores (menor unidade 5,6 nA).',
+      'Validado contra a Tabela 5 do artigo: resistência de entrada, constante de tempo, reobases, inclinação f–I e pós-hiperpolarização das unidades S.',
+    ],
+  };
+}
+
 function stage2b(s: ModelSnapshot): StageContent {
   const st = s.stimulus;
   const r = s.recruitment;
@@ -401,6 +439,7 @@ function stage8(s: ModelSnapshot): StageContent {
 const BUILDERS: Record<StageId, (s: ModelSnapshot) => StageContent> = {
   '1': stage1,
   '2a': stage2a,
+  '2c': stage2c,
   '2b': stage2b,
   '3': stage3,
   '4': stage4,

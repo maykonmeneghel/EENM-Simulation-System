@@ -10,11 +10,18 @@ public record CentralDrive(
         Double voluntaryNa,
         Double noiseCv,
         CurrentScale currentScale,
+        ThresholdRule thresholdRule,
         Tremor tremor,
         Double electrodeFraction) {
 
     /** Sinusoidal tremor oscillator common to every motoneuron. */
     public record Tremor(Double frequencyHz, Double amplitudeNa) {
+    }
+
+    /** Thresholds of the Cisi &amp; Kohn motoneurons: rheobase × input resistance (2008) or direct (Watanabe 2013). */
+    public enum ThresholdRule {
+        CISI_KOHN_2008,
+        WATANABE_2013
     }
 
     /** Currents as published (Gallego 2015), or rescaled by the ratio of the smallest rheobases. */

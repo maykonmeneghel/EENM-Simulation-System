@@ -112,7 +112,7 @@ class WebClientSimulationEngineTest {
         SimulationDraft withDrive = new SimulationDraft(base.stimulus(), base.modelVariant(), null, null, null, null,
                 null, null, null, null, null, null, null, null, null,
                 new CentralDrive(true, null, 5.0, null, CentralDrive.CurrentScale.RHEOBASE,
-                        new CentralDrive.Tremor(5.9, null), null));
+                        CentralDrive.ThresholdRule.WATANABE_2013, new CentralDrive.Tremor(5.9, null), null));
 
         StepVerifier.create(engine.stream(new SimulationDefaults().resolve(withDrive)))
                 .expectNextCount(2).expectComplete().verify(TIMEOUT);
@@ -122,6 +122,7 @@ class WebClientSimulationEngineTest {
         assertThat(drive.path("enabled").booleanValue()).isTrue();
         assertThat(drive.path("voluntaryNa").doubleValue()).isEqualTo(5.0);
         assertThat(drive.path("currentScale").stringValue()).isEqualTo("RHEOBASE");
+        assertThat(drive.path("thresholdRule").stringValue()).isEqualTo("WATANABE_2013");
         assertThat(drive.path("tremor").path("frequencyHz").doubleValue()).isEqualTo(5.9);
         assertThat(drive.has("backgroundNa")).as("engine default").isFalse();
         assertThat(drive.path("tremor").has("amplitudeNa")).as("engine default").isFalse();

@@ -30,6 +30,19 @@ export const STAGE_EXPLANATIONS: Record<StageId, StageExplanation> = {
       { id: 'cisiKohn2008', supports: 'pool de motoneurônios dos tipos S, FR e FF construído com esse modelo' },
     ],
   },
+  '2c': {
+    plain:
+      'Com o drive central, os motoneurônios são os de Cisi & Kohn (2008), os mesmos do modelo de tremor de Gallego ' +
+      '(2015): soma ativo e dendrito passivo. Quando a voltagem do soma passa do limiar, os canais de sódio e potássio ' +
+      'abrem durante um pulso de 0,6 ms e geram o potencial de ação; o potássio lento (q) produz a pós-hiperpolarização, ' +
+      'que espaça os disparos. Assim cada unidade dispara devagar perto do limiar (≈ 7–11 Hz) e mais rápido com mais ' +
+      'corrente. A corrente é a soma do drive (fundo, comando voluntário, tremor e ruído) e, no modo invasivo, do estímulo.',
+    refs: [
+      { id: 'cisiKohn2008', supports: 'equações, geometria, resistências e reobases por tipo (Tabelas 2 e 5)' },
+      { id: 'watanabe2013', supports: 'condutâncias, constantes de taxa e limiares (Tabela 1)' },
+      { id: 'gallego2015', supports: 'o mesmo motoneurônio no modelo de tremor; valores do drive' },
+    ],
+  },
   '2b': {
     plain:
       'Na FES de superfície a corrente excita os axônios motores. Um pulso curto precisa de mais corrente que um pulso ' +
@@ -115,6 +128,7 @@ export const STAGE_TITLES: Record<StageId, string> = {
   '1': 'Estímulo',
   '2a': 'Motoneurônio (soma + dendrito)',
   '2b': 'Axônio motor (Weiss)',
+  '2c': 'Motoneurônio de Cisi & Kohn (drive central)',
   '3': 'Condução até o músculo',
   '4': 'Potencial de ação da unidade motora e EMG',
   '5a': 'Twitch (Fuglevand 1993)',

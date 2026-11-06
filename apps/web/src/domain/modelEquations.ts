@@ -13,7 +13,7 @@ import type {
 } from './simulation';
 import { MOTOR_UNIT_TYPES } from './simulation';
 
-export type StageId = '1' | '2a' | '2b' | '3' | '4' | '5a' | '5b' | '6' | '7' | '8a' | '8b';
+export type StageId = '1' | '2a' | '2b' | '2c' | '3' | '4' | '5a' | '5b' | '6' | '7' | '8a' | '8b';
 
 /** Stages used by each variant (model-equations.md, header). */
 export const STAGES_BY_VARIANT: Record<ModelVariant, readonly StageId[]> = {
@@ -22,8 +22,9 @@ export const STAGES_BY_VARIANT: Record<ModelVariant, readonly StageId[]> = {
 };
 
 /** LITERATURE with the stimulus in the motoneuron pool uses the motoneuron compartments (2a), not the axon layer. */
-/** Stages of the current model: the motoneuron (2a) replaces the axon layer (2b) in the invasive mode, and joins it in
- * the non-invasive mode with a central drive (the motoneurons fire from the drive, the stimulus fires the axons). */
+/** Stages of the current model: the motoneuron replaces the axon layer (2b) in the invasive mode — the inherited one
+ * (2a) without a drive, Cisi & Kohn's (2c) with one — and Cisi & Kohn's joins the axon layer in the non-invasive mode
+ * with a central drive (the motoneurons fire from the drive, the stimulus fires the axons). */
 export function stagesFor(
   variant: ModelVariant,
   site: StimulationSite = 'SKIN_SURFACE',
@@ -31,8 +32,8 @@ export function stagesFor(
 ): readonly StageId[] {
   const stages = STAGES_BY_VARIANT[variant];
   if (variant !== 'LITERATURE') return stages;
-  if (site === 'MOTONEURON_POOL') return stages.map((s) => (s === '2b' ? '2a' : s));
-  return centralDrive ? stages.flatMap((s) => (s === '2b' ? (['2a', '2b'] as const) : [s])) : stages;
+  if (site === 'MOTONEURON_POOL') return stages.map((s) => (s === '2b' ? (centralDrive ? '2c' : '2a') : s));
+  return centralDrive ? stages.flatMap((s) => (s === '2b' ? (['2c', '2b'] as const) : [s])) : stages;
 }
 
 // ---- constants (model-equations.md) ----

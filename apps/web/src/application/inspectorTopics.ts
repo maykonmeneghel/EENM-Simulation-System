@@ -47,7 +47,7 @@ const READINGS = {
 export function topicView(topic: InspectorTopic, forceStages: readonly StageId[], stageTitle: (s: StageId) => string): TopicView {
   switch (topic.kind) {
     case 'stage':
-      return { title: `Etapa ${topic.stage} · ${stageTitle(topic.stage)}`, stages: [topic.stage], path: false, drive: topic.stage === '2a', axon: false };
+      return { title: `Etapa ${topic.stage} · ${stageTitle(topic.stage)}`, stages: [topic.stage], path: false, drive: topic.stage === '2c', axon: false };
     case 'chart':
       if (topic.chart === 'force')
         return { title: 'Força muscular', stages: forceStages, path: true, drive: true, axon: true, reading: READINGS.force };
