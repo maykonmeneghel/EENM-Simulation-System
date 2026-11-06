@@ -1,6 +1,7 @@
 package com.meneghel.eenm.simulationapi.infrastructure.engine;
 
 import static com.meneghel.eenm.simulationapi.infrastructure.engine.JsonFields.integers;
+import static com.meneghel.eenm.simulationapi.infrastructure.engine.JsonFields.longs;
 import static com.meneghel.eenm.simulationapi.infrastructure.engine.JsonFields.number;
 import static com.meneghel.eenm.simulationapi.infrastructure.engine.JsonFields.numbers;
 import static com.meneghel.eenm.simulationapi.infrastructure.engine.JsonFields.object;
@@ -19,6 +20,7 @@ import com.meneghel.eenm.simulationapi.domain.event.SimulationFailed;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationStarted;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationSummary;
 import com.meneghel.eenm.simulationapi.domain.event.UnitAnatomy;
+import com.meneghel.eenm.simulationapi.domain.event.UnitEvents;
 import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -75,7 +77,8 @@ final class EngineEventParser {
                 text(node, "muscle"),
                 optionalNumber(node, "maxForce"),
                 optionalNumber(node, "electrodeFraction"),
-                units(node.get("units")));
+                units(node.get("units")),
+                optionalNumber(node, "stepMs"));
     }
 
     /** Absent or {@code null} from an engine older than the field. */
@@ -111,7 +114,24 @@ final class EngineEventParser {
                 new ForceSeries(numbers(force, "total"), numbers(force, "S"), numbers(force, "FR"), numbers(force, "FF")),
                 numbers(node, "emg"),
                 fatigue(node.get("fatigue")),
-                axonEvents(node.get("axonEvents")));
+                axonEvents(node.get("axonEvents")),
+                unitEvents(node.get("unitEvents")));
+    }
+
+    /** Absent or {@code null} unless the request asked for them. */
+    private static UnitEvents unitEvents(JsonNode node) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        if (!node.isObject()) {
+            throw new EngineProtocolException("Engine field 'unitEvents' must be an object");
+        }
+        try {
+            return new UnitEvents(longs(node, "sample"), integers(node, "unit"), integers(node, "kind"),
+                    longs(node, "origin"));
+        } catch (IllegalArgumentException inconsistent) {
+            throw new EngineProtocolException("Engine field 'unitEvents' is inconsistent: " + inconsistent.getMessage());
+        }
     }
 
     /** Absent or {@code null} outside the axon merge (or from an engine older than the field). */

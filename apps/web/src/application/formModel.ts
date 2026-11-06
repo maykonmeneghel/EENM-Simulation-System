@@ -17,6 +17,7 @@ import type {
   StimulationSite,
   Waveform,
 } from '../domain/simulation';
+import { MAX_UNIT_EVENTS_DURATION_MS } from '../domain/simulation';
 import { validateRequest } from '../domain/validation';
 import { fmtNumber, tr } from '../i18n/locale';
 
@@ -257,6 +258,9 @@ export type FormResult =
  * Omits `unitsPerType` for LITERATURE in automatic mode, sends train fields only when enabled,
  * and raises `outputStepMs` (with a notice) when the run would exceed the point budget.
  */
+/** Muscles the 3D step draws (it replays their runs). */
+const FOREARM_MUSCLES: ReadonlySet<string> = new Set(['FLEXOR_CARPI_RADIALIS', 'EXTENSOR_CARPI_RADIALIS']);
+
 export function parseForm(values: FormValues, muscles: readonly MusclePreset[] = []): FormResult {
   const errors: FieldError[] = [];
   const notices: FormNotice[] = [];
@@ -326,6 +330,10 @@ export function parseForm(values: FormValues, muscles: readonly MusclePreset[] =
     dendriteGeometry: values.dendriteGeometry as Geometry,
     seed: num('seed'),
     outputStepMs: num('outputStepMs'),
+    // the 3D step replays forearm runs; the engine streams per-unit events up to 30 s
+    ...(FOREARM_MUSCLES.has(values.muscle) && num('stimulus.durationMs') <= MAX_UNIT_EVENTS_DURATION_MS
+      ? { output: { unitEvents: true } }
+      : {}),
     ...(driveActive(values)
       ? {
           centralDrive: {

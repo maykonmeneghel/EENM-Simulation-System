@@ -68,7 +68,8 @@ public final class SimulationDefaults {
                 orDefault(source.dendriteGeometry(), DENDRITE_GEOMETRY),
                 orDefault(source.seed(), SEED),
                 orDefault(source.outputStepMs(), OUTPUT_STEP_MS),
-                source.centralDrive());
+                source.centralDrive(),
+                Boolean.TRUE.equals(source.unitEvents()));
     }
 
     private Stimulus resolve(StimulusDraft draft) {

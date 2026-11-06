@@ -33,5 +33,20 @@ public record SimulationRequestDto(
         CompartmentGeometry dendriteGeometry,
         @PositiveOrZero(message = "must be greater than or equal to 0") Long seed,
         @DecimalMax(value = "10", message = "must be less than or equal to 10") Double outputStepMs,
-        @Valid CentralDriveDto centralDrive) {
+        @Valid CentralDriveDto centralDrive,
+        OutputDto output) {
+
+    public SimulationRequestDto(StimulusDto stimulus, ModelVariant modelVariant, CalibrationTarget calibrationTarget,
+            StimulationSite stimulationSite, Condition condition, List<String> conditionAdjustments, Muscle muscle,
+            UnitsPerTypeDto unitsPerType, Double axonLengthPercent, Double temperatureCelsius,
+            InjectionSite injectionSite, CompartmentGeometry somaGeometry, CompartmentGeometry dendriteGeometry,
+            Long seed, Double outputStepMs, CentralDriveDto centralDrive) {
+        this(stimulus, modelVariant, calibrationTarget, stimulationSite, condition, conditionAdjustments, muscle,
+                unitsPerType, axonLengthPercent, temperatureCelsius, injectionSite, somaGeometry, dendriteGeometry,
+                seed, outputStepMs, centralDrive, null);
+    }
+
+    /** What the stream carries besides the series; {@code unitEvents}: the per-unit events of the 3D replay. */
+    public record OutputDto(Boolean unitEvents) {
+    }
 }

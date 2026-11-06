@@ -101,6 +101,11 @@ class CentralDriveDto(_CamelModel):
     electrode_fraction: float = Field(0.9, gt=0, le=1)
 
 
+class OutputDto(_CamelModel):
+    unit_events: bool = False
+    """Stream ``chunk.unitEvents`` for the 3D replay (at most 30 s of simulated time)."""
+
+
 class SimulationRequest(_CamelModel):
     """Every field optional; defaults reproduce ``Main.m``. Range checks are the public API's job."""
 
@@ -125,6 +130,7 @@ class SimulationRequest(_CamelModel):
     dendrite_geometry: Geometry = Geometry.CYLINDRICAL
     seed: int = Field(0, ge=0)
     output_step_ms: float = Field(0.1, gt=0)
+    output: OutputDto = Field(default_factory=lambda: OutputDto())
 
     @model_validator(mode="after")
     def _domain_rules(self) -> SimulationRequest:
@@ -165,6 +171,7 @@ class SimulationRequest(_CamelModel):
             dendrite_geometry=self.dendrite_geometry,
             seed=self.seed,
             output_step_ms=self.output_step_ms,
+            unit_events=self.output.unit_events,
         )
 
     def _model(self) -> ModelOptions:
@@ -330,6 +337,7 @@ def event_to_json(event: SimulationEvent) -> dict[str, object]:
             "simulationId": event.simulation_id,
             "durationMs": event.duration_ms,
             "outputStepMs": event.output_step_ms,
+            "stepMs": event.step_ms,
             "motorUnits": _by_type(dict(event.motor_units)),
             "muscle": event.muscle.value,
             "maxForce": event.max_force,
@@ -357,6 +365,16 @@ def event_to_json(event: SimulationEvent) -> dict[str, object]:
                 else None
             ),
             "axonEvents": event.axon_events,
+            "unitEvents": (
+                {
+                    "sample": event.unit_events.sample.tolist(),
+                    "unit": event.unit_events.unit.tolist(),
+                    "kind": event.unit_events.kind.tolist(),
+                    "origin": event.unit_events.origin.tolist(),
+                }
+                if event.unit_events is not None
+                else None
+            ),
         }
     if isinstance(event, SimulationCompleted):
         return {

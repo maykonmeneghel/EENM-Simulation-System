@@ -9,6 +9,7 @@ from numpy.typing import NDArray
 
 from eenm_engine.domain.motor_unit_pool import MotorUnitType, Muscle
 from eenm_engine.domain.unit_anatomy import UnitAnatomy
+from eenm_engine.domain.unit_events import UnitEvents
 
 
 @dataclass(frozen=True)
@@ -18,6 +19,8 @@ class SimulationStarted:
     output_step_ms: float
     motor_units: dict[MotorUnitType, int]
     muscle: Muscle
+    step_ms: float | None = None
+    """Integration step: the unit of ``unitEvents`` samples (sample × step = time in ms)."""
     max_force: float | None = None
     """Maximal force of the healthy muscle (``domain.max_force``): force ÷ this = fraction of maximum."""
     units: UnitAnatomy | None = None
@@ -49,6 +52,8 @@ class SimulationChunk:
     """``None`` when the model has no fatigue (ORIGINAL)."""
     axon_events: dict[str, int] | None = None
     """Cumulative axon-merge counts (non-invasive mode with a central drive), else ``None``."""
+    unit_events: UnitEvents | None = None
+    """Per-unit events since the previous chunk (``domain.unit_events``), when the request asked for them."""
 
 
 @dataclass(frozen=True)

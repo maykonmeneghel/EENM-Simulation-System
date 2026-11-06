@@ -34,6 +34,7 @@ from eenm_engine.domain.simulation import (
 )
 from eenm_engine.domain.stimulus import stimulus_current, stimulus_series
 from eenm_engine.domain.unit_anatomy import unit_anatomy
+from eenm_engine.domain.unit_events import UnitEventBuffer, UnitEventKind, UnitEvents
 
 
 class RunSimulation:
@@ -73,6 +74,7 @@ class RunSimulation:
             simulation_id=str(uuid.uuid4()),
             duration_ms=protocol.duration_ms,
             output_step_ms=config.output_stride * protocol.step_ms,
+            step_ms=protocol.step_ms,
             motor_units={t: setup.groups[t].size for t in UNIT_TYPES},
             muscle=config.muscle,
             max_force=maximal_force(config, config.reference_model),
@@ -85,10 +87,13 @@ class RunSimulation:
         )
 
         merge: list[DrivenPoolIntegration] = []  # the merged integration, once started (its axon-event totals)
+        events = UnitEventBuffer() if config.unit_events else None
+        if events is not None:
+            force.record_arrivals()
         if config.model.central_drive is not None:
-            blocks = self._driven_blocks(setup, config, stimulus, force, merge)
+            blocks = self._driven_blocks(setup, config, stimulus, force, merge, events)
         elif config.model.stimulation_site is StimulationSite.MOTOR_AXONS:
-            blocks = self._axon_blocks(setup, config, stimulus, force)
+            blocks = self._axon_blocks(setup, config, stimulus, force, events)
         elif self._pool_integrator is not None:
             blocks = self._pool_blocks(setup.motoneurons, config, stimulus, force)
         else:
@@ -106,6 +111,10 @@ class RunSimulation:
             )
             chunk = self._chunk(series, times, stimulus, fatigue, merge[0].axon_events() if merge else None)
             if chunk.time_ms.size:
+                if events is not None:
+                    sample, unit = force.drain_arrivals()
+                    events.add(UnitEvents.of(sample, unit, UnitEventKind.MUSCLE_ARRIVAL))
+                    chunk = replace(chunk, unit_events=events.drain())
                 yield chunk
 
         # on the output grid: force is only computed there
@@ -127,6 +136,7 @@ class RunSimulation:
         config: SimulationConfig,
         stimulus: NDArray[np.float64],
         force: IncrementalForce,
+        events: UnitEventBuffer | None = None,
     ) -> Iterator[ForceSeries]:
         """Axon stimulation: spikes follow from the stimulus directly, no ODE; still released block by block."""
         protocol = config.stimulus
@@ -135,8 +145,13 @@ class RunSimulation:
         )
         block = max(1, round(self._block_ms / protocol.step_ms))
         for start in range(0, stimulus.size, block):
+            stop = min(start + block, stimulus.size)
+            if events is not None:  # the axons each pulse of the block fires, at the pulse's sample
+                inside = (index >= start) & (index < stop)
+                pulse, unit = np.nonzero(fires[inside])
+                events.add(UnitEvents.of(index[inside][pulse], unit, UnitEventKind.FES_FIRE))
             # dense spike rows only for this block: memory does not grow with the duration
-            released = force.add(spikes_in(index, fires, start, min(start + block, stimulus.size)))
+            released = force.add(spikes_in(index, fires, start, stop))
             if released is not None:
                 yield released
 
@@ -168,6 +183,7 @@ class RunSimulation:
         stimulus: NDArray[np.float64],
         force: IncrementalForce,
         merge: list[DrivenPoolIntegration],
+        events: UnitEventBuffer | None = None,
     ) -> Iterator[ForceSeries]:
         """Central drive into Cisi & Kohn motoneurons (``cisi_kohn``); their spike trains drive the muscle.
 
@@ -202,8 +218,13 @@ class RunSimulation:
             current = generator.next(stop - start)
             if invasive:
                 spikes = integration.advance(current + stimulus[start - 1 : stop - 1, None] * to_na[None, :])
+                if events is not None:
+                    events.add_spike_rows(spikes, start, UnitEventKind.SOMA_SPIKE)
             else:
                 spikes = integration.advance_merged(current, spikes_in(index, fires, start, stop) > 0)
+                logged = integration.drain_unit_events() if events is not None else None
+                if events is not None and logged is not None:
+                    events.add(UnitEvents(*logged))
             released = force.add(spikes)
             if released is not None:
                 yield released

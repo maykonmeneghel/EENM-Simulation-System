@@ -141,6 +141,8 @@ export interface SimulationRequest {
   outputStepMs: number;
   /** LITERATURE only; omitted = no drive. */
   centralDrive?: CentralDrive;
+  /** `unitEvents`: stream the per-unit events of the 3D replay (≤ 30 s of simulated time). */
+  output?: { unitEvents: boolean };
 }
 
 /** Where one value of a muscle preset comes from (GET /muscles, `provenance`). */
@@ -177,6 +179,8 @@ export interface StartedEvent {
   electrodeFraction?: number | null;
   /** Per-unit geometry and conduction times, for the 3D step; older servers omit it. */
   units?: UnitAnatomy | null;
+  /** Integration step: `unitEvents` samples × this = ms. */
+  stepMs?: number | null;
 }
 
 /** One entry per simulated unit in every column, S then FR then FF (contract §2, `started.units`). */
@@ -207,6 +211,30 @@ export interface ForceSeries {
   FF: number[];
 }
 
+/** Kinds of `unitEvents` (engine `domain/unit_events.py`; the same numbers). */
+export const UNIT_EVENT_KIND = {
+  SOMA_SPIKE: 0,
+  FES_FIRE: 1,
+  FES_BLOCKED: 2,
+  COLLISION: 3,
+  ANTIDROMIC_RESET: 4,
+  CENTRAL_PASSED: 5,
+  SOMA_COLLISION: 6,
+  MUSCLE_ARRIVAL: 7,
+  CENTRAL_BLOCKED: 8,
+} as const;
+
+/** Parallel arrays, one entry per event; `origin` is a related sample or -1 (contract §2, `chunk.unitEvents`). */
+export interface UnitEventsChunk {
+  sample: number[];
+  unit: number[];
+  kind: number[];
+  origin: number[];
+}
+
+/** Longest run whose per-unit events are streamed (the engine's limit). */
+export const MAX_UNIT_EVENTS_DURATION_MS = 30_000;
+
 export interface ChunkEvent {
   type: 'chunk';
   progress: number;
@@ -218,6 +246,8 @@ export interface ChunkEvent {
   fatigue?: FatigueSnapshot | null;
   /** Axon-merge counts so far; null outside the non-invasive mode with a central drive. */
   axonEvents?: AxonEvents | null;
+  /** Per-unit events since the previous chunk, when the request asked for them (`output.unitEvents`). */
+  unitEvents?: UnitEventsChunk | null;
 }
 
 export interface FatigueSnapshot {

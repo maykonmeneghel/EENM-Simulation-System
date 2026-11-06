@@ -25,7 +25,8 @@ final class EngineRequestMapper {
                 request.dendriteGeometry().name(),
                 request.seed(),
                 request.outputStepMs(),
-                toBody(request.centralDrive()));
+                toBody(request.centralDrive()),
+                request.unitEvents() ? new EngineSimulationRequestBody.Output(true) : null);
     }
 
     private EngineSimulationRequestBody.CentralDrive toBody(CentralDrive drive) {

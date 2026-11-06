@@ -126,6 +126,20 @@ class SimulationRequestRulesTest {
         assertThat(rules.check(withSteps(0.01, outputStepMs))).isEmpty();
     }
 
+    @ParameterizedTest
+    @CsvSource({"30000, true", "30001, false"})
+    void unitEventsAreLimitedTo30Seconds(double durationMs, boolean valid) {
+        SimulationRequest base = defaults.resolve(draft(stimulus(durationMs, null, null), null, null, null));
+        SimulationRequest request = new SimulationRequest(base.stimulus(), base.modelVariant(), base.calibrationTarget(),
+                base.stimulationSite(), base.condition(), base.conditionAdjustments(), base.muscle(),
+                base.unitsPerType(), base.axonLengthPercent(), base.temperatureCelsius(), base.injectionSite(),
+                base.somaGeometry(), base.dendriteGeometry(), base.seed(), base.outputStepMs(), base.centralDrive(),
+                true);
+
+        assertThat(rules.check(request).isEmpty()).isEqualTo(valid);
+        assertThat(rules.check(base)).isEmpty(); // without unit events any duration the stimulus allows is fine
+    }
+
     @Test
     void atLeastOneMotorUnitIsRequired() {
         SimulationRequest request = defaults.resolve(variant(null, new MotorUnitCountsDraft(0, 0, 0)));

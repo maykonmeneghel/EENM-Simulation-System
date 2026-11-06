@@ -2,6 +2,8 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { StartedEvent } from '../../domain/simulation';
+import { UnitEventLog } from '../../application/unitEventLog';
+import type { ChunkEvent } from '../../domain/simulation';
 import ThreeDView from './ThreeDView';
 
 // jsdom has no WebGL: these tests cover what the step shows before a scene can be drawn
@@ -64,5 +66,24 @@ describe('ThreeDView', () => {
     expect(screen.getByText(/Booth 1997/)).toBeInTheDocument();
     expect(screen.getByText(/ponto motor 5,2 cm abaixo do cotovelo \(modelo\)/)).toBeInTheDocument();
     expect(screen.getByText(/BodyParts3D, © The Database Center for Life Science/)).toBeInTheDocument();
+  });
+
+  it('offers the replay controls once a run with per-unit events has ended, and not while it streams', () => {
+    const log = new UnitEventLog();
+    log.append({ unitEvents: { sample: [30, 210], unit: [0, 0], kind: [1, 7], origin: [-1, -1] } } as unknown as ChunkEvent);
+    const run = started({ stepMs: 0.01 });
+    const { rerender } = render(<ThreeDView run={run} running {...props} unitEvents={log} />);
+    expect(screen.queryByRole('button', { name: /Tocar|Pausar/ })).toBeNull();
+    expect(screen.getByText(/O replay fica pronto quando a simulação terminar/)).toBeInTheDocument();
+    rerender(<ThreeDView run={run} running={false} {...props} unitEvents={log} />);
+    expect(screen.getByRole('button', { name: 'Pausar' })).toBeInTheDocument(); // it starts playing
+    expect(screen.getByRole('button', { name: 'Próximo pulso' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '1/1000×' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('slider', { name: 'Tempo do replay' })).toBeInTheDocument();
+  });
+
+  it('says why there is no replay for a run without per-unit events', () => {
+    render(<ThreeDView run={started()} {...props} unitEvents={new UnitEventLog()} />);
+    expect(screen.getByText(/rode de novo para receber os disparos por unidade/)).toBeInTheDocument();
   });
 });

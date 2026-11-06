@@ -264,3 +264,15 @@ describe('stepNumber', () => {
     expect(stepNumber('1000', -100)).toBe('900');
   });
 });
+
+describe('form model — 3D replay', () => {
+  const fcr: MusclePreset = { id: 'FLEXOR_CARPI_RADIALIS', label: 'FCR', poolSize: { S: 800, FR: 50, FF: 50 } };
+  const at = (muscle: string, durationMs: string) => ({ ...defaultFormValues(), muscle, 'stimulus.durationMs': durationMs });
+
+  it('asks for the per-unit events of forearm runs up to 30 s, the engine limit', () => {
+    expect(requestOf(at('FLEXOR_CARPI_RADIALIS', '1000'), [fcr]).output).toEqual({ unitEvents: true });
+    expect(requestOf(at('FLEXOR_CARPI_RADIALIS', '30000'), [fcr]).output).toEqual({ unitEvents: true });
+    expect(requestOf(at('FLEXOR_CARPI_RADIALIS', '30001'), [fcr]).output).toBeUndefined();
+    expect(requestOf(at('SOLEUS', '1000')).output).toBeUndefined(); // the 3D step does not draw the leg
+  });
+});

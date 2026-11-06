@@ -7,6 +7,7 @@ import com.meneghel.eenm.simulationapi.domain.event.SimulationCompleted;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationStarted;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationSummary;
 import com.meneghel.eenm.simulationapi.domain.event.UnitAnatomy;
+import com.meneghel.eenm.simulationapi.domain.event.UnitEvents;
 import com.meneghel.eenm.simulationapi.domain.muscle.MusclePreset;
 import com.meneghel.eenm.simulationapi.domain.simulation.MotorUnitCounts;
 import java.util.List;
@@ -38,7 +39,7 @@ public final class SampleEvents {
     public static String startedLine() {
         return "{\"type\":\"started\",\"simulationId\":\"sim-1\",\"durationMs\":1000,\"outputStepMs\":0.1,"
                 + "\"motorUnits\":{\"S\":5,\"FR\":2,\"FF\":2},\"muscle\":\"SOLEUS\",\"maxForce\":5.1754,"
-                + "\"electrodeFraction\":null,\"units\":null}";
+                + "\"electrodeFraction\":null,\"units\":null,\"stepMs\":null}";
     }
 
     /** {@code started} with the 3D view's unit table (two units, electrode at 90 %). */
@@ -61,7 +62,7 @@ public final class SampleEvents {
     public static String chunkLine(double progress) {
         return "{\"type\":\"chunk\",\"progress\":" + progress + ",\"timeMs\":[0.0,0.1],\"stimulus\":[100.0,100.0],"
                 + "\"force\":{\"total\":[0.6,0.9],\"S\":[0.1,0.2],\"FR\":[0.2,0.3],\"FF\":[0.3,0.4]},"
-                + "\"emg\":[0.01,-0.02],\"fatigue\":null,\"axonEvents\":null}";
+                + "\"emg\":[0.01,-0.02],\"fatigue\":null,\"axonEvents\":null,\"unitEvents\":null}";
     }
 
     /** A LITERATURE chunk: fatigue snapshot, FR with no simulated units. */
@@ -74,6 +75,18 @@ public final class SampleEvents {
     public static String chunkWithFatigueLine() {
         return chunkLine(0.5).replace("\"fatigue\":null",
                 "\"fatigue\":{\"timeMs\":0.1,\"muscle\":0.93,\"S\":0.99,\"FR\":null,\"FF\":0.71}");
+    }
+
+    /** A chunk carrying the 3D replay's per-unit events (an FES fire and its arrival at the muscle). */
+    public static String chunkWithUnitEventsLine() {
+        return chunkLine(0.5).replace("\"unitEvents\":null",
+                "\"unitEvents\":{\"sample\":[40,768],\"unit\":[3,3],\"kind\":[1,7],\"origin\":[-1,-1]}");
+    }
+
+    public static SimulationChunk chunkWithUnitEvents() {
+        SimulationChunk c = chunk(0.5);
+        return new SimulationChunk(c.progress(), c.timeMs(), c.stimulus(), c.force(), c.emg(), null, null,
+                new UnitEvents(List.of(40L, 768L), List.of(3, 3), List.of(1, 7), List.of(-1L, -1L)));
     }
 
     public static String completedLine() {

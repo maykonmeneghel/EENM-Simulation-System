@@ -210,6 +210,32 @@ Per-unit force for L1 brightness (see above: a new kernel output in the app's pa
 kernel change keeps the run time within 10 % (measured, end to end). Fallback without it: brightness flashes on
 each muscle arrival and decays with the unit's twitch time to peak (tagged illustrative).
 
+**Implemented 2026-11-06 (phases 3–4).** Differences from the proposal above, each for a reason:
+
+- **Arrivals at the muscle are sent** (`MUSCLE_ARRIVAL`), not derived: with the current into the soma and no drive,
+  the soma spikes exist only as the force pipeline's peaks at the muscle, and in every mode the arrival is what drives
+  the twitch. The replay ends each orthodromic spike at its logged arrival.
+- **`SOMA_COLLISION` and `CENTRAL_BLOCKED`** added: the merge also annihilates at the soma (a new soma spike meets a
+  pending antidromic one) and drops central spikes that reach a refractory electrode. Both were in the counters or
+  implicit, now they are events.
+- `origin` links each end event to the spike it ends, so the client draws trajectories without re-running the
+  merge's queues.
+- Logged per unit inside the compiled merge (one log per unit: the loop is parallel over units) and drained per block.
+- Test (§5.3, `tests/unit/test_unit_events.py`): with partial recruitment at 20 Hz under a 6 nA voluntary drive,
+  every kind occurs and each count equals its counter. Removing the log of any one kind makes it fail. The first
+  scenario tried (supramaximal 30 Hz) had no electrode collision at all, so it could not have caught a missing
+  `COLLISION` log.
+
+**Found while testing, not fixed (needs the author):** in the FES-only mode (skin surface, no drive) the force
+pipeline applies the whole soma → muscle delay (≈ 18 ms) after the axon fires at the electrode. It should apply only
+the electrode → muscle part (≈ 1.8 ms). This is the same error commit e9decea fixed for the drive mode. The replay shows it: in
+that mode a spike takes 18 ms from the electrode to the muscle.
+
+**Development hazard found:** `electrode_events` / `soma_events` are inlined (`inline="always"`) into the compiled
+integrator with `cache=True`, and Numba's cache is keyed on the caller's file, so editing only `axon_merge.py`
+leaves a stale compiled kernel locally (the Docker image builds fresh). Clear `__pycache__/*.nb[ic]` after editing
+it.
+
 ### 5.2 Volume
 
 Upper bound for the events: 120 units × 3 events per spike (fire, pass, arrival is derived) × 50 Hz × 300 s ≈ 5.4 M

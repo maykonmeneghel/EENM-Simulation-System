@@ -184,3 +184,130 @@ export function buildLayout(run: StartedEvent, axonLengthPercent: number): Layou
     units: out,
   };
 }
+
+// ---- Axon paths (the replay draws spikes on them) ----------------------------------------------------------------
+
+/** Drawn axon from the soma to just past the motoneuron group, before the broken axis. */
+export const GAP_START_DX = 0.008;
+/** The drawn axon resumes this far before the axis break, past the gap. */
+export const GAP_END_DX = 0.012;
+const CURVE_SAMPLES = 63; // a multiple of the 3 curve segments: the motor point (control point 2) is a sample
+
+type P3 = [number, number, number];
+
+/** Control points of the nerve (from the axis break into the muscle at the motor point, then to the endplates). */
+export function nerveControlPoints(layout: Layout, lane: [number, number] = [0, 0]): P3[] {
+  const entry = sectionAt(layout.parts[0]!, layout.motorPoint.x);
+  const end = layout.section;
+  const p = (x: number, y: number, z: number): P3 => [x, y + lane[0], z + lane[1]];
+  return [
+    p(AXIS_BREAK_X, entry.centre[0] * 0.5, entry.centre[1] * 0.5),
+    p((AXIS_BREAK_X + layout.motorPoint.x) / 2, entry.centre[0] * 0.8, entry.centre[1] * 0.8),
+    p(layout.motorPoint.x, entry.centre[0], entry.centre[1]),
+    p(end.x, end.centre[0], end.centre[1]),
+  ];
+}
+
+/** Centripetal-free uniform Catmull–Rom through `points` (as three.js's default curve), sampled. */
+function catmullRom(points: P3[], samples: number): P3[] {
+  const out: P3[] = [];
+  const n = points.length - 1;
+  for (let i = 0; i <= samples; i++) {
+    const t = (i / samples) * n;
+    const k = Math.min(n - 1, Math.floor(t));
+    const u = t - k;
+    const p0 = points[Math.max(0, k - 1)]!;
+    const p1 = points[k]!;
+    const p2 = points[k + 1]!;
+    const p3 = points[Math.min(n, k + 2)]!;
+    // the end tangents use mirrored neighbours, like three.js's CatmullRomCurve3 for open curves
+    const a = k === 0 ? p1.map((v, j) => 2 * v - p2[j]!) : p0;
+    const d = k + 2 > n ? p2.map((v, j) => 2 * v - p1[j]!) : p3;
+    const u2 = u * u;
+    const u3 = u2 * u;
+    out.push(
+      [0, 1, 2].map(
+        (j) => 0.5 * (2 * p1[j]! + (-a[j]! + p2[j]!) * u + (2 * a[j]! - 5 * p1[j]! + 4 * p2[j]! - d[j]!) * u2 + (-a[j]! + 3 * p1[j]! - 3 * p2[j]! + d[j]!) * u3),
+      ) as P3,
+    );
+  }
+  return out;
+}
+
+/** The nerve's drawn curve, sampled: the scene draws its tubes through these points and the replay moves on them. */
+export function nerveCurvePoints(layout: Layout, lane: [number, number] = [0, 0]): P3[] {
+  return catmullRom(nerveControlPoints(layout, lane), CURVE_SAMPLES);
+}
+
+const dist = (a: P3, b: P3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+
+interface Polyline {
+  points: P3[];
+  /** Cumulative length at each point. */
+  at: number[];
+  length: number;
+}
+
+function polyline(points: P3[]): Polyline {
+  const at = [0];
+  for (let i = 1; i < points.length; i++) at.push(at[i - 1]! + dist(points[i - 1]!, points[i]!));
+  return { points, at, length: at[at.length - 1]! };
+}
+
+function along(line: Polyline, fraction: number, out: P3): void {
+  const target = Math.min(1, Math.max(0, fraction)) * line.length;
+  let i = 1;
+  while (i < line.points.length - 1 && line.at[i]! < target) i++;
+  const a = line.points[i - 1]!;
+  const b = line.points[i]!;
+  const span = line.at[i]! - line.at[i - 1]!;
+  const u = span > 0 ? (target - line.at[i - 1]!) / span : 0;
+  for (let j = 0; j < 3; j++) out[j] = a[j]! + (b[j]! - a[j]!) * u;
+}
+
+/**
+ * One unit's drawn axon, with the real axon position `s` (0 soma, f electrode, 1 muscle) mapped onto it:
+ * `[0, sA]` soma → gap start, `(sA, sC)` the omitted length (not drawn), `[sC, sE]` gap end → electrode (motor point),
+ * `[sE, 1]` electrode → endplate. Lengths are real where drawn, so a spike moves at its conduction speed on screen and
+ * spends most of its trip in the gap.
+ */
+export interface AxonPath {
+  soma: Polyline;
+  proximal: Polyline;
+  distal: Polyline;
+  sA: number;
+  sC: number;
+  sE: number;
+}
+
+export function axonPath(layout: Layout, u: UnitLayout): AxonPath {
+  const L = layout.axonLength;
+  const somaStart: P3 = [u.soma.position[0] + u.soma.length / 2, u.soma.position[1], u.soma.position[2]];
+  const control = nerveControlPoints(layout, u.lane);
+  const curve = nerveCurvePoints(layout, u.lane);
+  const split = Math.round((2 / 3) * CURVE_SAMPLES); // control point 2 (the motor point) of 4 → sample 2/3
+  const first = control[0]!;
+  const gapEnd: P3 = [AXIS_BREAK_X - GAP_END_DX, first[1], first[2]];
+  const soma = polyline([somaStart, [SPINAL_X + GAP_START_DX, u.soma.position[1], u.soma.position[2]]]);
+  const proximal = polyline([gapEnd, ...curve.slice(0, split + 1)]);
+  const distal = polyline(curve.slice(split));
+  const sE = layout.electrodeFraction ?? Math.max(0, 1 - distal.length / L);
+  const sA = Math.min(soma.length / L, sE / 2);
+  const sC = Math.max(sA, sE - proximal.length / L);
+  return { soma, proximal, distal, sA, sC, sE };
+}
+
+/** The drawn point at axon position `s` into `out`; false while the spike is in the omitted length. */
+export function pointOnAxon(path: AxonPath, s: number, out: P3): boolean {
+  if (s <= path.sA) {
+    along(path.soma, path.sA > 0 ? s / path.sA : 0, out);
+    return true;
+  }
+  if (s < path.sC) return false;
+  if (s <= path.sE) {
+    along(path.proximal, path.sE > path.sC ? (s - path.sC) / (path.sE - path.sC) : 1, out);
+    return true;
+  }
+  along(path.distal, (s - path.sE) / (1 - path.sE), out);
+  return true;
+}

@@ -116,3 +116,23 @@ describe('levelFor', () => {
     expect(levelFor(boundary * 0.3, 'L0')).toBe('L1');
   });
 });
+
+describe('axon paths', () => {
+  it('puts the soma at 0, the electrode at the motor point at f, the endplate at 1, and hides the omitted length', async () => {
+    const { axonPath, pointOnAxon } = await import('./anatomy3d');
+    const layout = buildLayout(run(), 80)!;
+    const u = layout.units[3]!;
+    const path = axonPath(layout, u);
+    const p: [number, number, number] = [0, 0, 0];
+    expect(pointOnAxon(path, 0, p)).toBe(true);
+    expect(p[0]).toBeCloseTo(u.soma.position[0] + u.soma.length / 2, 9);
+    expect(pointOnAxon(path, 0.9, p)).toBe(true);
+    expect(p[0]).toBeCloseTo(layout.motorPoint.x, 6);
+    expect(pointOnAxon(path, 1, p)).toBe(true);
+    expect(p[0]).toBeCloseTo(layout.section.x, 6); // the drawn cross-section nearest to the endplates (1 cm stations)
+    expect(pointOnAxon(path, 0.4, p)).toBe(false); // in the ≈ 0.5 m left out
+    // drawn lengths are real: the drawn proximal stretch covers exactly its share of the axon
+    expect((path.sE - path.sC) * layout.axonLength).toBeCloseTo(path.proximal.length, 9);
+    expect(path.sA * layout.axonLength).toBeCloseTo(path.soma.length, 9);
+  });
+});
