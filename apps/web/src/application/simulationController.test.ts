@@ -45,6 +45,25 @@ describe('SimulationController', () => {
     expect(seen[0]).toBe('running');
   });
 
+  it('a new run starts the wrist at rest: the angles of the previous run are dropped', async () => {
+    const withJoint = (angleDeg: number[]): ChunkEvent => ({ ...chunk([0, 0.1], 1), joint: { angleDeg, torqueNm: [0, 0] } });
+    const started = { type: 'started', simulationId: 'x', durationMs: 0.1, outputStepMs: 0.1, motorUnits: { S: 1, FR: 1, FF: 1 }, muscle: 'SOLEUS' } as const;
+    const completed = { type: 'completed', elapsedSeconds: 0.1, summary: { peakForce: 1, meanForce: 1, timeToPeakMs: 0 } } as const;
+    let second = false;
+    const c = new SimulationController(
+      fakeApi(async function* () {
+        yield started;
+        if (!second) yield withJoint([0, 80]);
+        yield completed;
+      }),
+    );
+    await c.start(defaultRequest());
+    expect(c.joint.at(1)).toBe(80);
+    second = true;
+    await c.start(defaultRequest());
+    expect(c.joint.at(1)).toBeNull(); // nothing of the last run is left: the 3D draws the hand at 0°
+  });
+
   it('maps a 400 problem+json to a validation failure with field errors', async () => {
     const c = new SimulationController(
       // eslint-disable-next-line require-yield -- the stream fails before its first event

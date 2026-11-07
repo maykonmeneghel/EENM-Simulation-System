@@ -356,8 +356,8 @@ export default function ThreeDView({ run, running = false, axonLengthPercent, mu
       )}
       <p className="three-notes muted">
         {tr({
-          'pt-BR': `Pele, ossos e músculos: atlas (malhas em escala real). Unidades, tamanhos do soma e do dendrito, tempos de condução e disparos: modelo (${layout.motoneuron === 'CISI_KOHN_2008' ? 'Cisi & Kohn 2008' : 'Booth 1997'}). Posição das unidades, territórios, trajeto do nervo e tamanho do eletrodo: ilustrativos. Axônio de ${fmt(layout.axonLength, 2)} m; ponto motor ${fmt(layout.motorPoint.x * 100, 1)} cm abaixo do cotovelo (${TAG_LABEL[layout.motorPoint.tag]()}). Um disparo some no trecho omitido e reaparece do outro lado no tempo real de condução. O músculo brilha com a força (% da máxima). A mão gira no punho com o torque dele (1 grau de liberdade: inércia, amortecimento e rigidez de Davidson & Charles 2017, braço de momento de Corie & Charles 2019, força máxima de Saul 2015); a força é a isométrica do modelo (sem força–comprimento–velocidade), só o músculo estimulado age, e o ângulo para nos limites de Ryu 1991 (amplitude das tarefas diárias, não o máximo anatômico).`,
-          en: `Skin, bones and muscles: atlas (meshes at real scale). Units, soma and dendrite sizes, conduction times and spikes: model (${layout.motoneuron === 'CISI_KOHN_2008' ? 'Cisi & Kohn 2008' : 'Booth 1997'}). Unit positions, territories, nerve path and electrode size: illustrative. Axon ${fmt(layout.axonLength, 2)} m; motor point ${fmt(layout.motorPoint.x * 100, 1)} cm below the elbow (${TAG_LABEL[layout.motorPoint.tag]()}). A spike disappears into the omitted stretch and comes back on the other side at its real conduction time. The muscle glows with the force (% of maximum). The hand turns at the wrist with its torque (1 degree of freedom: inertia, damping and stiffness from Davidson & Charles 2017, moment arm from Corie & Charles 2019, peak force from Saul 2015); the force is the model's isometric one (no force–length–velocity), only the stimulated muscle acts, and the angle stops at Ryu 1991's limits (the range daily tasks need, not the anatomical maximum).`,
+          'pt-BR': `Pele, ossos e músculos: atlas (malhas em escala real). Unidades, tamanhos do soma e do dendrito, tempos de condução e disparos: modelo (${layout.motoneuron === 'CISI_KOHN_2008' ? 'Cisi & Kohn 2008' : 'Booth 1997'}). Posição das unidades, territórios, trajeto do nervo e tamanho do eletrodo: ilustrativos. Axônio de ${fmt(layout.axonLength, 2)} m; ponto motor ${fmt(layout.motorPoint.x * 100, 1)} cm abaixo do cotovelo (${TAG_LABEL[layout.motorPoint.tag]()}). Um disparo some no trecho omitido e reaparece do outro lado no tempo real de condução. O músculo brilha com a força (% da máxima). A mão gira no punho com o torque dele (1 grau de liberdade: inércia e amortecimento de Davidson & Charles 2017, braço de momento de Corie & Charles 2019, força máxima e resistência passiva escolhidas na Fisiologia); o músculo perde força ao encurtar rápido (força–velocidade de Thelen 2003, sem força–comprimento), só o músculo estimulado age, e o ângulo para em 90° de flexão e de extensão (onde Delp 1996 mediu; o máximo anatômico não foi verificado). Cada simulação começa com o punho em repouso.`,
+          en: `Skin, bones and muscles: atlas (meshes at real scale). Units, soma and dendrite sizes, conduction times and spikes: model (${layout.motoneuron === 'CISI_KOHN_2008' ? 'Cisi & Kohn 2008' : 'Booth 1997'}). Unit positions, territories, nerve path and electrode size: illustrative. Axon ${fmt(layout.axonLength, 2)} m; motor point ${fmt(layout.motorPoint.x * 100, 1)} cm below the elbow (${TAG_LABEL[layout.motorPoint.tag]()}). A spike disappears into the omitted stretch and comes back on the other side at its real conduction time. The muscle glows with the force (% of maximum). The hand turns at the wrist with its torque (1 degree of freedom: inertia and damping from Davidson & Charles 2017, moment arm from Corie & Charles 2019, peak force and passive resistance chosen in Physiology); the muscle loses force when it shortens fast (Thelen 2003 force–velocity, no force–length), only the stimulated muscle acts, and the angle stops at 90° flexion and extension (where Delp 1996 measured; the anatomical maximum was not verified). Every run starts with the wrist at rest.`,
         })}
       </p>
       <p className="three-credit muted">{CREDIT}</p>
@@ -365,7 +365,7 @@ export default function ThreeDView({ run, running = false, axonLengthPercent, mu
   );
 }
 
-/** Wrist angle now, and its limits (the stop the joint model uses). */
+/** Wrist angle now, its limits (the stop the joint model uses) and the run's wrist choices. */
 function WristReadout({ angle, model }: { angle: number | null; model: NonNullable<StartedEvent['joint']> }) {
   if (angle === null) return null;
   const side =
@@ -381,8 +381,14 @@ function WristReadout({ angle, model }: { angle: number | null; model: NonNullab
       </strong>
       <span>
         {tr({
-          'pt-BR': `limites ${fmt(model.flexionLimitDeg, 0)}° flexão / ${fmt(model.extensionLimitDeg, 0)}° extensão (Ryu 1991)`,
-          en: `limits ${fmt(model.flexionLimitDeg, 0)}° flexion / ${fmt(model.extensionLimitDeg, 0)}° extension (Ryu 1991)`,
+          'pt-BR': `limites ${fmt(model.flexionLimitDeg, 0)}° flexão / ${fmt(model.extensionLimitDeg, 0)}° extensão (Delp 1996)`,
+          en: `limits ${fmt(model.flexionLimitDeg, 0)}° flexion / ${fmt(model.extensionLimitDeg, 0)}° extension (Delp 1996)`,
+        })}
+      </span>
+      <span>
+        {tr({
+          'pt-BR': `força máxima ${fmt(model.peakForceN, 0)} N (${model.peakForceSource === 'SAUL_2015' ? 'Saul 2015' : 'medida direta, Binder-Markey 2023'}) · ${model.passive === 'LINEAR' ? 'mola linear (Davidson & Charles 2017)' : 'fim da amplitude (Delp 1996)'}`,
+          en: `peak force ${fmt(model.peakForceN, 0)} N (${model.peakForceSource === 'SAUL_2015' ? 'Saul 2015' : 'direct measurement, Binder-Markey 2023'}) · ${model.passive === 'LINEAR' ? 'linear spring (Davidson & Charles 2017)' : 'end of range (Delp 1996)'}`,
         })}
       </span>
     </div>

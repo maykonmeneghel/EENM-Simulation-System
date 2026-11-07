@@ -89,9 +89,12 @@ final class EngineEventParser {
         if (node == null || node.isNull()) {
             return null;
         }
-        return new WristJoint(number(node, "momentArmMm"), number(node, "peakForceN"), number(node, "inertiaKgM2"),
-                number(node, "dampingNmsRad"), number(node, "stiffnessNmRad"), number(node, "flexionLimitDeg"),
-                number(node, "extensionLimitDeg"));
+        return new WristJoint(number(node, "momentArmMm"), number(node, "peakForceN"), text(node, "peakForceSource"),
+                number(node, "optimalFiberLengthMm"), number(node, "maxContractionVelocity"), number(node, "fvShapeAf"),
+                number(node, "fvMaxLengthening"), number(node, "inertiaKgM2"), number(node, "dampingNmsRad"),
+                text(node, "passive"), number(node, "stiffnessNmRad"), number(node, "endRangeStartDeg"),
+                number(node, "flexionMomentAt90Nm"), number(node, "extensionMomentAt90Nm"),
+                number(node, "flexionLimitDeg"), number(node, "extensionLimitDeg"));
     }
 
     private static JointSeries jointSeries(JsonNode node) {

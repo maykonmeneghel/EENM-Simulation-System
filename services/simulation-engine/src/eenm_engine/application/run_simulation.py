@@ -35,7 +35,7 @@ from eenm_engine.domain.simulation import (
 from eenm_engine.domain.stimulus import stimulus_current, stimulus_series
 from eenm_engine.domain.unit_anatomy import unit_anatomy
 from eenm_engine.domain.unit_events import UnitEventBuffer, UnitEventKind, UnitEvents
-from eenm_engine.domain.wrist_joint import WRIST_MUSCLES, WristIntegrator, WristJoint, muscle_torque
+from eenm_engine.domain.wrist_joint import WristIntegrator, wrist_setup
 
 
 class RunSimulation:
@@ -73,9 +73,9 @@ class RunSimulation:
 
         max_force = maximal_force(config, config.reference_model)
         # the wrist turns with the stimulated muscle's force (FCR / ECR), in % of the healthy maximum × its peak force
-        wrist = WRIST_MUSCLES.get(config.muscle) if max_force else None
-        joint = WristJoint() if wrist is not None else None
-        joint_integrator = WristIntegrator(joint, config.output_stride * protocol.step_ms) if joint else None
+        wrist = wrist_setup(config.muscle, config.wrist) if max_force else None
+        # a fresh integrator per run: the wrist starts at rest (0°, still) every time
+        joint_integrator = WristIntegrator(wrist, config.output_stride * protocol.step_ms) if wrist else None
         yield SimulationStarted(
             simulation_id=str(uuid.uuid4()),
             duration_ms=protocol.duration_ms,
@@ -84,7 +84,7 @@ class RunSimulation:
             motor_units={t: setup.groups[t].size for t in UNIT_TYPES},
             muscle=config.muscle,
             max_force=max_force,
-            joint=(joint, wrist) if joint is not None and wrist is not None else None,
+            joint=wrist,
             units=unit_anatomy(setup, config),
             electrode_fraction=(
                 None
@@ -118,10 +118,8 @@ class RunSimulation:
             )
             chunk = self._chunk(series, times, stimulus, fatigue, merge[0].axon_events() if merge else None)
             if chunk.time_ms.size and joint_integrator is not None and max_force:
-                torque = muscle_torque(config.muscle, chunk.force_total / max_force)
-                assert torque is not None
-                angle = np.degrees(joint_integrator.advance(torque))
-                chunk = replace(chunk, joint_angle_deg=angle, joint_torque_nm=torque)
+                theta, torque = joint_integrator.advance(chunk.force_total / max_force)
+                chunk = replace(chunk, joint_angle_deg=np.degrees(theta), joint_torque_nm=torque)
             if chunk.time_ms.size:
                 if events is not None:
                     sample, unit = force.drain_arrivals()

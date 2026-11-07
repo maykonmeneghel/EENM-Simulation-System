@@ -27,6 +27,7 @@ import { ConditionPanel } from './ConditionPanel';
 import type { FieldSpec, GroupId, NumberField } from './formFields';
 import { CALIBRATION_TARGET_HELP, FIELD_GROUPS, STIMULATOR_WAVEFORMS } from './formFields';
 import { HelpButton } from './HelpButton';
+import { WristHelp } from './WristHelp';
 import { fmtNumber, tr } from '../i18n/locale';
 import { useLocale } from '../i18n/useLocale';
 import { MuscleSources } from './MuscleSources';
@@ -68,6 +69,9 @@ export interface SimulationFormProps {
 
 /** Inputs hidden (not just disabled) while inactive: trains off, or LITERATURE automatic unit counts. */
 const HIDDEN_WHEN_INACTIVE: ReadonlySet<FieldPath> = new Set([
+  // the wrist choices only matter on forearm runs of the corrected model
+  'joint.peakForce',
+  'joint.passive',
   'unitsPerType.S',
   'unitsPerType.FR',
   'unitsPerType.FF',
@@ -301,6 +305,7 @@ export function SimulationForm({
                 <strong>{tr({ 'pt-BR': 'Unidade isolada:', en: 'Single unit:' })}</strong> {CALIBRATION_TARGET_HELP.SINGLE_UNIT}
               </HelpButton>
             ) : null}
+            <WristHelp path={spec.path} />
             {hasHint ? (
               <span id={`${id}-hint`} className="visually-hidden">
                 {tr({ 'pt-BR': 'Intervalo', en: 'Range' })} {spec.kind === 'number' ? spec.hint : ''}

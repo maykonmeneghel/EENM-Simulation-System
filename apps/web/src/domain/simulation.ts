@@ -143,6 +143,17 @@ export interface SimulationRequest {
   centralDrive?: CentralDrive;
   /** `unitEvents`: stream the per-unit events of the 3D replay (≤ 30 s of simulated time). */
   output?: { unitEvents: boolean };
+  /** Wrist model choices where the sources disagree (FCR / ECR runs); omitted = SAUL_2015 / LINEAR. */
+  joint?: WristOptions;
+}
+
+export const WRIST_PEAK_FORCES = ['SAUL_2015', 'DIRECT_SPECIFIC_TENSION'] as const;
+export type WristPeakForce = (typeof WRIST_PEAK_FORCES)[number];
+export const WRIST_PASSIVE_MODELS = ['LINEAR', 'END_RANGE'] as const;
+export type WristPassiveModel = (typeof WRIST_PASSIVE_MODELS)[number];
+export interface WristOptions {
+  peakForce: WristPeakForce;
+  passive: WristPassiveModel;
 }
 
 /** Where one value of a muscle preset comes from (GET /muscles, `provenance`). */
@@ -188,10 +199,23 @@ export interface StartedEvent {
 /** Constants of the 1-DOF wrist (engine `domain/wrist_joint.py`; sources there). */
 export interface WristJointModel {
   momentArmMm: number;
+  /** Of the chosen source (`peakForceSource`). */
   peakForceN: number;
+  peakForceSource: WristPeakForce;
+  optimalFiberLengthMm: number;
+  /** Force–velocity (Thelen 2003): Vmax in optimal fibre lengths per second, Af, Flen. */
+  maxContractionVelocity: number;
+  fvShapeAf: number;
+  fvMaxLengthening: number;
   inertiaKgM2: number;
   dampingNmsRad: number;
+  passive: WristPassiveModel;
+  /** LINEAR passive model. */
   stiffnessNmRad: number;
+  /** END_RANGE passive model: zero inside ± this angle, then up to the moments at 90°. */
+  endRangeStartDeg: number;
+  flexionMomentAt90Nm: number;
+  extensionMomentAt90Nm: number;
   flexionLimitDeg: number;
   extensionLimitDeg: number;
 }

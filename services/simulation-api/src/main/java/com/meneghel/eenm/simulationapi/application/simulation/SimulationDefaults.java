@@ -14,6 +14,7 @@ import com.meneghel.eenm.simulationapi.domain.simulation.Muscle;
 import com.meneghel.eenm.simulationapi.domain.simulation.SimulationRequest;
 import com.meneghel.eenm.simulationapi.domain.simulation.Stimulus;
 import com.meneghel.eenm.simulationapi.domain.simulation.Waveform;
+import com.meneghel.eenm.simulationapi.domain.simulation.WristOptions;
 
 /**
  * The single place where the contract defaults (which reproduce {@code Main.m}) are applied.
@@ -69,7 +70,9 @@ public final class SimulationDefaults {
                 orDefault(source.seed(), SEED),
                 orDefault(source.outputStepMs(), OUTPUT_STEP_MS),
                 source.centralDrive(),
-                Boolean.TRUE.equals(source.unitEvents()));
+                Boolean.TRUE.equals(source.unitEvents()),
+                new WristOptions(orDefault(source.wristPeakForce(), WristOptions.DEFAULT.peakForce()),
+                        orDefault(source.wristPassive(), WristOptions.DEFAULT.passive())));
     }
 
     private Stimulus resolve(StimulusDraft draft) {

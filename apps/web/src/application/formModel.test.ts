@@ -276,3 +276,20 @@ describe('form model — 3D replay', () => {
     expect(requestOf(at('SOLEUS', '1000')).output).toBeUndefined(); // the 3D step does not draw the leg
   });
 });
+
+describe('form model — wrist choices', () => {
+  const fcr: MusclePreset = { id: 'FLEXOR_CARPI_RADIALIS', label: 'FCR', poolSize: { S: 60, FR: 30, FF: 30 } };
+
+  it('sends the chosen peak force and passive model on forearm runs, and nothing on leg runs', () => {
+    const v = { ...toFormValues(), muscle: 'FLEXOR_CARPI_RADIALIS', 'joint.peakForce': 'DIRECT_SPECIFIC_TENSION', 'joint.passive': 'END_RANGE' };
+    expect(requestOf(v, [fcr]).joint).toEqual({ peakForce: 'DIRECT_SPECIFIC_TENSION', passive: 'END_RANGE' });
+    expect(requestOf(toFormValues()).joint).toBeUndefined();
+    expect(inactiveFields(toFormValues()).has('joint.passive')).toBe(true);
+    expect(inactiveFields(v).has('joint.passive')).toBe(false);
+  });
+
+  it('defaults to the full-text values: Saul 2015 and the linear spring', () => {
+    const v = toFormValues();
+    expect([v['joint.peakForce'], v['joint.passive']]).toEqual(['SAUL_2015', 'LINEAR']);
+  });
+});

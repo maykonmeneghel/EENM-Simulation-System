@@ -91,9 +91,27 @@ describe('ThreeDView', () => {
     const { JointBuffer } = await import('../../application/jointBuffer');
     const joint = new JointBuffer();
     joint.append({ joint: { angleDeg: [12.34], torqueNm: [1] } } as unknown as ChunkEvent);
-    const model = { momentArmMm: 14.9, peakForceN: 407.9, inertiaKgM2: 0.003, dampingNmsRad: 0.028, stiffnessNmRad: 0.992, flexionLimitDeg: 54, extensionLimitDeg: 60 };
+    const model = {
+      momentArmMm: 14.9,
+      peakForceN: 137.3,
+      peakForceSource: 'DIRECT_SPECIFIC_TENSION' as const,
+      optimalFiberLengthMm: 63,
+      maxContractionVelocity: 10,
+      fvShapeAf: 0.25,
+      fvMaxLengthening: 1.4,
+      inertiaKgM2: 0.003,
+      dampingNmsRad: 0.028,
+      passive: 'END_RANGE' as const,
+      stiffnessNmRad: 0.992,
+      endRangeStartDeg: 75,
+      flexionMomentAt90Nm: 0.5,
+      extensionMomentAt90Nm: 1.2,
+      flexionLimitDeg: 90,
+      extensionLimitDeg: 90,
+    };
     render(<ThreeDView run={started({ joint: model })} {...props} joint={joint} />);
     expect(screen.getByText(/Punho: 12,3° flexão/)).toBeInTheDocument();
-    expect(screen.getByText(/limites 54° flexão \/ 60° extensão \(Ryu 1991\)/)).toBeInTheDocument();
+    expect(screen.getByText(/limites 90° flexão \/ 90° extensão \(Delp 1996\)/)).toBeInTheDocument();
+    expect(screen.getByText(/força máxima 137 N \(medida direta, Binder-Markey 2023\) · fim da amplitude \(Delp 1996\)/)).toBeInTheDocument();
   });
 });

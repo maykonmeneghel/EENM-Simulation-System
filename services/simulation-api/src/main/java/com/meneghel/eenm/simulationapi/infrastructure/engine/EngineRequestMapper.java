@@ -26,7 +26,8 @@ final class EngineRequestMapper {
                 request.seed(),
                 request.outputStepMs(),
                 toBody(request.centralDrive()),
-                request.unitEvents() ? new EngineSimulationRequestBody.Output(true) : null);
+                request.unitEvents() ? new EngineSimulationRequestBody.Output(true) : null,
+                new EngineSimulationRequestBody.Joint(request.wrist().peakForce().name(), request.wrist().passive().name()));
     }
 
     private EngineSimulationRequestBody.CentralDrive toBody(CentralDrive drive) {

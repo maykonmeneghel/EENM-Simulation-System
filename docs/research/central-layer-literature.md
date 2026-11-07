@@ -151,7 +151,7 @@ Background reviews read as abstracts only, with no numbers used: Deuschl et al. 
 
 | Quantity | Value | Units | Basis | Source | Read | In ref list |
 |---|---|---|---|---|---|---|
-| WFE inertia (diagonal, posture 1) | **0.003** | kg·m² | de Leva 1996 segment parameters, 50th-percentile male, RVC toolbox | Davidson & Charles 2017 Ann Biomed Eng 45:2196; PMID 27957608; 10.1007/s10439-016-1765-5 (PMC5541859) | FT | no (used by Corie & Charles 2019) |
+| WFE inertia (diagonal, posture 1) | **0.003** | kg·m² | de Leva 1996 segment parameters, 50th-percentile male, RVC toolbox | Davidson & Charles 2017 Ann Biomed Eng 45:1133–1147 (pages checked on Crossref 2026-11-07); PMID 27957608; 10.1007/s10439-016-1765-5 (PMC5541859) | FT | no (used by Corie & Charles 2019) |
 | WFE passive damping | **0.028** | N·m·s/rad | damping = 0.028 s × stiffness for the forearm–wrist block; single-DOF damping ratios 0.18–0.42 vs measured 0.14–0.48 | same | FT | no |
 | WFE passive stiffness | **0.992** | N·m/rad | Drake & Charles 2014 (3×3 wrist–forearm matrix, 10 subjects) | same; Drake & Charles 2014 Ann Biomed Eng 42:1853, PMID 24912766 (A, no numbers in the abstract) | FT / A | no |
 | Off-diagonal couplings | WFE–WRUD stiffness −0.099 N·m/rad; FPS–WFE 0.018 N·m/rad; WFE–WRUD damping −0.003 N·m·s/rad; inertia WFE–SAA 0.009, WFE–SIER 0.011 kg·m² | — | — | same | FT | no |

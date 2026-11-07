@@ -105,13 +105,17 @@ public final class SampleEvents {
     /** A forearm run's started event, with the wrist's constants. */
     public static String startedWithJointLine() {
         return startedLine().replace("\"joint\":null", "\"joint\":{\"momentArmMm\":14.9,\"peakForceN\":407.9,"
-                + "\"inertiaKgM2\":0.003,\"dampingNmsRad\":0.028,\"stiffnessNmRad\":0.992,\"flexionLimitDeg\":54.0,"
-                + "\"extensionLimitDeg\":60.0}");
+                + "\"peakForceSource\":\"SAUL_2015\",\"optimalFiberLengthMm\":63.0,\"maxContractionVelocity\":10.0,"
+                + "\"fvShapeAf\":0.25,\"fvMaxLengthening\":1.4,\"inertiaKgM2\":0.003,\"dampingNmsRad\":0.028,"
+                + "\"passive\":\"LINEAR\",\"stiffnessNmRad\":0.992,\"endRangeStartDeg\":75.0,"
+                + "\"flexionMomentAt90Nm\":0.5,\"extensionMomentAt90Nm\":1.2,\"flexionLimitDeg\":90.0,"
+                + "\"extensionLimitDeg\":90.0}");
     }
 
     public static SimulationStarted startedWithJoint() {
         return new SimulationStarted("sim-1", 1000, 0.1, new MotorUnitCounts(5, 2, 2), "SOLEUS", 5.1754, null, null,
-                null, new WristJoint(14.9, 407.9, 0.003, 0.028, 0.992, 54.0, 60.0));
+                null, new WristJoint(14.9, 407.9, "SAUL_2015", 63.0, 10.0, 0.25, 1.4, 0.003, 0.028,
+                        "LINEAR", 0.992, 75.0, 0.5, 1.2, 90.0, 90.0));
     }
 
     public static String completedLine() {
