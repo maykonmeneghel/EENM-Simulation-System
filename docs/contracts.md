@@ -209,9 +209,18 @@ sample). Which kinds occur depends on the mode: FES only → 1 and 7; the axon m
 `started.stepMs` is the integration step.
 
 `joint` — the wrist the stimulated muscle moves, in FCR / ECR runs of the LITERATURE model (else `null`):
-`{ "angleDeg": […], "torqueNm": […] }` at `timeMs` (+ flexion). `started.joint` gives its constants
-(`momentArmMm`, `peakForceN`, `inertiaKgM2`, `dampingNmsRad`, `stiffnessNmRad`, `flexionLimitDeg`,
-`extensionLimitDeg`; sources in `domain/wrist_joint.py`). Torque = force / `maxForce` × `peakForceN` × moment arm.
+`{ "angleDeg": […], "torqueNm": […] }` at `timeMs` (+ flexion). Every run starts at rest (0°, still).
+`started.joint` gives its constants: `momentArmMm`, `peakForceN` (of the chosen source, `peakForceSource`),
+`optimalFiberLengthMm`, the force–velocity constants `maxContractionVelocity` (optimal fibre lengths/s), `fvShapeAf`,
+`fvMaxLengthening`, `inertiaKgM2`, `dampingNmsRad`, `passive` (`LINEAR`: `stiffnessNmRad`; `END_RANGE`: zero inside
+± `endRangeStartDeg`, then rising to `flexionMomentAt90Nm` / `extensionMomentAt90Nm`), `flexionLimitDeg`,
+`extensionLimitDeg`; sources in `domain/wrist_joint.py`. Torque = force / `maxForce` × `peakForceN` × moment arm ×
+f_v(fibre velocity), so it is below the isometric value while the muscle shortens.
+
+Request: `joint: { "peakForce": "SAUL_2015" | "DIRECT_SPECIFIC_TENSION", "passive": "LINEAR" | "END_RANGE" }`, both
+optional (defaults `SAUL_2015`, `LINEAR`); ignored by runs without a wrist. The sources disagree, so the user chooses:
+Saul 2015 forces (FCR 407.9 N, ECR 589.8 N) or the same rescaled to the directly measured 17.1 N/cm² (× 17.1 / 50.8);
+the linear stiffness of Drake & Charles 2014 or the end-range moments of Delp et al. 1996.
 
 `axonEvents` — cumulative counts of the axon merge (non-invasive mode with a central drive), else `null`:
 `{ "central", "centralTransmitted", "fesTransmitted", "collisions", "fesBlocked", "resets" }` (integers).

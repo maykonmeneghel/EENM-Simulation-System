@@ -27,7 +27,7 @@ from eenm_engine.domain.simulation import SimulationConfig
 from eenm_engine.domain.stimulus import ModulationShape, ModulationTarget, StimulusProtocol, Waveform
 from eenm_engine.domain.texts_en import Lang, localized
 from eenm_engine.domain.unit_anatomy import UnitAnatomy
-from eenm_engine.domain.wrist_joint import WristJoint, WristMuscle
+from eenm_engine.domain.wrist_joint import PassiveModel, PeakForce, WristOptions, WristSetup
 
 
 class _CamelModel(BaseModel):
@@ -102,6 +102,13 @@ class CentralDriveDto(_CamelModel):
     electrode_fraction: float = Field(0.9, gt=0, le=1)
 
 
+class JointDto(_CamelModel):
+    """Wrist model choices where the sources disagree (``domain.wrist_joint``); FCR / ECR runs only."""
+
+    peak_force: PeakForce = PeakForce.SAUL_2015
+    passive: PassiveModel = PassiveModel.LINEAR
+
+
 class OutputDto(_CamelModel):
     unit_events: bool = False
     """Stream ``chunk.unitEvents`` for the 3D replay (at most 30 s of simulated time)."""
@@ -132,6 +139,7 @@ class SimulationRequest(_CamelModel):
     seed: int = Field(0, ge=0)
     output_step_ms: float = Field(0.1, gt=0)
     output: OutputDto = Field(default_factory=lambda: OutputDto())
+    joint: JointDto = Field(default_factory=lambda: JointDto())
 
     @model_validator(mode="after")
     def _domain_rules(self) -> SimulationRequest:
@@ -173,6 +181,7 @@ class SimulationRequest(_CamelModel):
             seed=self.seed,
             output_step_ms=self.output_step_ms,
             unit_events=self.output.unit_events,
+            wrist=WristOptions(peak_force=self.joint.peak_force, passive=self.joint.passive),
         )
 
     def _model(self) -> ModelOptions:
@@ -313,14 +322,23 @@ def _optional_list(values: NDArray[np.float64] | None) -> list[float] | None:
     return None if values is None else [round(float(v), 6) for v in values]
 
 
-def _joint_json(joint: tuple[WristJoint, WristMuscle]) -> dict[str, float]:
-    j, m = joint
+def _joint_json(wrist: WristSetup) -> dict[str, object]:
+    j, m = wrist.joint, wrist.muscle
     return {
         "momentArmMm": m.moment_arm_m * 1000,
-        "peakForceN": m.peak_force_n,
+        "peakForceN": round(wrist.peak_force_n, 3),
+        "peakForceSource": wrist.options.peak_force.value,
+        "optimalFiberLengthMm": round(m.optimal_fiber_length_m * 1000, 3),
+        "maxContractionVelocity": j.max_contraction_velocity,
+        "fvShapeAf": j.fv_shape_af,
+        "fvMaxLengthening": j.fv_max_lengthening,
         "inertiaKgM2": j.inertia_kg_m2,
         "dampingNmsRad": j.damping_nms_rad,
+        "passive": j.passive.value,
         "stiffnessNmRad": j.stiffness_nm_rad,
+        "endRangeStartDeg": j.end_range_start_deg,
+        "flexionMomentAt90Nm": j.flexion_moment_at_90_nm,
+        "extensionMomentAt90Nm": j.extension_moment_at_90_nm,
         "flexionLimitDeg": j.flexion_limit_deg,
         "extensionLimitDeg": j.extension_limit_deg,
     }

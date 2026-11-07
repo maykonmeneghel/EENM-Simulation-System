@@ -1,7 +1,16 @@
 import type { FieldPath } from '../application/formModel';
 import type { Localized } from '../i18n/locale';
 import { localizedRecord, withTexts } from '../i18n/lazy';
-import { CALIBRATION_TARGETS, CURRENT_SCALES, GEOMETRIES, INJECTION_SITES, STIMULATION_SITES, THRESHOLD_RULES } from '../domain/simulation';
+import {
+  CALIBRATION_TARGETS,
+  CURRENT_SCALES,
+  GEOMETRIES,
+  INJECTION_SITES,
+  STIMULATION_SITES,
+  THRESHOLD_RULES,
+  WRIST_PASSIVE_MODELS,
+  WRIST_PEAK_FORCES,
+} from '../domain/simulation';
 
 /** Presentation metadata for each input (labels and hints follow the current locale). */
 export interface NumberField {
@@ -140,6 +149,31 @@ export const FIELD_GROUPS: FieldGroup[] = [
         num({ path: 'unitsPerType.FR', kind: 'number', stepBy: 1, step: '1' }, L('Unidades FR', 'FR units'), L('0 – 200', '0 – 200')),
         num({ path: 'unitsPerType.FF', kind: 'number', stepBy: 1, step: '1' }, L('Unidades FF', 'FF units'), L('0 – 200', '0 – 200')),
         num({ path: 'axonLengthPercent', kind: 'number', stepBy: 1, unit: '%', step: 'any' }, L('Comprimento do axônio', 'Axon length'), L('1 – 100', '1 – 100')),
+        // the wrist the FCR / ECR move (the sources disagree: the user chooses)
+        select(
+          {
+            path: 'joint.peakForce',
+            kind: 'select',
+            segmented: true,
+            options: opts(WRIST_PEAK_FORCES, {
+              SAUL_2015: L('Saul 2015', 'Saul 2015'),
+              DIRECT_SPECIFIC_TENSION: L('Binder-Markey 2023', 'Binder-Markey 2023'),
+            }),
+          },
+          L('Força máxima', 'Peak force'),
+        ),
+        select(
+          {
+            path: 'joint.passive',
+            kind: 'select',
+            segmented: true,
+            options: opts(WRIST_PASSIVE_MODELS, {
+              LINEAR: L('Davidson 2017', 'Davidson 2017'),
+              END_RANGE: L('Delp 1996', 'Delp 1996'),
+            }),
+          },
+          L('Punho passivo', 'Passive wrist'),
+        ),
       ],
     },
     L('Músculo / unidades motoras', 'Muscle / motor units'),

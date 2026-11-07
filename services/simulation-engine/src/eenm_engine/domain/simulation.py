@@ -21,6 +21,7 @@ from eenm_engine.domain.motor_unit_pool import (
 from eenm_engine.domain.stimulus import StimulusProtocol
 from eenm_engine.domain.streaming_force import StreamingTypeForce
 from eenm_engine.domain.unit_events import MAX_UNIT_EVENTS_DURATION_MS
+from eenm_engine.domain.wrist_joint import WristOptions
 
 UNIT_TYPES = (MotorUnitType.S, MotorUnitType.FR, MotorUnitType.FF)
 """Processing order of ``Main.m`` (also the order of the MUAP-shape random draws)."""
@@ -47,6 +48,8 @@ class SimulationConfig:
     """Model of the maximal-force reference (the healthy LITERATURE model); None = no percentage (ORIGINAL)."""
     unit_events: bool = False
     """Stream the per-unit events for the 3D replay (``domain.unit_events``); up to 30 s of simulated time."""
+    wrist: WristOptions = field(default_factory=WristOptions)
+    """Wrist model choices where the sources disagree (FCR / ECR runs; ``domain.wrist_joint``)."""
 
     def __post_init__(self) -> None:
         if sum(self.units_per_type.get(t, 0) for t in UNIT_TYPES) < 1:

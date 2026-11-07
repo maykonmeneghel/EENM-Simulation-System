@@ -16,6 +16,8 @@ import type {
   SimulationRequest,
   StimulationSite,
   Waveform,
+  WristPassiveModel,
+  WristPeakForce,
 } from '../domain/simulation';
 import { MAX_UNIT_EVENTS_DURATION_MS } from '../domain/simulation';
 import { validateRequest } from '../domain/validation';
@@ -65,6 +67,8 @@ export const FIELD_PATHS = [
   'centralDrive.tremor.frequencyHz',
   'centralDrive.tremor.amplitudeNa',
   'centralDrive.electrodeFraction',
+  'joint.peakForce',
+  'joint.passive',
 ] as const;
 export type FieldPath = (typeof FIELD_PATHS)[number];
 
@@ -110,6 +114,11 @@ export const DRIVE_DEFAULTS = {
   tremorAmplitudeNa: 3,
   electrodeFraction: 0.9,
 } as const;
+
+/** Wrist model choices (engine `domain/wrist_joint.py`): the verified full-text values. */
+export const WRIST_DEFAULTS = { peakForce: 'SAUL_2015', passive: 'LINEAR' } as const;
+/** Wrist inputs: they act only on forearm runs of the LITERATURE model (the ones with a joint). */
+export const WRIST_FIELDS: readonly FieldPath[] = ['joint.peakForce', 'joint.passive'];
 
 /** The Parkinson resting tremor is chosen (condition PARKINSON with PD_TREMOR on; it is off by default). */
 export function tremorActive(values: FormValues): boolean {
@@ -175,6 +184,8 @@ export function toFormValues(r: SimulationRequest = defaultRequest()): FormValue
     'centralDrive.tremor.frequencyHz': String(r.centralDrive?.tremor.frequencyHz ?? DRIVE_DEFAULTS.tremorFrequencyHz),
     'centralDrive.tremor.amplitudeNa': String(r.centralDrive?.tremor.amplitudeNa ?? DRIVE_DEFAULTS.tremorAmplitudeNa),
     'centralDrive.electrodeFraction': String(r.centralDrive?.electrodeFraction ?? DRIVE_DEFAULTS.electrodeFraction),
+    'joint.peakForce': r.joint?.peakForce ?? WRIST_DEFAULTS.peakForce,
+    'joint.passive': r.joint?.passive ?? WRIST_DEFAULTS.passive,
   };
 }
 
@@ -202,6 +213,7 @@ export function inactiveFields(values: FormValues): ReadonlySet<FieldPath> {
     if (values.stimulationSite !== 'MOTONEURON_POOL' || driveActive(values)) for (const f of MOTONEURON_FIELDS) out.add(f);
     if (!driveActive(values)) for (const f of DRIVE_FIELDS) out.add(f);
     if (values.stimulationSite === 'MOTONEURON_POOL') out.add('centralDrive.electrodeFraction');
+    if (!FOREARM_MUSCLES.has(values.muscle)) for (const f of WRIST_FIELDS) out.add(f);
     if (!tremorActive(values)) for (const f of TREMOR_FIELDS) out.add(f);
     if (!values.manualUnits) {
       out.add('unitsPerType.S');
@@ -209,7 +221,7 @@ export function inactiveFields(values: FormValues): ReadonlySet<FieldPath> {
       out.add('unitsPerType.FF');
     }
   } else {
-    for (const f of [...DRIVE_FIELDS, ...TREMOR_FIELDS]) out.add(f);
+    for (const f of [...DRIVE_FIELDS, ...TREMOR_FIELDS, ...WRIST_FIELDS]) out.add(f);
   }
   return out;
 }
@@ -333,6 +345,15 @@ export function parseForm(values: FormValues, muscles: readonly MusclePreset[] =
     // the 3D step replays forearm runs; the engine streams per-unit events up to 30 s
     ...(FOREARM_MUSCLES.has(values.muscle) && num('stimulus.durationMs') <= MAX_UNIT_EVENTS_DURATION_MS
       ? { output: { unitEvents: true } }
+      : {}),
+    // the wrist turns only on forearm runs of the corrected model
+    ...(variant === 'LITERATURE' && FOREARM_MUSCLES.has(values.muscle)
+      ? {
+          joint: {
+            peakForce: values['joint.peakForce'] as WristPeakForce,
+            passive: values['joint.passive'] as WristPassiveModel,
+          },
+        }
       : {}),
     ...(driveActive(values)
       ? {

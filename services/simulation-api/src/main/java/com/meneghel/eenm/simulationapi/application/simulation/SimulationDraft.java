@@ -8,6 +8,8 @@ import com.meneghel.eenm.simulationapi.domain.simulation.CompartmentGeometry;
 import com.meneghel.eenm.simulationapi.domain.simulation.InjectionSite;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModelVariant;
 import com.meneghel.eenm.simulationapi.domain.simulation.Muscle;
+import com.meneghel.eenm.simulationapi.domain.simulation.WristPassiveModel;
+import com.meneghel.eenm.simulationapi.domain.simulation.WristPeakForce;
 import java.util.List;
 
 /**
@@ -31,7 +33,9 @@ public record SimulationDraft(
         Long seed,
         Double outputStepMs,
         CentralDrive centralDrive,
-        Boolean unitEvents) {
+        Boolean unitEvents,
+        WristPeakForce wristPeakForce,
+        WristPassiveModel wristPassive) {
 
     public SimulationDraft(StimulusDraft stimulus, ModelVariant modelVariant, CalibrationTarget calibrationTarget,
             StimulationSite stimulationSite, Condition condition, List<String> conditionAdjustments, Muscle muscle,
@@ -41,6 +45,16 @@ public record SimulationDraft(
         this(stimulus, modelVariant, calibrationTarget, stimulationSite, condition, conditionAdjustments, muscle,
                 unitsPerType, axonLengthPercent, temperatureCelsius, injectionSite, somaGeometry, dendriteGeometry,
                 seed, outputStepMs, centralDrive, null);
+    }
+
+    public SimulationDraft(StimulusDraft stimulus, ModelVariant modelVariant, CalibrationTarget calibrationTarget,
+            StimulationSite stimulationSite, Condition condition, List<String> conditionAdjustments, Muscle muscle,
+            MotorUnitCountsDraft unitsPerType, Double axonLengthPercent, Double temperatureCelsius,
+            InjectionSite injectionSite, CompartmentGeometry somaGeometry, CompartmentGeometry dendriteGeometry,
+            Long seed, Double outputStepMs, CentralDrive centralDrive, Boolean unitEvents) {
+        this(stimulus, modelVariant, calibrationTarget, stimulationSite, condition, conditionAdjustments, muscle,
+                unitsPerType, axonLengthPercent, temperatureCelsius, injectionSite, somaGeometry, dendriteGeometry,
+                seed, outputStepMs, centralDrive, unitEvents, null, null);
     }
 
     public static SimulationDraft empty() {

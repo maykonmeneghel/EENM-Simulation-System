@@ -25,9 +25,13 @@ record EngineSimulationRequestBody(
         long seed,
         double outputStepMs,
         @JsonInclude(JsonInclude.Include.NON_NULL) CentralDrive centralDrive,
-        @JsonInclude(JsonInclude.Include.NON_NULL) Output output) {
+        @JsonInclude(JsonInclude.Include.NON_NULL) Output output,
+        Joint joint) {
 
     record Output(boolean unitEvents) {
+    }
+
+    record Joint(String peakForce, String passive) {
     }
 
     record Stimulus(

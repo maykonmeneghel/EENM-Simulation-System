@@ -18,6 +18,9 @@ import com.meneghel.eenm.simulationapi.domain.simulation.Muscle;
 import com.meneghel.eenm.simulationapi.domain.simulation.SimulationRequest;
 import com.meneghel.eenm.simulationapi.domain.simulation.Stimulus;
 import com.meneghel.eenm.simulationapi.domain.simulation.Waveform;
+import com.meneghel.eenm.simulationapi.domain.simulation.WristOptions;
+import com.meneghel.eenm.simulationapi.domain.simulation.WristPassiveModel;
+import com.meneghel.eenm.simulationapi.domain.simulation.WristPeakForce;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -45,6 +48,15 @@ class SimulationDefaultsTest {
 
         assertThat(defaults.resolve(null)).isEqualTo(expected);
         assertThat(defaults.resolve(SimulationDraft.empty())).isEqualTo(expected);
+    }
+
+    @Test
+    void wristOptionsDefaultToSaulAndLinearAndKeepWhatIsGiven() {
+        assertThat(defaults.resolve(null).wrist()).isEqualTo(WristOptions.DEFAULT);
+        SimulationDraft draft = new SimulationDraft(null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, WristPassiveModel.END_RANGE);
+        assertThat(defaults.resolve(draft).wrist())
+                .isEqualTo(new WristOptions(WristPeakForce.SAUL_2015, WristPassiveModel.END_RANGE));
     }
 
     @Test
