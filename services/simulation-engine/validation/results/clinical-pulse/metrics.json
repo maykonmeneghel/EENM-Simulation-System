@@ -10,15 +10,15 @@
       "contractionTimeMs": 169.8,
       "halfRelaxationMs": 111.20000000000002,
       "peak": 0.005639399845135102,
-      "tetanusTwitchRatio": 3.9338243000639093,
-      "ripple40Hz": 0.002065280903092712
+      "tetanusTwitchRatio": 3.933824300063908,
+      "ripple40Hz": 0.0020652809030931854
     },
     "FR": {
       "contractionTimeMs": 102.5,
       "halfRelaxationMs": 68.2,
       "peak": 0.004118965776694063,
-      "tetanusTwitchRatio": 4.63170816984718,
-      "ripple40Hz": 0.000256963852112608
+      "tetanusTwitchRatio": 4.631708169847178,
+      "ripple40Hz": 0.0002569638521119657
     },
     "FF": {
       "contractionTimeMs": 110.6,
@@ -122,7 +122,7 @@
     {
       "frequencyHz": 20,
       "normalisedPeak": 0.9117206391295423,
-      "ripple": 0.005933140564664174,
+      "ripple": 0.005933140564663972,
       "spikesPerUnit": [
         20,
         20,
@@ -139,7 +139,7 @@
     {
       "frequencyHz": 30,
       "normalisedPeak": 0.9097751685678517,
-      "ripple": 0.0013445801138887079,
+      "ripple": 0.00134458011388891,
       "spikesPerUnit": [
         30,
         30,
@@ -155,8 +155,8 @@
     },
     {
       "frequencyHz": 40,
-      "normalisedPeak": 0.9095798270094303,
-      "ripple": 0.0006916779553996585,
+      "normalisedPeak": 0.9095798270094302,
+      "ripple": 0.0006916779553996586,
       "spikesPerUnit": [
         40,
         40,
@@ -172,8 +172,8 @@
     },
     {
       "frequencyHz": 50,
-      "normalisedPeak": 0.9095399947684326,
-      "ripple": 0.0005704352193225103,
+      "normalisedPeak": 0.9095399947684324,
+      "ripple": 0.0005704352193223082,
       "spikesPerUnit": [
         50,
         50,
@@ -189,8 +189,8 @@
     },
     {
       "frequencyHz": 60,
-      "normalisedPeak": 0.9231823687907766,
-      "ripple": 0.025882751238544343,
+      "normalisedPeak": 0.9231823687907764,
+      "ripple": 0.02588275123854395,
       "spikesPerUnit": [
         60,
         60,
@@ -224,7 +224,7 @@
     {
       "frequencyHz": 100,
       "normalisedPeak": 0.9488485834619185,
-      "ripple": 0.17659241457464622,
+      "ripple": 0.17659241457464595,
       "spikesPerUnit": [
         94,
         87,

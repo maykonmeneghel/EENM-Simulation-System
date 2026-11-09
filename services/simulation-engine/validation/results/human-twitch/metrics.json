@@ -11,27 +11,27 @@
       "halfRelaxationMs": 101.5,
       "peak": 0.0016231257721165272,
       "tetanusTwitchRatio": 9.206490218007758,
-      "ripple40Hz": 0.0028412074133914132
+      "ripple40Hz": 0.002841207413390956
     },
     "FR": {
       "contractionTimeMs": 96.8,
       "halfRelaxationMs": 62.30000000000001,
       "peak": 0.0005659893182520252,
       "tetanusTwitchRatio": 3.2244051164521386,
-      "ripple40Hz": 0.27976894877222575
+      "ripple40Hz": 0.2797689487722255
     },
     "FF": {
       "contractionTimeMs": 104.39999999999999,
       "halfRelaxationMs": 68.2,
       "peak": 0.0016372486449363075,
-      "tetanusTwitchRatio": 3.5467761337674055,
+      "tetanusTwitchRatio": 3.5467761337674037,
       "ripple40Hz": 0.25154417980453264
     }
   },
   "twitchTetanusRatio": 0.15274577233802347,
   "f50Hz": 19.8936130035086,
   "frequencyOfMaxForceHz": 60,
-  "forceAt100HzOverMax": 0.5696639156674428,
+  "forceAt100HzOverMax": 0.5696639156674426,
   "riseTo90PercentAt40HzMs": 404.0,
   "forceFrequency": [
     {
@@ -71,7 +71,7 @@
     {
       "frequencyHz": 5,
       "normalisedPeak": 0.17194077068950298,
-      "ripple": 0.5442374300964031,
+      "ripple": 0.544237430096403,
       "spikesPerUnit": [
         5,
         5,
@@ -105,7 +105,7 @@
     {
       "frequencyHz": 15,
       "normalisedPeak": 0.3864951268480405,
-      "ripple": 0.01956453953205342,
+      "ripple": 0.019564539532053015,
       "spikesPerUnit": [
         15,
         15,
@@ -122,7 +122,7 @@
     {
       "frequencyHz": 20,
       "normalisedPeak": 0.5024675924583976,
-      "ripple": 0.010746475353878175,
+      "ripple": 0.010746475353878487,
       "spikesPerUnit": [
         20,
         20,
@@ -139,7 +139,7 @@
     {
       "frequencyHz": 30,
       "normalisedPeak": 0.6764423213905806,
-      "ripple": 0.012890463884516123,
+      "ripple": 0.012890463884516586,
       "spikesPerUnit": [
         30,
         30,
@@ -156,7 +156,7 @@
     {
       "frequencyHz": 40,
       "normalisedPeak": 0.7021780767426856,
-      "ripple": 0.06860575176897295,
+      "ripple": 0.06860575176897317,
       "spikesPerUnit": [
         40,
         40,
@@ -172,8 +172,8 @@
     },
     {
       "frequencyHz": 50,
-      "normalisedPeak": 0.9016960358281431,
-      "ripple": 0.3367058471018382,
+      "normalisedPeak": 0.9016960358281425,
+      "ripple": 0.3367058471018376,
       "spikesPerUnit": [
         50,
         50,
@@ -190,7 +190,7 @@
     {
       "frequencyHz": 60,
       "normalisedPeak": 1.0,
-      "ripple": 0.28366712566534,
+      "ripple": 0.2836671256653402,
       "spikesPerUnit": [
         60,
         60,
@@ -206,8 +206,8 @@
     },
     {
       "frequencyHz": 80,
-      "normalisedPeak": 0.7210067951481531,
-      "ripple": 0.41030709050339437,
+      "normalisedPeak": 0.7210067951481541,
+      "ripple": 0.41030709050339503,
       "spikesPerUnit": [
         80,
         80,
@@ -223,8 +223,8 @@
     },
     {
       "frequencyHz": 100,
-      "normalisedPeak": 0.5696639156674428,
-      "ripple": 0.25971538893729496,
+      "normalisedPeak": 0.5696639156674426,
+      "ripple": 0.2597153889372953,
       "spikesPerUnit": [
         100,
         100,
