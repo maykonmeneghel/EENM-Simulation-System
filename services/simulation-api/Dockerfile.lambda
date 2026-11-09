@@ -1,0 +1,34 @@
+# syntax=docker/dockerfile:1
+# AWS Lambda image of the API (docs/deployment.md): Spring Boot behind the Lambda Web Adapter, response streaming.
+# The local image (Dockerfile) is unchanged. Build for the Lambda architecture, e.g.
+#   docker build --platform linux/arm64 -f Dockerfile.lambda -t eenm/simulation-api:lambda .
+
+FROM eclipse-temurin:21-jdk AS build
+WORKDIR /workspace
+COPY .mvn/ .mvn/
+COPY mvnw pom.xml ./
+RUN ./mvnw -B -q dependency:go-offline
+COPY src/ src/
+RUN ./mvnw -B -q -DskipTests package \
+    && cp target/simulation-api-*.jar /workspace/app.jar
+
+FROM eclipse-temurin:21-jre
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:1.1.0 /lambda-adapter /opt/extensions/lambda-adapter
+WORKDIR /app
+COPY --from=build /workspace/app.jar app.jar
+# Class Data Sharing (Spring Boot "Efficient deployments"): the jar extracted, then one training run that starts the
+# context and exits, so the JVM of a cold Lambda maps the archived classes instead of loading them one by one.
+RUN java -Djarmode=tools -jar app.jar extract --destination application \
+    && cd application \
+    && java -XX:ArchiveClassesAtExit=application.jsa -Dspring.context.exit=onRefresh -jar app.jar \
+    && cd .. && rm app.jar && chmod -R a+rX /app
+
+# Lambda Web Adapter (README of v1.1.0): forwards the invocation to the port, streams the SSE response body.
+ENV AWS_LWA_PORT=8080 \
+    AWS_LWA_READINESS_CHECK_PATH=/actuator/health \
+    AWS_LWA_INVOKE_MODE=response_stream \
+    PORT=8080
+EXPOSE 8080
+WORKDIR /app/application
+ENTRYPOINT ["java", "-XX:SharedArchiveFile=application.jsa", "-XX:TieredStopAtLevel=1", "-XX:+UseSerialGC", \
+    "-Djava.io.tmpdir=/tmp", "-jar", "app.jar"]
