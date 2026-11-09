@@ -49,6 +49,8 @@ public final class SimulationDefaults {
     public static final CompartmentGeometry DENDRITE_GEOMETRY = CompartmentGeometry.CYLINDRICAL;
     public static final long SEED = 0;
     public static final double OUTPUT_STEP_MS = 0.1;
+    /** Units the engine simulates for {@code LITERATURE} without {@code unitsPerType} (in the pool's proportions). */
+    public static final int LITERATURE_AUTO_UNITS = 120;
 
     public SimulationRequest resolve(SimulationDraft draft) {
         SimulationDraft source = draft == null ? SimulationDraft.empty() : draft;
