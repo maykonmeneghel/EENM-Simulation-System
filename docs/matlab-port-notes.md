@@ -91,8 +91,8 @@ identical to the one of 2026-11-05):
 Two things these show. A 0.5 °C perturbation is caught only by the spike-time check, not by the force
 tolerance: the force check alone would miss it. And the correlation of the force traces stays at 0.9992 with a
 50 % amplitude error, so correlation is not evidence of equivalence; only the spike and amplitude checks are.
-(Earlier controls, run at 50 ms, gave 1.8 % and 63 %; at 50 ms the conduction delay is different (Q4), so those
-numbers are not comparable with the 1 s run.)
+(Earlier controls, run at 50 ms, gave 1.8 % and 63 %; the duration also changes the conduction delay (Q4), so those
+numbers are not comparable with the 1 s run; the cause of the difference was not isolated.)
 
 ## Behaviours kept as in the original (to be reviewed)
 
