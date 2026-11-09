@@ -1,5 +1,7 @@
 import type { Locale } from '../i18n/locale';
 import { tr } from '../i18n/locale';
+import type { ServerLimits } from '../domain/limits';
+import { parseLimits } from '../domain/limits';
 import type { ConditionInfo, FieldError, MusclePreset, SimulationEvent, SimulationRequest } from '../domain/simulation';
 import { readSseStream } from './sseParser';
 
@@ -47,12 +49,28 @@ export interface ApiClient {
   getConditions(signal?: AbortSignal, locale?: Locale): Promise<ConditionInfo[]>;
   /** Starts a simulation and yields stream events as they arrive. Abort via `signal`. */
   streamSimulation(request: SimulationRequest, signal?: AbortSignal): AsyncGenerator<SimulationEvent>;
+  /** The limits the server enforces (`GET /api/v1/limits`); absent on clients that do not ask. */
+  getLimits?(signal?: AbortSignal): Promise<ServerLimits>;
+  /** With sign-in: may this token's account use the simulator? (`GET /api/v1/session`: 200, or 403 when not.) */
+  checkAccess?(token: string): Promise<'allowed' | 'forbidden' | 'unknown'>;
+}
+
+/** The signed-in user's ID token, for the calls that run the engine (docs/deployment.md, sign-in). */
+export interface TokenSource {
+  /** The current token (refreshed by the SDK when it is about to expire), or null when signed out. */
+  token(forceRefresh?: boolean): Promise<string | null>;
+  /** The server refused the account (403 after sign-in): it is not allowed on this site. */
+  onForbidden?(): void;
+  /** The server rejected the token even after a refresh (401): sign in again. */
+  onUnauthorized?(): void;
 }
 
 export interface ApiClientOptions {
   /** Base URL prefix, e.g. '' (same origin, via the dev/nginx proxy) or 'http://localhost:8080'. */
   baseUrl?: string;
   fetch?: typeof fetch;
+  /** With sign-in: `Authorization: Bearer <ID token>` on the simulation calls (never on the public catalogues). */
+  auth?: TokenSource;
 }
 
 export function createApiClient(options: ApiClientOptions = {}): ApiClient {
@@ -81,17 +99,41 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
       return body as ConditionInfo[];
     },
 
-    async *streamSimulation(request, signal) {
-      const res = await doFetch(`${baseUrl}/api/v1/simulations`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'text/event-stream, application/problem+json',
-        },
-        body: JSON.stringify(request),
-        signal,
+    async checkAccess(token) {
+      const res = await doFetch(`${baseUrl}/api/v1/session`, {
+        headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
       });
+      return res.ok ? 'allowed' : res.status === 403 ? 'forbidden' : 'unknown';
+    },
+
+    async getLimits(signal) {
+      const res = await doFetch(`${baseUrl}/api/v1/limits`, { headers: { Accept: 'application/json' }, signal });
       if (!res.ok) throw await toHttpError(res);
+      return parseLimits(await res.json());
+    },
+
+    async *streamSimulation(request, signal) {
+      const post = async (forceRefresh: boolean) => {
+        const token = options.auth ? await options.auth.token(forceRefresh) : null;
+        return doFetch(`${baseUrl}/api/v1/simulations`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'text/event-stream, application/problem+json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify(request),
+          signal,
+        });
+      };
+      let res = await post(false);
+      // an expired or revoked token: one more try with a fresh one
+      if (res.status === 401 && options.auth) res = await post(true);
+      if (!res.ok) {
+        if (res.status === 401) options.auth?.onUnauthorized?.();
+        if (res.status === 403 && options.auth) options.auth.onForbidden?.();
+        throw await toHttpError(res);
+      }
       if (!res.body) throw new StreamProtocolError('NO_BODY', tr({ 'pt-BR': 'Resposta sem corpo de stream', en: 'Response without a stream body' }));
 
       let terminal = false;

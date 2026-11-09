@@ -1,23 +1,21 @@
 import type { FieldError, MusclePreset, SimulationRequest } from './simulation';
-import {
-  MAX_DURATION_MS,
-  MAX_OUTPUT_STEP_MS,
-  MAX_RAMP_MS,
-  MAX_UNITS_PER_TYPE,
-  MIN_DURATION_MS,
-  PULSE_WIDTH_US,
-} from './defaults';
+import { MAX_OUTPUT_STEP_MS, MAX_RAMP_MS, PULSE_WIDTH_US } from './defaults';
+import type { ServerLimits } from './limits';
+import { CONTRACT_LIMITS } from './limits';
 import { MOTOR_UNIT_TYPES } from './simulation';
+import type { Localized } from '../i18n/locale';
 import { tr } from '../i18n/locale';
 
 /**
- * Client-side mirror of the ranges the API enforces (docs/contracts.md §1).
- * The API remains the authority; this only gives earlier feedback.
+ * Client-side mirror of the ranges the API enforces (docs/contracts.md §1), narrowed by the server's `limits`
+ * (`GET /api/v1/limits`; the contract ranges when not given). The API remains the authority; this only gives earlier
+ * feedback.
  * Field paths use the same dotted notation as problem+json `errors[].field`.
  */
 export function validateRequest(
   req: SimulationRequest,
   muscle?: MusclePreset,
+  limits: ServerLimits = CONTRACT_LIMITS,
 ): FieldError[] {
   const errors: FieldError[] = [];
   const range = (field: string, value: number, min: number, max: number) => {
@@ -30,10 +28,22 @@ export function validateRequest(
       errors.push({ field, message: tr({ 'pt-BR': 'deve ser um número inteiro', en: 'must be a whole number' }) });
   };
 
+  // a value over a cap of this server (tighter than the contract) says so: the same request runs on a local server
+  const serverCap = (field: string, value: number, min: number, max: number, contractMax: number, text: Localized) => {
+    if (Number.isFinite(value) && value > max && value <= contractMax) errors.push({ field, message: tr(text) });
+    else range(field, value, min, max);
+  };
+
   const s = req.stimulus;
-  range('stimulus.durationMs', s.durationMs, MIN_DURATION_MS, MAX_DURATION_MS);
-  range('stimulus.stepMs', s.stepMs, 0.005, 0.1);
-  range('stimulus.frequencyHz', s.frequencyHz, 1, 200);
+  serverCap('stimulus.durationMs', s.durationMs, limits.minDurationMs, limits.maxDurationMs, CONTRACT_LIMITS.maxDurationMs, {
+    'pt-BR': `este servidor limita a duração a ${limits.maxDurationMs} ms`,
+    en: `this server limits the duration to ${limits.maxDurationMs} ms`,
+  });
+  range('stimulus.stepMs', s.stepMs, limits.minStepMs, limits.maxStepMs);
+  serverCap('stimulus.frequencyHz', s.frequencyHz, 1, limits.maxFrequencyHz, CONTRACT_LIMITS.maxFrequencyHz, {
+    'pt-BR': `este servidor limita a frequência a ${limits.maxFrequencyHz} Hz`,
+    en: `this server limits the frequency to ${limits.maxFrequencyHz} Hz`,
+  });
   range('stimulus.dutyCyclePercent', s.dutyCyclePercent, 1, 99);
   range('stimulus.amplitude', s.amplitude, 0, 500);
   if (s.pulseWidthUs !== undefined && s.pulseWidthUs !== null) {
@@ -92,12 +102,20 @@ export function validateRequest(
     for (const type of MOTOR_UNIT_TYPES) {
       const field = `unitsPerType.${type}`;
       const value = req.unitsPerType[type];
-      const max = Math.min(MAX_UNITS_PER_TYPE, muscle?.poolSize[type] ?? MAX_UNITS_PER_TYPE);
+      const max = Math.min(limits.maxUnitsPerType, muscle?.poolSize[type] ?? limits.maxUnitsPerType);
       range(field, value, 0, max);
       integer(field, value);
       if (Number.isFinite(value)) sum += value;
     }
     if (sum < 1) errors.push({ field: 'unitsPerType', message: tr({ 'pt-BR': 'pelo menos uma unidade motora', en: 'at least one motor unit' }) });
+    else if (sum > limits.maxTotalUnits)
+      errors.push({
+        field: 'unitsPerType',
+        message: tr({
+          'pt-BR': `este servidor limita a ${limits.maxTotalUnits} unidades motoras no total`,
+          en: `this server limits the run to ${limits.maxTotalUnits} motor units in total`,
+        }),
+      });
   }
 
   range('axonLengthPercent', req.axonLengthPercent, 1, 100);

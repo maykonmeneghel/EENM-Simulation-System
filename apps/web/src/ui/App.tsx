@@ -46,6 +46,8 @@ import { useMuscleCatalog } from './useMuscleCatalog';
 import { ZoomBar } from './ZoomBar';
 import { ZoomSync } from './zoomSync';
 import { useSimulation } from './useSimulation';
+import { useServerLimits } from './useServerLimits';
+import type { Account } from './AuthGate';
 
 const NO_ERRORS: readonly FieldError[] = [];
 
@@ -71,11 +73,14 @@ export function App({
   api,
   controller,
   saved: savedProp,
+  account,
 }: {
   api: ApiClient;
   controller: SimulationController;
   /** Saved simulations (IndexedDB in the browser); in memory when not given. */
   saved?: SavedSimulations;
+  /** The signed-in account (only with sign-in configured): shown in the toolbar with a sign-out button. */
+  account?: Account;
 }) {
   const [fallbackSaved] = useState(() => new SavedSimulations(new MemorySavedSimulationStore()));
   const saved = savedProp ?? fallbackSaved;
@@ -90,6 +95,7 @@ export function App({
   const state = useSimulation(controller);
   const catalog = useMuscleCatalog(api);
   const conditionCatalog = useConditionCatalog(api);
+  const limits = useServerLimits(api);
   const [values, setValues] = useState<FormValues>(() => defaultFormValues());
   const [step, setStep] = useState<StepId>('stimulator');
   const [focus, setFocus] = useState<StageFocus | null>(null);
@@ -253,6 +259,16 @@ export function App({
             >
               {simulateText}
             </button>
+            {account ? (
+              <>
+                <span className="toolbar-account" title={account.label}>
+                  {account.label}
+                </span>
+                <button type="button" className="btn" onClick={account.signOut}>
+                  {tr({ 'pt-BR': 'Sair', en: 'Sign out' })}
+                </button>
+              </>
+            ) : null}
             <SegmentedControl<Locale>
               label={tr({ 'pt-BR': 'Idioma', en: 'Language' })}
               mode="radio"
@@ -300,6 +316,7 @@ export function App({
             conditions={conditionCatalog.conditions}
             conditionsError={conditionCatalog.error}
             onClientErrors={onClientErrors}
+            limits={limits}
           />
           </div>
         </aside>
