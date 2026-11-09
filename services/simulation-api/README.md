@@ -11,6 +11,8 @@ browser as Server-Sent Events while the engine produces it. The binding contract
 |---|---|---|
 | GET | `/actuator/health` | Spring health (does not depend on the engine) |
 | GET | `/api/v1/muscles` | engine muscle presets; `502` problem+json if the engine is unreachable |
+| GET | `/api/v1/limits` | the active server limits (`docs/deployment.md`) |
+| GET | `/api/v1/session` | the signed-in uid (`{"uid": null}` without sign-in) |
 | POST | `/api/v1/simulations` | `200 text/event-stream` (`started`, `chunk`..., then `completed` or `error`); `400` problem+json with an `errors` array on invalid input; `502` problem+json if the engine is unreachable before the first event |
 
 Every request field is optional; missing fields take the contract defaults (an empty body runs the
@@ -35,6 +37,10 @@ curl -N -X POST localhost:8080/api/v1/simulations \
 | `engine.max-line-size` | `ENGINE_MAX_LINE_SIZE` | `16MB` (largest single NDJSON event) |
 | `engine.preset-cache-ttl` | `ENGINE_PRESET_CACHE_TTL` | `10m` (presets cached for the pool-size check) |
 | `api.cors.allowed-origins` | `API_CORS_ALLOWED_ORIGINS` | `http://localhost:5173` (comma separated) |
+
+Hosted deployment (`EENM_MAX_*`, `EENM_MIN_STEP_MS`, `EENM_AUTH_FIREBASE_PROJECT_ID`, `EENM_AUTH_ALLOWED_EMAILS`,
+`EENM_ORIGIN_SECRET`, `EENM_ENGINE_SECRET`; all off by default) and the Lambda image (`Dockerfile.lambda`):
+[`docs/deployment.md`](../../docs/deployment.md).
 
 ## Run and test
 

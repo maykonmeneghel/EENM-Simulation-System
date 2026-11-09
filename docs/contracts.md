@@ -292,6 +292,8 @@ and titles stay as published). Any other value is `422`. English texts: `domain/
 | GET | `/actuator/health` | Spring health |
 | GET | `/api/v1/muscles?lang=` | relays engine presets |
 | GET | `/api/v1/conditions?lang=` | relays the engine catalog of conditions verbatim |
+| GET | `/api/v1/limits` | the server limits on a request (below) |
+| GET | `/api/v1/session` | `{"uid": "<uid>"}` for the signed-in account, `{"uid": null}` without sign-in |
 | POST | `/api/v1/simulations` | `200 text/event-stream` relaying events; `400` problem+json on validation errors |
 
 Validation errors use RFC 9457 `application/problem+json` with an `errors` array of
@@ -300,3 +302,20 @@ Validation errors use RFC 9457 `application/problem+json` with an `errors` array
 `en` is `400` problem+json with `{ "field": "lang", "message": "must be pt-BR or en" }`.
 If the engine is unreachable: `502` problem+json before streaming starts, or an `error` event
 (`code: "ENGINE_UNAVAILABLE"`) once streaming has started. CORS allows `http://localhost:5173`.
+
+Hosted deployment (all off by default; `docs/deployment.md`): a server may narrow the ranges of §1 with the
+`EENM_MAX_*` / `EENM_MIN_STEP_MS` variables — a request over one is `400` problem+json naming the field, e.g.
+`{ "field": "stimulus.durationMs", "message": "must be less than or equal to 5000 (limit of this server)" }`; the
+engine checks the same caps (its `422`). `GET /api/v1/limits` answers the active values (the contract ranges by
+default; `maxOutputPoints` null = no cap):
+
+```json
+{ "minDurationMs": 10, "maxDurationMs": 300000, "minStepMs": 0.005, "maxStepMs": 0.1, "maxFrequencyHz": 200,
+  "maxUnitsPerType": 200, "maxTotalUnits": 600, "maxOutputPoints": null, "maxUnitEventsDurationMs": 30000 }
+```
+
+With sign-in on (`EENM_AUTH_FIREBASE_PROJECT_ID`), `POST /api/v1/simulations` and `GET /api/v1/session` need
+`Authorization: Bearer <Firebase ID token>`: `401` problem+json without a valid token, `403` problem+json for an account
+not allowed (`EENM_AUTH_ALLOWED_EMAILS`). With `EENM_ORIGIN_SECRET`, a request without `X-Origin-Verify` is `403`
+problem+json (but `/actuator/health`). With `EENM_ENGINE_SECRET` the engine answers `403` without `X-Engine-Key`
+(but `/health`), and the API sends it.

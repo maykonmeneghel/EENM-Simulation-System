@@ -28,6 +28,12 @@ curl -N -X POST localhost:8001/v1/simulations/stream -H 'content-type: applicati
      -d '{"stimulus":{"durationMs":200}}'
 ```
 
+## Hosted deployment
+
+Optional guards (`EENM_ENGINE_SECRET`, the `EENM_MAX_*` / `EENM_MIN_STEP_MS` caps; all off by default) and the Lambda
+image with the Numba cache built in (`Dockerfile.lambda`, `python -m eenm_engine.warmup`):
+[`docs/deployment.md`](../../docs/deployment.md).
+
 ## Test
 
 ```sh

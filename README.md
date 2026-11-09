@@ -9,6 +9,7 @@ apps/web (React, :5173)  ->  services/simulation-api (Spring Boot, :8080)  ->  s
 - `scripts/dev.sh` starts the three locally; `docker-compose.yml` runs them in containers.
 - Two model variants: `ORIGINAL` (the MATLAB model as ported) and `LITERATURE` (corrections validated against
   published physiology, opt-in).
+- Hosted copy on AWS Lambda (limits, optional Google sign-in, Lambda images): `docs/deployment.md`.
 - Docs: `docs/contracts.md` (API), `docs/model-equations.md` (equations per variant),
   `docs/matlab-port-notes.md` (what maps to what; original behaviours kept on purpose),
   `docs/validation/literature-comparison.md` (model vs literature, step by step).
