@@ -3,7 +3,8 @@
 # The local image (Dockerfile) is unchanged. Build for the Lambda architecture, e.g.
 #   docker build --platform linux/arm64 -f Dockerfile.lambda -t eenm/simulation-api:lambda .
 
-FROM eclipse-temurin:21-jdk AS build
+# the jar does not depend on the CPU: build it natively, also when the image targets the other architecture
+FROM --platform=$BUILDPLATFORM eclipse-temurin:21-jdk AS build
 WORKDIR /workspace
 COPY .mvn/ .mvn/
 COPY mvnw pom.xml ./

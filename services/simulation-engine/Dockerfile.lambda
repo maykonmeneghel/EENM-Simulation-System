@@ -15,7 +15,9 @@ RUN uv sync --frozen --no-dev
 # Numba: code for a generic CPU of the architecture (the Lambda host's CPU is not the build machine's; a cache built
 # for the build CPU would be a miss there), cached at build time. Lambda's filesystem is read-only except /tmp and
 # Numba only uses a cache directory it can write to, so the entrypoint copies this cache (≈ 0.5 MB) to /tmp.
-ENV NUMBA_CPU_NAME=generic \
+# NUMBA_CPU_NAME can be raised at build time (e.g. a newer x86-64 level) when the Lambda CPUs are known to have it.
+ARG NUMBA_CPU_NAME=generic
+ENV NUMBA_CPU_NAME=$NUMBA_CPU_NAME \
     NUMBA_CACHE_DIR=/opt/numba-cache \
     PYTHONDONTWRITEBYTECODE=1 \
     PATH=/app/.venv/bin:$PATH
