@@ -134,6 +134,7 @@ function Atlas({ layout, level, clock, forceAt, angleAt }: {
   }, [opened, deep, clip]);
   const live = useRef(materials);
   const bend = useMemo(() => restPose(gltf.scene), [gltf]);
+  useEffect(() => () => restoreRest(bend), [bend]);
   useEffect(() => {
     live.current = materials;
     paint(gltf.scene, layout.parts, materials);
@@ -158,7 +159,19 @@ interface BentMesh {
   weight: Float32Array;
 }
 
-/** Rest positions and wrist weights of every mesh that crosses or lies past the wrist (the forearm bones do not). */
+/** Rest pose of a bent mesh, kept on its geometry: useGLTF hands the same (already bent) scene to every mount. */
+interface RestData {
+  rest: Float32Array;
+  restNormal: Float32Array;
+  weight: Float32Array;
+}
+const REST_KEY = 'eenmWristRest';
+
+/**
+ * Rest positions and wrist weights of every mesh that crosses or lies past the wrist (the forearm bones do not).
+ * They are read once from the unbent atlas and stored on the geometry, so a later mount (the scene is cached and may
+ * still hold the last bend) starts from the true rest pose instead of the bent one.
+ */
 function restPose(scene: THREE.Object3D): { meshes: BentMesh[]; angle: number } {
   const meshes: BentMesh[] = [];
   scene.traverse((o) => {
@@ -166,24 +179,44 @@ function restPose(scene: THREE.Object3D): { meshes: BentMesh[]; angle: number } 
     const g = o.geometry as THREE.BufferGeometry;
     if (!g.attributes.normal) g.computeVertexNormals();
     const position = g.attributes.position as THREE.BufferAttribute;
-    const weight = new Float32Array(position.count);
-    let any = false;
-    for (let i = 0; i < position.count; i++) {
-      weight[i] = o.name === 'handBones' ? 1 : wristWeight(position.getX(i));
-      any ||= weight[i]! > 0;
-    }
-    if (!any) return;
     const normal = g.attributes.normal as THREE.BufferAttribute;
-    meshes.push({ position, normal, rest: Float32Array.from(position.array), restNormal: Float32Array.from(normal.array), weight });
+    let data = g.userData[REST_KEY] as RestData | null | undefined;
+    if (data === undefined) {
+      const weight = new Float32Array(position.count);
+      let any = false;
+      for (let i = 0; i < position.count; i++) {
+        weight[i] = o.name === 'handBones' ? 1 : wristWeight(position.getX(i));
+        any ||= weight[i]! > 0;
+      }
+      data = any ? { rest: Float32Array.from(position.array), restNormal: Float32Array.from(normal.array), weight } : null;
+      storeRest(g, data);
+    }
+    if (data) meshes.push({ position, normal, ...data });
   });
-  return { meshes, angle: 0 };
+  // NaN: the first applyWrist always writes the vertices, whatever pose the cached scene was left in
+  return { meshes, angle: Number.NaN };
+}
+
+function storeRest(g: THREE.BufferGeometry, data: RestData | null): void {
+  g.userData[REST_KEY] = data;
+}
+
+/** Back to the rest pose (on unmount: the cached scene must not keep the bend). */
+function restoreRest(pose: { meshes: BentMesh[]; angle: number }): void {
+  for (const m of pose.meshes) {
+    (m.position.array as Float32Array).set(m.rest);
+    (m.normal.array as Float32Array).set(m.restNormal);
+    m.position.needsUpdate = true;
+    m.normal.needsUpdate = true;
+  }
+  pose.angle = 0;
 }
 
 const BENT: [number, number] = [0, 0];
 
 /** Moves the vertices to the wrist angle (rad); skipped when the angle has not changed. */
 function applyWrist(pose: { meshes: BentMesh[]; angle: number }, angle: number): void {
-  if (Math.abs(angle - pose.angle) < 1e-4) return;
+  if (Math.abs(angle - pose.angle) < 1e-4) return; // false when pose.angle is NaN
   pose.angle = angle;
   for (const m of pose.meshes) {
     const p = m.position.array as Float32Array;

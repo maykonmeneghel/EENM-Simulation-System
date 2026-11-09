@@ -7,6 +7,8 @@ import com.meneghel.eenm.simulationapi.domain.simulation.CompartmentGeometry;
 import com.meneghel.eenm.simulationapi.domain.simulation.InjectionSite;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModelVariant;
 import com.meneghel.eenm.simulationapi.domain.simulation.Muscle;
+import com.meneghel.eenm.simulationapi.domain.simulation.WristPassiveModel;
+import com.meneghel.eenm.simulationapi.domain.simulation.WristPeakForce;
 import com.meneghel.eenm.simulationapi.web.validation.Between;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -34,7 +36,8 @@ public record SimulationRequestDto(
         @PositiveOrZero(message = "must be greater than or equal to 0") Long seed,
         @DecimalMax(value = "10", message = "must be less than or equal to 10") Double outputStepMs,
         @Valid CentralDriveDto centralDrive,
-        OutputDto output) {
+        OutputDto output,
+        JointDto joint) {
 
     public SimulationRequestDto(StimulusDto stimulus, ModelVariant modelVariant, CalibrationTarget calibrationTarget,
             StimulationSite stimulationSite, Condition condition, List<String> conditionAdjustments, Muscle muscle,
@@ -43,10 +46,24 @@ public record SimulationRequestDto(
             Long seed, Double outputStepMs, CentralDriveDto centralDrive) {
         this(stimulus, modelVariant, calibrationTarget, stimulationSite, condition, conditionAdjustments, muscle,
                 unitsPerType, axonLengthPercent, temperatureCelsius, injectionSite, somaGeometry, dendriteGeometry,
-                seed, outputStepMs, centralDrive, null);
+                seed, outputStepMs, centralDrive, null, null);
+    }
+
+    public SimulationRequestDto(StimulusDto stimulus, ModelVariant modelVariant, CalibrationTarget calibrationTarget,
+            StimulationSite stimulationSite, Condition condition, List<String> conditionAdjustments, Muscle muscle,
+            UnitsPerTypeDto unitsPerType, Double axonLengthPercent, Double temperatureCelsius,
+            InjectionSite injectionSite, CompartmentGeometry somaGeometry, CompartmentGeometry dendriteGeometry,
+            Long seed, Double outputStepMs, CentralDriveDto centralDrive, OutputDto output) {
+        this(stimulus, modelVariant, calibrationTarget, stimulationSite, condition, conditionAdjustments, muscle,
+                unitsPerType, axonLengthPercent, temperatureCelsius, injectionSite, somaGeometry, dendriteGeometry,
+                seed, outputStepMs, centralDrive, output, null);
     }
 
     /** What the stream carries besides the series; {@code unitEvents}: the per-unit events of the 3D replay. */
     public record OutputDto(Boolean unitEvents) {
+    }
+
+    /** Wrist model choices where the sources disagree (forearm runs); unset fields take the defaults. */
+    public record JointDto(WristPeakForce peakForce, WristPassiveModel passive) {
     }
 }

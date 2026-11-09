@@ -155,12 +155,26 @@ Outputs: θ, ω and the tangential acceleration at a sensor distance `d` from th
 accelerometer); the exact distance is not in the text read, so it is configurable and labelled as an assumption.
 
 **Partly implemented 2026-11-06 (for the 3D step), single muscle:** `domain/wrist_joint.py`. The run's stimulated
-muscle (FCR or ECR) drives the 1-DOF equation above with F = force / healthy maximum × peak isometric force (Saul 2015:
-FCR 407.9 N, ECRL + ECRB 589.8 N). There is no antagonist yet and the force is isometric. Because a maximal FCR gives
-≈ 6.1 N·m, which with K = 0.992 N·m/rad would be ≈ 350°, the angle stops at 54° flexion / 60° extension: the largest
-angles daily tasks need (Ryu et al. 1991, abstract). The anatomical maximum was not verified (Gunal 1996 gives no
-numbers in the abstract and the full text was not read). Note: Corie & Charles 2019 scale the 407.9 N by 0.33; the
-reason was not read, and the factor is not applied here.
+muscle (FCR or ECR) drives the 1-DOF equation above with F = force / healthy maximum × peak isometric force. There is
+no antagonist yet.
+
+**Revised 2026-11-07** (with SCI and PD runs the wrist slammed into a 54° stop in ≈ 30 ms and rebounded ≈ 18° to the
+other side — in every condition, NORMAL included):
+
+- **Force–velocity.** F = F_iso · f_v(v), v = r θ' (rigid tendon), Thelen 2003 eqs. 6–7 as in OpenSim's
+  `Thelen2003Muscle` (code read in full): Vmax = 10 optimal fibre lengths/s, Af = 0.25, Flen = 1.4, at full activation
+  and optimal length. Optimal fibre length FCR 6.3 cm (Saul 2015, FT); ECR 7.2 cm (force-weighted mean of ECRL 8.1 and
+  ECRB 5.9 cm, derived). Offline it delayed the arrival at the stop from 95 to 125 ms but left the rebound (−17°).
+- **Peak force, a choice:** Saul 2015 (FT; specific tension 50.8 N/cm²) or the same × 17.1 / 50.8, the tension
+  measured directly in living human gracilis (Binder-Markey et al. 2023, abstract): FCR ≈ 137 N. Corie & Charles 2019
+  scale the 407.9 N by 0.33; their reason was not read, but 17.1 / 50.8 = 0.34 is close.
+- **Passive moment, a choice:** the linear K above (measured with small perturbations) or Delp, Grierson & Buchanan
+  1996 (J Biomech 29:1371, abstract): near zero in the central 150°, 0.5 N·m at 90° flexion, 1.2 N·m at 90°
+  extension; drawn as zero to 75° and a quadratic through the two points (the shape is ours). The two disagree: K gives
+  0.94 N·m at 54°, Delp ≈ 0. The linear spring is what throws the wrist to the other side after release.
+- **Limits** 90° / 90° (where Delp measured; the anatomical maximum was not verified), replacing Ryu 1991's 54° / 60°
+  (the angles daily tasks need, not the joint's range). A supramaximal FCR train still reaches the limit: 2–6 N·m
+  against < 1 N·m of passive moment.
 
 ### 3.6 Ia afferent loop (spindles and reciprocal inhibition)
 

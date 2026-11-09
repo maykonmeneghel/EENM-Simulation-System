@@ -257,7 +257,13 @@ The asset script adds the **27 bones of the right hand** (BodyParts3D, merged in
 **capitate's centroid** (2.0 cm past the end of the radius, on the forearm axis). The engine streams the wrist angle
 (central-layer §3.5). The scene turns the hand about z by the angle, and the skin and tendons blend over 3 cm across
 the wrist (weight 0 on the forearm → 1 on the hand; illustrative). The forearm level now looks from the radial side
-and starts at 1/10× so the motion shows. A readout gives the angle and the limits.
+and starts at 1/10× so the motion shows. A readout gives the angle, the limits and the run's wrist choices (peak
+force source, passive model; central-layer §3.5).
+
+**Fixed 2026-11-07:** `useGLTF` hands the same cached scene to every mount, so reopening the step with the hand bent
+copied the bent vertices as the "rest" pose and the next bend added to it (the wrist looked broken). The rest pose is
+now read once from the unbent atlas and kept on each geometry; the hand goes back to rest on unmount, and every new
+run starts at 0° (the joint buffer is reset and the replay clock goes back to 0).
 
 ## 6. The view in the app
 

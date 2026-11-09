@@ -10,7 +10,7 @@ from numpy.typing import NDArray
 from eenm_engine.domain.motor_unit_pool import MotorUnitType, Muscle
 from eenm_engine.domain.unit_anatomy import UnitAnatomy
 from eenm_engine.domain.unit_events import UnitEvents
-from eenm_engine.domain.wrist_joint import WristJoint, WristMuscle
+from eenm_engine.domain.wrist_joint import WristSetup
 
 
 @dataclass(frozen=True)
@@ -28,7 +28,7 @@ class SimulationStarted:
     """Per-unit geometry and conduction times, for the 3D view (``domain.unit_anatomy``)."""
     electrode_fraction: float | None = None
     """Electrode position along the axon from the soma; ``None`` when the stimulus goes into the soma."""
-    joint: tuple[WristJoint, WristMuscle] | None = None
+    joint: WristSetup | None = None
     """The wrist the stimulated muscle moves (FCR / ECR with a force reference), else ``None``."""
 
 

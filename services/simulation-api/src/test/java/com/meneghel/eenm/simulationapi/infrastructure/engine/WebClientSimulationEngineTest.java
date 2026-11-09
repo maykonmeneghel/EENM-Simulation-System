@@ -88,6 +88,8 @@ class WebClientSimulationEngineTest {
         assertThat(body.path("somaGeometry").stringValue()).isEqualTo("CYLINDRICAL");
         assertThat(body.path("outputStepMs").doubleValue()).isEqualTo(0.1);
         assertThat(body.has("centralDrive")).as("none unless asked").isFalse();
+        assertThat(body.path("joint").path("peakForce").stringValue()).isEqualTo("SAUL_2015");
+        assertThat(body.path("joint").path("passive").stringValue()).isEqualTo("LINEAR");
     }
 
     @Test
