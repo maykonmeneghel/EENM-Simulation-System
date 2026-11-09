@@ -1,0 +1,46 @@
+{
+  "variant": "axons",
+  "outputStepMs": 0.1,
+  "rows": [
+    {
+      "stepMs": 0.05,
+      "contractionTimeMs": 119.00000000000001,
+      "halfRelaxationMs": 97.10000000000001,
+      "twitchTetanusRatio": 0.2128509144380842,
+      "f50Hz": 5.163794090238841,
+      "forceAt100HzOverMax": 0.994692107191501,
+      "twitchPeakModelUnits": 5.537306456284738,
+      "seconds": 4.0
+    },
+    {
+      "stepMs": 0.02,
+      "contractionTimeMs": 118.9,
+      "halfRelaxationMs": 97.10000000000001,
+      "twitchTetanusRatio": 0.21286061407793433,
+      "f50Hz": 5.163574175010336,
+      "forceAt100HzOverMax": 0.99473015418343,
+      "twitchPeakModelUnits": 2.2149388293499133,
+      "seconds": 4.1
+    },
+    {
+      "stepMs": 0.01,
+      "contractionTimeMs": 118.9,
+      "halfRelaxationMs": 97.10000000000001,
+      "twitchTetanusRatio": 0.21286124465764306,
+      "f50Hz": 5.163555346520822,
+      "forceAt100HzOverMax": 0.9947343225605345,
+      "twitchPeakModelUnits": 1.1074680754751216,
+      "seconds": 4.5
+    },
+    {
+      "stepMs": 0.005,
+      "contractionTimeMs": 118.9,
+      "halfRelaxationMs": 97.10000000000001,
+      "twitchTetanusRatio": 0.21286443081333412,
+      "f50Hz": 5.163472828159865,
+      "forceAt100HzOverMax": 0.9947500939519738,
+      "twitchPeakModelUnits": 0.5537335520811933,
+      "seconds": 6.4
+    }
+  ]
+}
