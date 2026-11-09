@@ -29,7 +29,8 @@ Same body on the public API and on the engine. Defaults reproduce `Mathematical 
     "trainPeriodMs": null,
     "pulseWidthUs": null,
     "rampUpMs": 0,
-    "rampDownMs": 0
+    "rampDownMs": 0,
+    "pulseTimesMs": null
   },
   "modelVariant": "ORIGINAL",
   "calibrationTarget": "WHOLE_MUSCLE",
@@ -62,6 +63,7 @@ Same body on the public API and on the engine. Defaults reproduce `Mathematical 
 | `stimulus.trainOnMs`, `stimulus.trainPeriodMs` | number \| null | null | both or neither; 0 < on ≤ period ≤ durationMs | — (new: intermittent trains, e.g. 330 / 1000) |
 | `stimulus.pulseWidthUs` | number \| null | null | 20 – 1000 µs; phases × width < period; modulation AMPLITUDE / STEP; waveform MONOPHASIC or BIPHASIC_SYMMETRIC | — (new: stimulator mode; replaces `dutyCyclePercent`) |
 | `stimulus.rampUpMs`, `stimulus.rampDownMs` | number | 0 | 0 – 60000 each; up + down ≤ on time (`trainOnMs`, or `durationMs`) | — (new: amplitude ramps of every train) |
+| `stimulus.pulseTimesMs` | number[] \| null | null (= the periodic train) | needs `pulseWidthUs`; ≥ 0, strictly increasing; consecutive onsets ≥ phases × width + `stepMs` apart; last pulse ends within `trainOnMs` (with trains) or `durationMs`; at most 100 000 pulses over the run (engine cap); see below | — (new: explicit pulse sequence, e.g. doublets) |
 | `modelVariant` | enum | `ORIGINAL` | `ORIGINAL`, `LITERATURE` | — (new, see below) |
 | `calibrationTarget` | enum | `WHOLE_MUSCLE` | `WHOLE_MUSCLE`, `SINGLE_UNIT` | — (new, see below; LITERATURE only) |
 | `stimulationSite` | enum | `SKIN_SURFACE` | `SKIN_SURFACE`, `MOTONEURON_POOL` | — (new, see below; LITERATURE only) |
@@ -103,6 +105,28 @@ two meet on the axon (collision, refractoriness, antidromic reset; design §3.3)
 simulate the motoneurons, as before.
 
 Every field is optional; missing fields take the default. A partial `unitsPerType` (e.g. only `S`) fills the missing types with 5 / 2 / 2 under either variant; omit `unitsPerType` entirely to get the variant default.
+
+### `stimulus.pulseTimesMs` (explicit pulse sequence)
+
+Onsets of the pulses in ms, instead of one pulse every `1000 / frequencyHz` (`docs/model-equations.md` §1). Without
+`trainOnMs` / `trainPeriodMs` they are times of the run; with them, times from the start of every train, and the
+sequence repeats in each train. Example, a 12-pulse 15 Hz train whose first interval is 6 ms, every 2 s:
+
+```json
+"stimulus": { "durationMs": 12000, "pulseWidthUs": 500, "amplitude": 120, "trainOnMs": 673.17, "trainPeriodMs": 2000,
+              "pulseTimesMs": [0, 6, 72.667, 139.333, 206, 272.667, 339.333, 406, 472.667, 539.333, 606, 672.667] }
+```
+
+- Still apply: `amplitude`, `pulseWidthUs` (required: the width of every pulse, of each phase if biphasic),
+  `waveform` (`MONOPHASIC` or `BIPHASIC_SYMMETRIC`), `trainOnMs` / `trainPeriodMs`, `rampUpMs` / `rampDownMs`
+  (the same envelope as the periodic stimulator), `durationMs`, `stepMs`.
+- No effect: `frequencyHz`, `dutyCyclePercent` (accepted and ignored, so a client may keep sending them).
+- Must stay at the default: `modulation` (`AMPLITUDE` / `STEP`); `waveform` `BIPHASIC` is rejected.
+- Only whole pulses are delivered: a pulse the end of the run would cut is left out.
+- Errors (422) name the offending pulses: not increasing, negative or non-finite, too close (the minimum is the pulse,
+  both phases if biphasic, plus one sample, so that sampled pulses stay separate), not ending within the on time or the
+  run, the last pulse of a train too close to the first of the next, a width under one sample, more than 100 000
+  pulses.
 
 ### `modelVariant`
 

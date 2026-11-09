@@ -10,7 +10,9 @@ Time is in milliseconds, so the pulse frequency is converted from Hz to kHz exac
 
 from __future__ import annotations
 
+import itertools
 import math
+from bisect import bisect_right
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
@@ -26,6 +28,11 @@ class Waveform(Enum):
     BIPHASIC_SYMMETRIC = "BIPHASIC_SYMMETRIC"
     """Charge-balanced pulse of a stimulator (not in the original): +A for the pulse width, then -A for the same
     width, then zero. The pulse width is that of each phase."""
+
+
+DEFAULT_MAX_PULSES = 100_000
+"""Default cap on the pulses of an explicit sequence over the whole run (``StimulusProtocol.max_pulses``): 300 s at
+200 Hz is 60 000 pulses. Axon stimulation keeps one row of fired units per pulse, so memory grows with this number."""
 
 
 class ModulationTarget(Enum):
@@ -68,9 +75,21 @@ class StimulusProtocol:
     first ``ramp_up_ms`` of every train (of the whole run without trains)..."""
     ramp_down_ms: float = 0.0
     """...and linear fall to 0 over its last ``ramp_down_ms``. Both lie inside the on time."""
+    pulse_times_ms: tuple[float, ...] | None = None
+    """Explicit pulse sequence (not in the original): the onset of every pulse, in ms, instead of a pulse every
+    ``1000 / frequency_hz``. Each pulse has the stimulator's width (``pulse_width_us``, required), amplitude and
+    waveform (MONOPHASIC or BIPHASIC_SYMMETRIC). Without trains the onsets are times of the run; with ``train_on_ms`` /
+    ``train_period_ms`` they are times from the start of every train, and the sequence repeats in each train. The
+    envelope (trains on / off, ramps) applies as in the periodic stimulator. Only whole pulses are delivered: a pulse
+    the end of the run would cut is left out (the periodic train keeps it, cut). ``frequency_hz`` and
+    ``duty_cycle_percent`` have no effect. ``None`` = the periodic train."""
+    max_pulses: int = DEFAULT_MAX_PULSES
+    """Largest number of pulses an explicit sequence may deliver over the whole run (all trains)."""
 
     def __post_init__(self) -> None:
-        if self.pulse_width_us is not None:
+        if self.pulse_times_ms is not None:
+            self._check_sequence()
+        elif self.pulse_width_us is not None:
             if self.pulse_width_us <= 0 or self.frequency_hz <= 0:
                 raise ValueError("pulse_width_us and frequency_hz must be positive")
             # frozen dataclass: the derived duty cycle is stored once, so every branch below keeps using it
@@ -82,7 +101,7 @@ class StimulusProtocol:
         elif self.waveform is Waveform.BIPHASIC_SYMMETRIC:
             raise ValueError("BIPHASIC_SYMMETRIC needs pulse_width_us")
         phases = 2 if self.waveform is Waveform.BIPHASIC_SYMMETRIC else 1
-        if not 0 < phases * self.duty_cycle_percent < 100:
+        if self.pulse_times_ms is None and not 0 < phases * self.duty_cycle_percent < 100:
             raise ValueError("the pulse (both phases if biphasic) must be shorter than the period")
         if self.ramp_up_ms < 0 or self.ramp_down_ms < 0:
             raise ValueError("ramps cannot be negative")
@@ -103,6 +122,78 @@ class StimulusProtocol:
         ):
             raise ValueError("TRIANGLE modulation needs 0 < peak_time_ms < duration_ms")
 
+    def _check_sequence(self) -> None:
+        """Rules of an explicit pulse sequence; the shared rules (ramps, trains, duration) are checked after."""
+        if self.pulse_width_us is None or self.pulse_width_us <= 0:
+            raise ValueError("pulse_times_ms needs pulse_width_us (the width of every pulse)")
+        if (self.modulation_target, self.modulation_shape) != (ModulationTarget.AMPLITUDE, ModulationShape.STEP):
+            raise ValueError("pulse_times_ms needs modulation AMPLITUDE / STEP; use the ramps")
+        if self.waveform not in (Waveform.MONOPHASIC, Waveform.BIPHASIC_SYMMETRIC):
+            raise ValueError("pulse_times_ms needs waveform MONOPHASIC or BIPHASIC_SYMMETRIC")
+        if self.max_pulses < 1:
+            raise ValueError("max_pulses must be at least 1")
+        assert self.pulse_times_ms is not None
+        times = tuple(float(t) for t in self.pulse_times_ms)
+        object.__setattr__(self, "pulse_times_ms", times)  # frozen: a tuple of floats whatever the caller passed
+        if not times:
+            raise ValueError("pulse_times_ms must contain at least one pulse")
+        if not all(math.isfinite(t) for t in times):
+            raise ValueError("pulse_times_ms must be finite numbers")
+        if times[0] < 0:
+            raise ValueError("pulse_times_ms cannot be negative")
+        if self.duration_ms <= 0 or self.step_ms <= 0:
+            raise ValueError("duration_ms and step_ms must be positive")
+        width = self.pulse_width_ms
+        if width < self.step_ms:
+            raise ValueError(f"the pulse width ({width:g} ms) must be at least one sample (step_ms = {self.step_ms:g})")
+        pulse = self.pulse_phases * width
+        # one sample of zero current at least between two pulses, or the sampled pulses touch and the axon layer
+        # (``axon_stimulation.pulses``) reads them as one longer pulse (a biphasic one would lose its second pulse)
+        gap = pulse + self.step_ms
+        for i, (a, b) in enumerate(itertools.pairwise(times), start=1):
+            if b <= a:
+                raise ValueError(f"pulse_times_ms must be strictly increasing (pulse {i} at {a:g}, {i + 1} at {b:g})")
+            if b - a < gap - _EPS_MS:
+                raise ValueError(
+                    f"pulses {i} and {i + 1} are {b - a:g} ms apart; the minimum is the pulse ({pulse:g} ms, both "
+                    f"phases if biphasic) plus one sample ({self.step_ms:g} ms)"
+                )
+        trains = self.train_period_ms is not None and self.train_on_ms is not None
+        window, where = (self.train_on_ms, "train_on_ms") if trains else (self.duration_ms, "duration_ms")
+        assert window is not None
+        if times[-1] + pulse > window + _EPS_MS:
+            raise ValueError(
+                f"the last pulse ({times[-1]:g} ms + {pulse:g} ms) must end within {where} ({window:g} ms)"
+                + (": with trains the times are from the start of each train" if trains else "")
+            )
+        if trains:
+            assert self.train_period_ms is not None
+            wrap = self.train_period_ms - times[-1] + times[0]  # last pulse of a train to the first of the next
+            if wrap < gap - _EPS_MS:
+                raise ValueError(
+                    f"the last pulse of a train and the first of the next are {wrap:g} ms apart; the minimum is "
+                    f"{gap:g} ms (pulse plus one sample)"
+                )
+        if self.pulse_count > self.max_pulses:
+            raise ValueError(f"the sequence delivers {self.pulse_count} pulses; the limit is {self.max_pulses}")
+
+    @property
+    def pulse_phases(self) -> int:
+        return 2 if self.waveform is Waveform.BIPHASIC_SYMMETRIC else 1
+
+    @property
+    def pulse_count(self) -> int:
+        """Pulses an explicit sequence starts within the run (all trains); 0 for the periodic train."""
+        times = self.pulse_times_ms
+        if times is None:
+            return 0
+        last = self.duration_ms - self.pulse_phases * self.pulse_width_ms + _EPS_MS  # latest onset of a whole pulse
+        if self.train_period_ms is None:
+            return sum(1 for t in times if t <= last)
+        full = math.floor(last / self.train_period_ms)
+        rest = last - full * self.train_period_ms
+        return full * len(times) + sum(1 for t in times if t <= rest)
+
     @property
     def on_time_ms(self) -> float:
         """Length of one train, or of the whole run without trains."""
@@ -119,7 +210,10 @@ class StimulusProtocol:
 
     @property
     def pulse_width_ms(self) -> float:
-        """Nominal pulse duration: the duty-cycle fraction of one period."""
+        """Nominal pulse duration: the duty-cycle fraction of one period (an explicit sequence: ``pulse_width_us``)."""
+        if self.pulse_times_ms is not None:
+            assert self.pulse_width_us is not None
+            return self.pulse_width_us / 1000.0
         return self.duty_cycle_percent / 100.0 / self.frequency_khz
 
     def solver_max_step_ms(self) -> float:
@@ -158,6 +252,8 @@ def stimulus_current(t: float, protocol: StimulusProtocol) -> float:
     level = envelope(t, protocol)
     if level == 0.0:
         return 0.0
+    if protocol.pulse_times_ms is not None:
+        return level * protocol.amplitude * _sequence_pulse(t, protocol)
     if protocol.pulse_width_us is not None:
         return level * protocol.amplitude * _stimulator_pulse(t, protocol)
     pulse = _PULSES[protocol.waveform]
@@ -190,6 +286,25 @@ def _stimulator_pulse(t: float, p: StimulusProtocol) -> float:
     period = 1000.0 / p.frequency_hz
     within = t - period * math.floor(t / period + _EPS_MS)
     width = p.pulse_width_ms
+    if within < width - _EPS_MS:
+        return 1.0
+    if p.waveform is Waveform.BIPHASIC_SYMMETRIC and within < 2.0 * width - _EPS_MS:
+        return -1.0
+    return 0.0
+
+
+def _sequence_pulse(t: float, p: StimulusProtocol) -> float:
+    """``_stimulator_pulse`` with the onsets read from ``pulse_times_ms`` (from each train's start with trains)."""
+    times = p.pulse_times_ms
+    assert times is not None
+    within_train = t % p.train_period_ms if p.train_period_ms is not None else t
+    latest = bisect_right(times, within_train + _EPS_MS) - 1  # an onset up to _EPS_MS ahead counts as reached
+    if latest < 0:
+        return 0.0
+    within = within_train - times[latest]
+    width = p.pulse_width_ms
+    if t - within + p.pulse_phases * width > p.duration_ms + _EPS_MS:
+        return 0.0  # a pulse the run would cut (a train starting at the end): only whole pulses are delivered
     if within < width - _EPS_MS:
         return 1.0
     if p.waveform is Waveform.BIPHASIC_SYMMETRIC and within < 2.0 * width - _EPS_MS:
