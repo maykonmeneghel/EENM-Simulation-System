@@ -94,6 +94,28 @@ tolerance: the force check alone would miss it. And the correlation of the force
 (Earlier controls, run at 50 ms, gave 1.8 % and 63 %; the duration also changes the conduction delay (Q4), so those
 numbers are not comparable with the 1 s run; the cause of the difference was not isolated.)
 
+## Convergence with the time step
+
+`uv run --group validation python -m validation.convergence` (results in `validation/results/convergence/`).
+
+**Pool integrator** (soma injection), against SciPy BDF at rtol 1e-9 / atol 1e-12. With a uniform internal step
+h the compiled integrator converges at first order, as designed: halving h halves the error at every level from
+h = 0.01 to 6.25e-5 ms, in both cases.
+
+| Case | Compiled, h = 0.01 ms | Compiled, h = 6.25e-5 ms | Production: compiled adaptive (1/20) | BDF rtol 1e-3 |
+|---|---|---|---|---|
+| Main.m, 9 units, 5 ms pulses, 200 ms | Vs RMS 3.5 mV, spikes ±0.29 ms | 0.039 mV, ±0.002 ms | 0.24 mV, ±0.010 ms, all counts equal | 0.92 mV, ±0.049 ms |
+| Corrected pool in the soma, 30 units, 300 µs biphasic, 150 ms | 1.9 mV, 19/30 units with a different spike count | 0.015 mV, all counts equal | 0.11 mV, **2/30** counts differ | 0.29 mV, **6/30** differ |
+
+Units near threshold (short pulses into the soma) can gain or lose a spike with any production setting; the spike
+count of those units is the least robust output of the soma-injection path. The axon path has no ODE.
+
+**Force pipeline** (corrected model, axon stimulation; validation protocols re-run with sample steps 0.05, 0.02,
+0.01 and 0.005 ms): CT 119.0 / 118.9 ms (output grid 0.1 ms), HRT 97.1 ms, twitch/tetanus 0.21285–0.21286, f50
+5.1635–5.1638 Hz, force at 100 Hz 0.9947 — every benchmark within 0.1 % of the finest step. The force in model
+units is **proportional to the step** (twitch peak 5.54, 2.21, 1.11, 0.554), because the twitch kernel is
+multiplied by it; only ratios and times, or forces normalised at the same step, are meaningful.
+
 ## Behaviours kept as in the original (to be reviewed)
 
 | # | Behaviour | Where in MATLAB | Effect |

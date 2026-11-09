@@ -39,6 +39,7 @@ class Variant:
     pulse_ms: float = PULSE_MS
     amplitude: float = 100.0
     units: dict[MotorUnitType, int] | None = None
+    step_ms: float = 0.01  # simulation sample step (the model's default); varied only by validation.convergence
 
 
 _STEP2 = ModelOptions(
@@ -142,7 +143,11 @@ class Run:
 def simulate(frequency_hz: float, variant: Variant) -> Run:
     duty = min(99.0, variant.pulse_ms * frequency_hz / 1000.0 * 100.0)
     protocol = StimulusProtocol(
-        duration_ms=DURATION_MS, frequency_hz=frequency_hz, duty_cycle_percent=duty, amplitude=variant.amplitude
+        duration_ms=DURATION_MS,
+        frequency_hz=frequency_hz,
+        duty_cycle_percent=duty,
+        amplitude=variant.amplitude,
+        step_ms=variant.step_ms,
     )
     extra = {"units_per_type": variant.units} if variant.units else {}
     config = SimulationConfig(stimulus=protocol, output_step_ms=0.1, model=variant.model, **extra)

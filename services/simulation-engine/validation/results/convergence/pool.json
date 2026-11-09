@@ -1,0 +1,170 @@
+{
+  "main-m": {
+    "label": "Main.m defaults: 9 units, 5 ms monophasic pulses into the soma, 40 Hz, 200 ms",
+    "sampleStepMs": 0.01,
+    "uniform": [
+      {
+        "substeps": 1,
+        "hMs": 0.01,
+        "voltageRmsMv": 3.514068059629058,
+        "unitsWithDifferentSpikeCount": 0,
+        "maxSpikeShiftMs": 0.28964098582829934,
+        "units": 9
+      },
+      {
+        "substeps": 2,
+        "hMs": 0.005,
+        "voltageRmsMv": 2.2216173732330784,
+        "unitsWithDifferentSpikeCount": 0,
+        "maxSpikeShiftMs": 0.14451212011218217,
+        "units": 9
+      },
+      {
+        "substeps": 5,
+        "hMs": 0.002,
+        "voltageRmsMv": 1.0922554684928971,
+        "unitsWithDifferentSpikeCount": 0,
+        "maxSpikeShiftMs": 0.05779630503323574,
+        "units": 9
+      },
+      {
+        "substeps": 10,
+        "hMs": 0.001,
+        "voltageRmsMv": 0.5906549700372314,
+        "unitsWithDifferentSpikeCount": 0,
+        "maxSpikeShiftMs": 0.028831579364833715,
+        "units": 9
+      },
+      {
+        "substeps": 20,
+        "hMs": 0.0005,
+        "voltageRmsMv": 0.3051985940948469,
+        "unitsWithDifferentSpikeCount": 0,
+        "maxSpikeShiftMs": 0.014853075779882374,
+        "units": 9
+      },
+      {
+        "substeps": 40,
+        "hMs": 0.00025,
+        "voltageRmsMv": 0.15444101633416035,
+        "unitsWithDifferentSpikeCount": 0,
+        "maxSpikeShiftMs": 0.007488828438482642,
+        "units": 9
+      },
+      {
+        "substeps": 80,
+        "hMs": 0.000125,
+        "voltageRmsMv": 0.07748139897773379,
+        "unitsWithDifferentSpikeCount": 0,
+        "maxSpikeShiftMs": 0.004051432714163639,
+        "units": 9
+      },
+      {
+        "substeps": 160,
+        "hMs": 6.25e-05,
+        "voltageRmsMv": 0.03877357062189657,
+        "unitsWithDifferentSpikeCount": 0,
+        "maxSpikeShiftMs": 0.0021095472073113797,
+        "units": 9
+      }
+    ],
+    "production": {
+      "compiledAdaptive_1_20": {
+        "voltageRmsMv": 0.23783657565420185,
+        "unitsWithDifferentSpikeCount": 0,
+        "maxSpikeShiftMs": 0.009876249410865512,
+        "units": 9
+      },
+      "bdf_rtol1e-3": {
+        "voltageRmsMv": 0.9239433221457739,
+        "unitsWithDifferentSpikeCount": 0,
+        "maxSpikeShiftMs": 0.04894997747092589,
+        "units": 9
+      }
+    }
+  },
+  "corrected-soma": {
+    "label": "Corrected pool stimulated in the soma: 30 units, 300 us biphasic pulses, 40 Hz, 150 ms",
+    "sampleStepMs": 0.01,
+    "uniform": [
+      {
+        "substeps": 1,
+        "hMs": 0.01,
+        "voltageRmsMv": 1.9072115628325736,
+        "unitsWithDifferentSpikeCount": 19,
+        "maxSpikeShiftMs": 0.07879305176997775,
+        "units": 30
+      },
+      {
+        "substeps": 2,
+        "hMs": 0.005,
+        "voltageRmsMv": 1.0625086747857577,
+        "unitsWithDifferentSpikeCount": 15,
+        "maxSpikeShiftMs": 0.04757916959405861,
+        "units": 30
+      },
+      {
+        "substeps": 5,
+        "hMs": 0.002,
+        "voltageRmsMv": 0.45576855456768683,
+        "unitsWithDifferentSpikeCount": 8,
+        "maxSpikeShiftMs": 0.02355891374696739,
+        "units": 30
+      },
+      {
+        "substeps": 10,
+        "hMs": 0.001,
+        "voltageRmsMv": 0.23327970275337662,
+        "unitsWithDifferentSpikeCount": 4,
+        "maxSpikeShiftMs": 0.01262532625149504,
+        "units": 30
+      },
+      {
+        "substeps": 20,
+        "hMs": 0.0005,
+        "voltageRmsMv": 0.11801989458144331,
+        "unitsWithDifferentSpikeCount": 2,
+        "maxSpikeShiftMs": 0.006721481927087325,
+        "units": 30
+      },
+      {
+        "substeps": 40,
+        "hMs": 0.00025,
+        "voltageRmsMv": 0.059361508464445156,
+        "unitsWithDifferentSpikeCount": 2,
+        "maxSpikeShiftMs": 0.003356304833687318,
+        "units": 30
+      },
+      {
+        "substeps": 80,
+        "hMs": 0.000125,
+        "voltageRmsMv": 0.029770446335506934,
+        "unitsWithDifferentSpikeCount": 0,
+        "maxSpikeShiftMs": 0.0013662175419426603,
+        "units": 30
+      },
+      {
+        "substeps": 160,
+        "hMs": 6.25e-05,
+        "voltageRmsMv": 0.014908675034302805,
+        "unitsWithDifferentSpikeCount": 0,
+        "maxSpikeShiftMs": 0.0007044485423080005,
+        "units": 30
+      }
+    ],
+    "production": {
+      "compiledAdaptive_1_20": {
+        "voltageRmsMv": 0.1127614353534439,
+        "unitsWithDifferentSpikeCount": 2,
+        "maxSpikeShiftMs": 0.006272833680895928,
+        "units": 30
+      },
+      "bdf_rtol1e-3": {
+        "voltageRmsMv": 0.2860714353177087,
+        "unitsWithDifferentSpikeCount": 6,
+        "maxSpikeShiftMs": 0.014961876610200875,
+        "units": 30
+      }
+    }
+  }
+}
