@@ -10,6 +10,7 @@ from numpy.typing import NDArray
 from eenm_engine.domain.motor_unit_pool import MotorUnitType, Muscle
 from eenm_engine.domain.unit_anatomy import UnitAnatomy
 from eenm_engine.domain.unit_events import UnitEvents
+from eenm_engine.domain.wrist_joint import WristJoint, WristMuscle
 
 
 @dataclass(frozen=True)
@@ -27,6 +28,8 @@ class SimulationStarted:
     """Per-unit geometry and conduction times, for the 3D view (``domain.unit_anatomy``)."""
     electrode_fraction: float | None = None
     """Electrode position along the axon from the soma; ``None`` when the stimulus goes into the soma."""
+    joint: tuple[WristJoint, WristMuscle] | None = None
+    """The wrist the stimulated muscle moves (FCR / ECR with a force reference), else ``None``."""
 
 
 @dataclass(frozen=True)
@@ -54,6 +57,9 @@ class SimulationChunk:
     """Cumulative axon-merge counts (non-invasive mode with a central drive), else ``None``."""
     unit_events: UnitEvents | None = None
     """Per-unit events since the previous chunk (``domain.unit_events``), when the request asked for them."""
+    joint_angle_deg: NDArray[np.float64] | None = None
+    """Wrist angle at ``time_ms`` (° , + flexion), when the run has a joint."""
+    joint_torque_nm: NDArray[np.float64] | None = None
 
 
 @dataclass(frozen=True)

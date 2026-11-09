@@ -250,6 +250,15 @@ For every run with `unitEvents`, the sum of the events of each kind must equal t
 (`collisions` = count of kind 3, etc.). This is an engine test **and** a client assertion: the replay refuses to play
 a run whose events do not add up. Negative probe: drop one event and check that the test fails.
 
+## 5b. The hand and the wrist (implemented 2026-11-06)
+
+The asset script adds the **27 bones of the right hand** (BodyParts3D, merged into one mesh; combined size
+105.0 × 84.9 × 158.7 mm checked like the others) and the skin down to the fingertips. The wrist centre is the
+**capitate's centroid** (2.0 cm past the end of the radius, on the forearm axis). The engine streams the wrist angle
+(central-layer §3.5). The scene turns the hand about z by the angle, and the skin and tendons blend over 3 cm across
+the wrist (weight 0 on the forearm → 1 on the hand; illustrative). The forearm level now looks from the radial side
+and starts at 1/10× so the motion shows. A readout gives the angle and the limits.
+
 ## 6. The view in the app
 
 - New step **"3D"** after Resultados (⌘5), Comparar moves to ⌘6. Its settings sidebar: level shortcuts (L0–L3),

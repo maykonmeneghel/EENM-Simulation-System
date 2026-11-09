@@ -8,6 +8,8 @@ import com.meneghel.eenm.simulationapi.domain.event.SimulationStarted;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationSummary;
 import com.meneghel.eenm.simulationapi.domain.event.UnitAnatomy;
 import com.meneghel.eenm.simulationapi.domain.event.UnitEvents;
+import com.meneghel.eenm.simulationapi.domain.event.JointSeries;
+import com.meneghel.eenm.simulationapi.domain.event.WristJoint;
 import com.meneghel.eenm.simulationapi.domain.muscle.MusclePreset;
 import com.meneghel.eenm.simulationapi.domain.simulation.MotorUnitCounts;
 import java.util.List;
@@ -39,7 +41,7 @@ public final class SampleEvents {
     public static String startedLine() {
         return "{\"type\":\"started\",\"simulationId\":\"sim-1\",\"durationMs\":1000,\"outputStepMs\":0.1,"
                 + "\"motorUnits\":{\"S\":5,\"FR\":2,\"FF\":2},\"muscle\":\"SOLEUS\",\"maxForce\":5.1754,"
-                + "\"electrodeFraction\":null,\"units\":null,\"stepMs\":null}";
+                + "\"electrodeFraction\":null,\"units\":null,\"stepMs\":null,\"joint\":null}";
     }
 
     /** {@code started} with the 3D view's unit table (two units, electrode at 90 %). */
@@ -62,7 +64,7 @@ public final class SampleEvents {
     public static String chunkLine(double progress) {
         return "{\"type\":\"chunk\",\"progress\":" + progress + ",\"timeMs\":[0.0,0.1],\"stimulus\":[100.0,100.0],"
                 + "\"force\":{\"total\":[0.6,0.9],\"S\":[0.1,0.2],\"FR\":[0.2,0.3],\"FF\":[0.3,0.4]},"
-                + "\"emg\":[0.01,-0.02],\"fatigue\":null,\"axonEvents\":null,\"unitEvents\":null}";
+                + "\"emg\":[0.01,-0.02],\"fatigue\":null,\"axonEvents\":null,\"unitEvents\":null,\"joint\":null}";
     }
 
     /** A LITERATURE chunk: fatigue snapshot, FR with no simulated units. */
@@ -87,6 +89,29 @@ public final class SampleEvents {
         SimulationChunk c = chunk(0.5);
         return new SimulationChunk(c.progress(), c.timeMs(), c.stimulus(), c.force(), c.emg(), null, null,
                 new UnitEvents(List.of(40L, 768L), List.of(3, 3), List.of(1, 7), List.of(-1L, -1L)));
+    }
+
+    /** A forearm chunk: the wrist angle and torque at its samples. */
+    public static String chunkWithJointLine() {
+        return chunkLine(0.5).replace("\"joint\":null", "\"joint\":{\"angleDeg\":[0.0,0.01],\"torqueNm\":[0.0,0.5]}");
+    }
+
+    public static SimulationChunk chunkWithJoint() {
+        SimulationChunk c = chunk(0.5);
+        return new SimulationChunk(c.progress(), c.timeMs(), c.stimulus(), c.force(), c.emg(), null, null, null,
+                new JointSeries(List.of(0.0, 0.01), List.of(0.0, 0.5)));
+    }
+
+    /** A forearm run's started event, with the wrist's constants. */
+    public static String startedWithJointLine() {
+        return startedLine().replace("\"joint\":null", "\"joint\":{\"momentArmMm\":14.9,\"peakForceN\":407.9,"
+                + "\"inertiaKgM2\":0.003,\"dampingNmsRad\":0.028,\"stiffnessNmRad\":0.992,\"flexionLimitDeg\":54.0,"
+                + "\"extensionLimitDeg\":60.0}");
+    }
+
+    public static SimulationStarted startedWithJoint() {
+        return new SimulationStarted("sim-1", 1000, 0.1, new MotorUnitCounts(5, 2, 2), "SOLEUS", 5.1754, null, null,
+                null, new WristJoint(14.9, 407.9, 0.003, 0.028, 0.992, 54.0, 60.0));
     }
 
     public static String completedLine() {

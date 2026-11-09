@@ -208,6 +208,11 @@ sample). Which kinds occur depends on the mode: FES only → 1 and 7; the axon m
 (with a drive) and 7. In the merge, the counts per kind equal the final `axonEvents` (`collisions` = 3 + 6).
 `started.stepMs` is the integration step.
 
+`joint` — the wrist the stimulated muscle moves, in FCR / ECR runs of the LITERATURE model (else `null`):
+`{ "angleDeg": […], "torqueNm": […] }` at `timeMs` (+ flexion). `started.joint` gives its constants
+(`momentArmMm`, `peakForceN`, `inertiaKgM2`, `dampingNmsRad`, `stiffnessNmRad`, `flexionLimitDeg`,
+`extensionLimitDeg`; sources in `domain/wrist_joint.py`). Torque = force / `maxForce` × `peakForceN` × moment arm.
+
 `axonEvents` — cumulative counts of the axon merge (non-invasive mode with a central drive), else `null`:
 `{ "central", "centralTransmitted", "fesTransmitted", "collisions", "fesBlocked", "resets" }` (integers).
 All arrays in one chunk have the same length. `progress` ∈ (0, 1]. `force.total = S + FR + FF`

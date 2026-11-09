@@ -3,6 +3,7 @@ import type { ApiClient } from '../infrastructure/apiClient';
 import { ApiHttpError, StreamProtocolError } from '../infrastructure/apiClient';
 import { FatigueBuffer } from './fatigue';
 import { SeriesBuffer } from './seriesBuffer';
+import { JointBuffer } from './jointBuffer';
 import { UnitEventLog } from './unitEventLog';
 import type { SessionAction, SessionError, SessionState } from './session';
 import { initialSessionState, sessionReducer } from './session';
@@ -19,6 +20,8 @@ export class SimulationController {
   readonly fatigue = new FatigueBuffer();
   /** Per-unit events of the run, for the 3D replay (only when the request asked for them). */
   readonly unitEvents = new UnitEventLog();
+  /** Wrist angle of the run (FCR / ECR runs), for the 3D step. */
+  readonly joint = new JointBuffer();
   /** Latest axon-merge counts of the run (non-invasive mode with a central drive), else null. */
   axonEvents: AxonEvents | null = null;
   private state: SessionState = initialSessionState;
@@ -52,6 +55,7 @@ export class SimulationController {
     this.series.reset(estimateSamples(request));
     this.fatigue.reset();
     this.unitEvents.reset();
+    this.joint.reset();
     this.axonEvents = null;
     this.dispatch({ type: 'start', request });
 
@@ -67,6 +71,7 @@ export class SimulationController {
             const samples = this.series.append(event);
             this.fatigue.append(event);
             this.unitEvents.append(event);
+            this.joint.append(event);
             this.axonEvents = event.axonEvents ?? null;
             this.dispatch({ type: 'chunk', progress: event.progress, samples });
             break;

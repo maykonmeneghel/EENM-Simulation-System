@@ -23,5 +23,8 @@ export const SPEEDS: readonly { value: number; label: string }[] = [
   { value: 1, label: '1×' },
 ];
 
-/** Speed each zoom level starts at: a spike takes a few real seconds to cross the view. */
-export const LEVEL_SPEED: Record<'L0' | 'L1' | 'L2' | 'L3', number> = { L0: 0.001, L1: 0.001, L2: 0.0001, L3: 0.0001 };
+/**
+ * Speed each zoom level starts at. The forearm level shows the wrist moving (a twitch lasts ≈ 200 ms: 2 s at 1/10×);
+ * the others let a spike take a few real seconds to cross the view.
+ */
+export const LEVEL_SPEED: Record<'L0' | 'L1' | 'L2' | 'L3', number> = { L0: 0.1, L1: 0.001, L2: 0.0001, L3: 0.0001 };

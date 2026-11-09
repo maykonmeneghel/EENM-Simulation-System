@@ -311,3 +311,30 @@ export function pointOnAxon(path: AxonPath, s: number, out: P3): boolean {
   along(path.distal, (s - path.sE) / (1 - path.sE), out);
   return true;
 }
+
+// ---- Wrist (the hand turns with the joint angle the engine streams) ---------------------------------------------
+
+/** Flexion–extension centre: the capitate's centroid (from the atlas); the axis is z, +θ flexes toward +y. */
+export const WRIST_CENTRE = (FOREARM as unknown as { wrist: { centre: [number, number, number] } }).wrist.centre;
+/** The skin and tendons bend over this stretch of the forearm axis, ending just past the wrist centre (illustrative). */
+export const WRIST_BEND_FROM = -0.025;
+export const WRIST_BEND_TO = 0.005;
+
+/** How much of the wrist rotation a point at `x` follows: 0 on the forearm, 1 on the hand, smooth in between. */
+export function wristWeight(x: number): number {
+  const u = (x - (WRIST_CENTRE[0] + WRIST_BEND_FROM)) / (WRIST_BEND_TO - WRIST_BEND_FROM);
+  if (u <= 0) return 0;
+  if (u >= 1) return 1;
+  return u * u * (3 - 2 * u);
+}
+
+/** `p` turned by `weight × angle` (rad) about the wrist axis, into `out` (x, y; z does not change). */
+export function bendAtWrist(x: number, y: number, angle: number, weight: number, out: [number, number]): void {
+  const a = angle * weight;
+  const dx = x - WRIST_CENTRE[0];
+  const dy = y - WRIST_CENTRE[1];
+  const c = Math.cos(a);
+  const s = Math.sin(a);
+  out[0] = WRIST_CENTRE[0] + dx * c - dy * s;
+  out[1] = WRIST_CENTRE[1] + dx * s + dy * c;
+}

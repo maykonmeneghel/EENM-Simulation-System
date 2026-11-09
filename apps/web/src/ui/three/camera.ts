@@ -19,8 +19,9 @@ export function levelCamera(level: LevelId, layout: Layout): { position: THREE.V
   const atMotorPoint = sectionAt(layout.parts[0]!, layout.motorPoint.x);
   switch (level) {
     case 'L0': {
-      const t = new THREE.Vector3(FOREARM.forearmLength / 2 - 0.03, 0, 0);
-      return { target: t, position: t.clone().add(new THREE.Vector3(0.1, 0.75, 0.6).normalize().multiplyScalar(d)) };
+      // from the radial side, a little palmar: wrist flexion and extension move the hand in the screen plane
+      const t = new THREE.Vector3(FOREARM.forearmLength / 2 + 0.02, 0.02, 0);
+      return { target: t, position: t.clone().add(new THREE.Vector3(0.1, 0.45, 0.89).normalize().multiplyScalar(d)) };
     }
     case 'L1': {
       const t = new THREE.Vector3(s.x, s.centre[0], s.centre[1]);
