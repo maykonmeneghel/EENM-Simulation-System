@@ -75,8 +75,24 @@ Octave, not with MATLAB itself.
 Result for `Main.m`'s 1 s (`validation/results/octave/comparison-1000ms.txt`): every one of the 9 units fires
 40 spikes on both sides, spike times within 0.02 ms (S, FR) and 0.06 ms (FF); mean force differs by 0.18 %,
 peak force by 0.17 % at the same instant (981.35 ms), correlation 0.99999. Tolerances: same spike counts, spike
-times within 0.1 ms, mean and peak force within 1 %. Negative controls (50 ms, perturbing only the Python side)
-fail as they should: temperature 8 °C instead of 6.3 °C → mean force 1.8 % off; another MUAP-shape seed → 63 %.
+times within 0.1 ms, mean and peak force within 1 %.
+
+**Negative controls** (`run.sh 1000 --negative-controls`): the same Octave run is compared with Python runs
+perturbed on purpose, and each must fail; the script exits 1 if one passes. Results in
+`validation/results/octave/negative-control-*-1000ms.txt` (rerun 2026-11-09; the baseline file came out
+identical to the one of 2026-11-05):
+
+| Perturbation (Python side only) | What it changes | Detected by | Mean force off |
+|---|---|---|---|
+| Temperature 6.8 °C instead of 6.3 °C | ODE (channel kinetics) | FF spike times 0.27–0.28 ms (> 0.1 ms) | 0.52 % (below the 1 % tolerance) |
+| Temperature 8.0 °C | ODE | FF spike times 0.60–0.62 ms; force | 1.73 % |
+| MUAP-shape seed 1 instead of 0 | force path only (Q2: twitch weight = MUAP peak) | force | 49.9 % |
+
+Two things these show. A 0.5 °C perturbation is caught only by the spike-time check, not by the force
+tolerance: the force check alone would miss it. And the correlation of the force traces stays at 0.9992 with a
+50 % amplitude error, so correlation is not evidence of equivalence; only the spike and amplitude checks are.
+(Earlier controls, run at 50 ms, gave 1.8 % and 63 %; the duration also changes the conduction delay (Q4), so those
+numbers are not comparable with the 1 s run; the cause of the difference was not isolated.)
 
 ## Behaviours kept as in the original (to be reviewed)
 
