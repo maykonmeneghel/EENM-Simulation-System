@@ -1,0 +1,18 @@
+negative control: Python run with temperature 6.3 C, seed 1; Octave run unchanged
+expected: FAIL (the comparison must detect this perturbation)
+samples 100001, units 9
+unit  spikes py/oct max |dt| ms mean |dt| ms Vs rms diff mV
+S1        40/40            0.02        0.010           0.76
+S2        40/40            0.02        0.009           0.77
+S3        40/40            0.02        0.008           0.76
+S4        40/40            0.02        0.009           0.79
+S5        40/40            0.02        0.009           0.77
+FR1       40/40            0.02        0.010           0.69
+FR2       40/40            0.02        0.009           0.67
+FF1       40/40            0.06        0.021           1.28
+FF2       40/40            0.06        0.021           1.29
+force peak python 0.0457079 @ 880.82 ms | octave 0.0309846 @ 981.35 ms
+force mean python 0.0372218 | octave 0.0248308
+relative difference: mean 49.90%, peak 47.52%; correlation 0.99922
+FAIL: mean force differs by 49.90%; peak force differs by 47.52%
+CONTROL DETECTED
