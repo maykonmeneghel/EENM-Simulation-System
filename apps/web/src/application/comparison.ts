@@ -106,7 +106,15 @@ export function differingFields(sims: readonly { request: SavedSimulation['reque
 
 // ---------- CSV ----------
 
-const csvCell = (s: string) => (/[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
+/**
+ * A text cell (header, simulation name). Names come from the user or from imported files: a cell starting with
+ * `=`, `+`, `-`, `@`, tab or carriage return would run as a formula in a spreadsheet, so it gets a leading `'`
+ * (OWASP, CSV injection), then the usual quoting. The numeric cells are written as numbers, untouched.
+ */
+export const csvCell = (text: string) => {
+  const s = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+  return /[",\n\r;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
 
 /** The compared columns as CSV (time in ms, one column per simulation, empty where a run has ended). */
 export function comparisonCsv(view: { timeMs: ArrayLike<number> } & Record<string, ArrayLike<number | null>>, sims: readonly Pick<SavedSimulation, 'id' | 'name'>[]): string {

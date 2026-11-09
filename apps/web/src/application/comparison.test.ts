@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { savedFixture } from '../domain/savedSimulation.fixture';
-import { commonGrid, compareSource, comparisonCsv, differingFields, resample } from './comparison';
+import { commonGrid, compareSource, comparisonCsv, csvCell, differingFields, resample } from './comparison';
 
 describe('comparison', () => {
   it('one grid for every run: to the longest, at the finest output step, coarser past the point limit', () => {
@@ -46,5 +46,17 @@ describe('comparison', () => {
   it('CSV: time and one column per run, empty where a run has ended, names quoted when needed', () => {
     const csv = comparisonCsv({ timeMs: [0, 1], a: [1, 2], b: [3, null] }, [{ id: 'a', name: 'A, 40 Hz' }, { id: 'b', name: 'B' }]);
     expect(csv).toBe('time_ms,"A, 40 Hz",B\n0,1,3\n1,2,');
+  });
+
+  it('CSV: names that a spreadsheet would run as formulas are neutralised, negative numbers stay numbers', () => {
+    expect(csvCell('=HYPERLINK("http://x","y")')).toBe(`"'=HYPERLINK(""http://x"",""y"")"`);
+    expect(csvCell('+cmd|calc')).toBe("'+cmd|calc");
+    expect(csvCell('-2+3')).toBe("'-2+3");
+    expect(csvCell('@SUM(A1)')).toBe("'@SUM(A1)");
+    expect(csvCell('\tx')).toBe("'\tx");
+    expect(csvCell('\rx')).toBe(`"'\rx"`);
+    expect(csvCell('40 Hz = 1')).toBe('40 Hz = 1');
+    const csv = comparisonCsv({ timeMs: [0], a: [-1.5] }, [{ id: 'a', name: '=1+1' }]);
+    expect(csv).toBe("time_ms,'=1+1\n0,-1.5");
   });
 });
