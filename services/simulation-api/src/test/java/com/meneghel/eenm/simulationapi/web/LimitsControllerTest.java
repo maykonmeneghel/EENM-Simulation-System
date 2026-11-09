@@ -32,6 +32,12 @@ class LimitsControllerTest {
         private SimulationEngine engine;
 
         @Test
+        void theSessionIsAnonymousWithoutSignIn() {
+            client.get().uri("/api/v1/session").exchange().expectStatus().isOk()
+                    .expectBody().json("{\"uid\":null}", true);
+        }
+
+        @Test
         void reportsTheContractRangesAndNoPointCap() {
             client.get().uri("/api/v1/limits").exchange()
                     .expectStatus().isOk()

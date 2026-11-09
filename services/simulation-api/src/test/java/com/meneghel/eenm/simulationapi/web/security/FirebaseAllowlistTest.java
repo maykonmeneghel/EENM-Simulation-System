@@ -80,6 +80,17 @@ class FirebaseAllowlistTest {
     }
 
     @Test
+    void theSessionEndpointTellsTheWebAppWhetherTheAccountIsAllowed() {
+        client.get().uri("/api/v1/session")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token(c -> c.claim("email", "alice@example.com")))
+                .exchange().expectStatus().isOk().expectBody().jsonPath("$.uid").isEqualTo("uid-123");
+        client.get().uri("/api/v1/session")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token(UnaryOperator.identity()))
+                .exchange().expectStatus().isForbidden();
+        client.get().uri("/api/v1/session").exchange().expectStatus().isUnauthorized();
+    }
+
+    @Test
     void noTokenIsStill401() {
         client.post().uri("/api/v1/simulations").contentType(MediaType.APPLICATION_JSON).bodyValue("{}").exchange()
                 .expectStatus().isUnauthorized();
