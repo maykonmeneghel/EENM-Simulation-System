@@ -60,6 +60,7 @@ describe('the whole app in English', () => {
     const { container } = render(<App api={api} controller={new SimulationController(api)} />);
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Simulador EENM');
 
+    await user.click(screen.getByRole('button', { name: 'Idioma' })); // the language lives in the top-right menu
     await user.click(within(screen.getByRole('radiogroup', { name: 'Idioma' })).getByRole('radio', { name: 'EN' }));
     expect(getLocale()).toBe('en');
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('EENM Simulator');

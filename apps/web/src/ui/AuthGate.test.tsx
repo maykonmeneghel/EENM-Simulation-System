@@ -21,7 +21,7 @@ function setup(access: 'allowed' | 'forbidden' = 'allowed') {
     <AuthGate store={store}>
       {(account) => (
         <div>
-          simulator for {account.label}
+          simulator for {account.email}
           <button type="button" onClick={account.signOut}>
             out
           </button>
