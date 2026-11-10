@@ -6,10 +6,12 @@ import { APP_NAME, setLocale, tr } from '../i18n/locale';
 import { useLocale } from '../i18n/useLocale';
 import { SegmentedControl } from './SegmentedControl';
 
-/** The signed-in account as the toolbar shows it. */
+/** The signed-in account as the toolbar shows it (photo, name and e-mail in the account menu). */
 export interface Account {
-  /** E-mail (or name) of the account, shown next to the sign-out button. */
-  label: string;
+  /** Display name of the Google account, or '' when it has none. */
+  name: string;
+  email: string | null;
+  photoUrl: string | null;
   signOut(): void;
 }
 
@@ -33,7 +35,10 @@ export function AuthGate({ store, children }: { store: AuthStore; children: (acc
   const signOut = () => void store.signOut();
   const label = state.user?.email ?? state.user?.displayName ?? '';
 
-  if (state.status === 'signedIn' && state.user) return <>{children({ label, signOut })}</>;
+  if (state.status === 'signedIn' && state.user) {
+    const user = state.user;
+    return <>{children({ name: user.displayName ?? '', email: user.email, photoUrl: user.photoURL ?? null, signOut })}</>;
+  }
 
   return (
     <main className="auth-screen">

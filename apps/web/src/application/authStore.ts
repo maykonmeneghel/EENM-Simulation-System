@@ -6,6 +6,8 @@ export interface AuthUser {
   uid: string;
   email: string | null;
   displayName: string | null;
+  /** The account's photo (Google profile picture), if any. */
+  photoURL?: string | null;
 }
 
 /** The identity provider (Firebase in the app, a fake in tests). */

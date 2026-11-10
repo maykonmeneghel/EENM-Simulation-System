@@ -25,16 +25,11 @@ import { HelpContext } from './helpContext';
 import type { ShowHelp } from './helpContext';
 import { LiveCharts } from './LiveCharts';
 import { SegmentedControl } from './SegmentedControl';
-import type { Locale } from '../i18n/locale';
-import { APP_NAME, setLocale, tr } from '../i18n/locale';
+import { APP_NAME, tr } from '../i18n/locale';
 import { useLocale } from '../i18n/useLocale';
 
 const ThreeDView = lazy(() => import('./three/ThreeDView'));
 
-const LANGUAGE_OPTIONS = [
-  { value: 'pt-BR' as const, label: 'PT' },
-  { value: 'en' as const, label: 'EN' },
-];
 import { SIM_FORM_ID, SimulationForm } from './SimulationForm';
 import { StimulatorScopes } from './StimulatorView';
 import type { StepId } from './steps';
@@ -47,7 +42,9 @@ import { ZoomBar } from './ZoomBar';
 import { ZoomSync } from './zoomSync';
 import { useSimulation } from './useSimulation';
 import { useServerLimits } from './useServerLimits';
+import { AccountMenu } from './AccountMenu';
 import type { Account } from './AuthGate';
+import { COMPACT_QUERY, useMediaQuery } from './useMediaQuery';
 
 const NO_ERRORS: readonly FieldError[] = [];
 
@@ -100,9 +97,24 @@ export function App({
   const [step, setStep] = useState<StepId>('stimulator');
   const [focus, setFocus] = useState<StageFocus | null>(null);
   const [clientErrors, setClientErrors] = useState<readonly FieldError[]>(NO_ERRORS);
-  const [navigatorOpen, setNavigatorOpen] = useState(true);
+  // Phone-sized screens: one column, with the settings and the explanation as drawers over the content.
+  const compact = useMediaQuery(COMPACT_QUERY);
+  const [navigatorOpen, setNavigatorOpen] = useState(() => !matchesNow(COMPACT_QUERY));
   // The inspector opens only when a component of the centre column is clicked.
   const [inspector, setInspector] = useState<{ open: boolean; topic: InspectorTopic | null }>({ open: false, topic: null });
+  // On a phone only one drawer is open at a time; Escape closes them.
+  const closeDrawers = useCallback(() => {
+    setNavigatorOpen(false);
+    setInspector((i) => ({ ...i, open: false }));
+  }, []);
+  useEffect(() => {
+    if (!compact || !(navigatorOpen || inspector.open)) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeDrawers();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [compact, navigatorOpen, inspector.open, closeDrawers]);
   const running = state.status === 'running';
   // One time zoom for every chart; a new run shows the whole run again.
   const zoom = useMemo(() => new ZoomSync(), []);
@@ -156,9 +168,10 @@ export function App({
   const start = useCallback(
     (req: SimulationRequest) => {
       setStep('results');
+      if (compact) setNavigatorOpen(false); // on a phone, show the results instead of the settings drawer
       void controller.start(req);
     },
-    [controller],
+    [controller, compact],
   );
   const stop = useCallback(() => controller.stop(), [controller]);
   // a saved simulation's settings go back into the form, to run it again or change one thing
@@ -171,7 +184,13 @@ export function App({
     (id: string) => conditionCatalog.conditions.find((c) => c.id === id)?.label ?? id,
     [conditionCatalog.conditions],
   );
-  const inspect = useCallback((topic: InspectorTopic) => setInspector({ open: true, topic }), []);
+  const inspect = useCallback(
+    (topic: InspectorTopic) => {
+      if (compact) setNavigatorOpen(false);
+      setInspector({ open: true, topic });
+    },
+    [compact],
+  );
   const showHelp = useCallback<ShowHelp>((label, content) => inspect({ kind: 'help', label, content }), [inspect]);
   const inspectStage = useCallback((stage: StageId) => inspect({ kind: 'stage', stage }), [inspect]);
   const showEquation = useCallback((stage: StageId) => {
@@ -207,7 +226,7 @@ export function App({
     : tr({ 'pt-BR': 'Mostrar explicação', en: 'Show explanation' });
   const stopText = tr({ 'pt-BR': 'Parar', en: 'Stop' });
   const simulateText = tr({ 'pt-BR': 'Simular', en: 'Simulate' });
-  const classes = ['window', navigatorOpen ? '' : 'window--no-navigator', inspector.open ? '' : 'window--no-inspector']
+  const classes = ['window', compact ? 'window--compact' : '', navigatorOpen ? '' : 'window--no-navigator', inspector.open ? '' : 'window--no-inspector']
     .filter(Boolean)
     .join(' ');
 
@@ -223,7 +242,10 @@ export function App({
               aria-controls="navigator"
               aria-label={navigatorLabel}
               title={navigatorLabel}
-              onClick={() => setNavigatorOpen((o) => !o)}
+              onClick={() => {
+                if (compact) setInspector((i) => ({ ...i, open: false }));
+                setNavigatorOpen((o) => !o);
+              }}
             >
               <SidebarIcon side="left" />
             </button>
@@ -259,25 +281,6 @@ export function App({
             >
               {simulateText}
             </button>
-            {account ? (
-              <>
-                <span className="toolbar-account" title={account.label}>
-                  {account.label}
-                </span>
-                <button type="button" className="btn" onClick={account.signOut}>
-                  {tr({ 'pt-BR': 'Sair', en: 'Sign out' })}
-                </button>
-              </>
-            ) : null}
-            <SegmentedControl<Locale>
-              label={tr({ 'pt-BR': 'Idioma', en: 'Language' })}
-              mode="radio"
-              size="small"
-              options={LANGUAGE_OPTIONS}
-              titles={(l) => (l === 'en' ? 'English' : 'Português (Brasil)')}
-              value={locale}
-              onChange={setLocale}
-            />
             <button
               type="button"
               className="toolbar-icon"
@@ -285,10 +288,14 @@ export function App({
               aria-controls="inspector"
               aria-label={inspectorLabel}
               title={inspectorLabel}
-              onClick={() => setInspector((i) => ({ ...i, open: !i.open }))}
+              onClick={() => {
+                if (compact) setNavigatorOpen(false);
+                setInspector((i) => ({ ...i, open: !i.open }));
+              }}
             >
               <SidebarIcon side="right" />
             </button>
+            <AccountMenu account={account} />
           </div>
         </header>
 
@@ -298,6 +305,7 @@ export function App({
               {tr({ 'pt-BR': `Etapa ${current.number} de ${STEPS.length}`, en: `Step ${current.number} of ${STEPS.length}` })}
             </span>
             <h2>{current.label}</h2>
+            {compact ? <DrawerClose onClose={() => setNavigatorOpen(false)} /> : null}
           </header>
           {catalog.error ? <div className="banner banner--warn">{catalog.error}</div> : null}
           {step === 'compare' ? <CompareSidebar saved={saved} onOpen={openSaved} /> : null}
@@ -366,11 +374,35 @@ export function App({
           </section>
         </main>
 
+        {compact && (navigatorOpen || inspector.open) ? (
+          <div className="drawer-backdrop" aria-hidden="true" onClick={closeDrawers} />
+        ) : null}
         <aside id="inspector" className="explainer" aria-label={tr({ 'pt-BR': 'Explicação', en: 'Explanation' })} inert={!inspector.open}>
+          {compact ? (
+            <div className="drawer-head">
+              <DrawerClose onClose={() => setInspector((i) => ({ ...i, open: false }))} />
+            </div>
+          ) : null}
           <InspectorPanel topic={inspector.topic} values={values} axonEvents={controller.axonEvents} onShowEquation={showEquation} />
         </aside>
         <Footer />
       </div>
     </HelpContext.Provider>
+  );
+}
+
+function matchesNow(query: string): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(query).matches;
+}
+
+/** Close button of a drawer (phones only, where the drawer covers the toolbar). */
+function DrawerClose({ onClose }: { onClose: () => void }) {
+  const label = tr({ 'pt-BR': 'Fechar', en: 'Close' });
+  return (
+    <button type="button" className="drawer-close" aria-label={label} title={label} onClick={onClose}>
+      <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+        <path d="M3 3l8 8M11 3l-8 8" />
+      </svg>
+    </button>
   );
 }

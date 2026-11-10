@@ -50,5 +50,5 @@ export function firebaseBackend(config: FirebaseWebConfig): AuthBackend {
 }
 
 function toUser(user: import('firebase/auth').User): AuthUser {
-  return { uid: user.uid, email: user.email, displayName: user.displayName };
+  return { uid: user.uid, email: user.email, displayName: user.displayName, photoURL: user.photoURL };
 }
