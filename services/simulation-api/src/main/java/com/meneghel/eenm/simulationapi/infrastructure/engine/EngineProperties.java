@@ -13,11 +13,19 @@ import org.springframework.util.unit.DataSize;
  * @param connectTimeout how long to wait for a TCP connection before the engine counts as unavailable
  * @param maxLineSize    largest NDJSON line (one event) accepted from the engine
  * @param presetCacheTtl how long muscle presets used for validation are cached
+ * @param secret         sent as {@code X-Engine-Key} on every call when not empty (env {@code EENM_ENGINE_SECRET})
  */
 @ConfigurationProperties("engine")
 public record EngineProperties(
         @DefaultValue("http://localhost:8001") URI baseUrl,
         @DefaultValue("2s") Duration connectTimeout,
         @DefaultValue("16MB") DataSize maxLineSize,
-        @DefaultValue("10m") Duration presetCacheTtl) {
+        @DefaultValue("10m") Duration presetCacheTtl,
+        @DefaultValue("") String secret) {
+
+    public static final String ENGINE_KEY_HEADER = "X-Engine-Key";
+
+    public boolean sendsSecret() {
+        return secret != null && !secret.isEmpty();
+    }
 }

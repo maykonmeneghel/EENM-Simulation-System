@@ -1,6 +1,7 @@
 package com.meneghel.eenm.simulationapi.application.simulation;
 
 import com.meneghel.eenm.simulationapi.domain.muscle.MusclePreset;
+import com.meneghel.eenm.simulationapi.domain.simulation.ModelVariant;
 import com.meneghel.eenm.simulationapi.domain.simulation.Modulation;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModulationShape;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModulationTarget;
@@ -19,12 +20,26 @@ import java.util.List;
 public final class SimulationRequestRules {
 
     private static final double MULTIPLE_TOLERANCE = 1e-6;
+    private static final double LIMIT_TOLERANCE = 1e-9;
+    private static final String SERVER_LIMIT = " (limit of this server)";
     private static final String TRAIN_ON = "stimulus.trainOnMs";
     private static final String TRAIN_PERIOD = "stimulus.trainPeriodMs";
     private static final String PULSE_WIDTH = "stimulus.pulseWidthUs";
 
+    private final SimulationLimits limits;
+
+    /** The contract ranges only (no server limit configured). */
+    public SimulationRequestRules() {
+        this(SimulationLimits.CONTRACT);
+    }
+
+    public SimulationRequestRules(SimulationLimits limits) {
+        this.limits = limits.withinContract();
+    }
+
     public List<FieldViolation> check(SimulationRequest request) {
         List<FieldViolation> violations = new ArrayList<>();
+        checkLimits(request, violations);
         checkPeakTime(request.stimulus(), violations);
         checkTrains(request.stimulus(), violations);
         checkStimulator(request.stimulus(), violations);
@@ -121,10 +136,68 @@ public final class SimulationRequestRules {
     }
 
     private void checkUnitEvents(SimulationRequest request, List<FieldViolation> violations) {
-        double max = SimulationRequest.MAX_UNIT_EVENTS_DURATION_MS;
-        if (request.unitEvents() && request.stimulus().durationMs() > max) {
-            violations.add(new FieldViolation("output.unitEvents",
-                    "needs stimulus.durationMs at most " + format(max) + " (the 3D replay is limited to 30 s)"));
+        double max = limits.maxUnitEventsDurationMs();
+        if (request.unitEvents() && request.stimulus().durationMs() > max + LIMIT_TOLERANCE) {
+            violations.add(new FieldViolation("output.unitEvents", "needs stimulus.durationMs at most " + format(max)
+                    + " (the 3D replay is limited to " + format(max / 1000) + " s)"));
+        }
+    }
+
+    /**
+     * The configured caps that are tighter than the contract ranges (the ranges themselves are checked at the edge,
+     * so a request outside both gets the range message only).
+     */
+    private void checkLimits(SimulationRequest request, List<FieldViolation> violations) {
+        SimulationLimits contract = SimulationLimits.CONTRACT;
+        Stimulus stimulus = request.stimulus();
+        if (stimulus.durationMs() > limits.maxDurationMs() + LIMIT_TOLERANCE
+                && stimulus.durationMs() <= contract.maxDurationMs()) {
+            violations.add(new FieldViolation("stimulus.durationMs",
+                    "must be less than or equal to " + format(limits.maxDurationMs()) + SERVER_LIMIT));
+        }
+        if (stimulus.stepMs() < limits.minStepMs() - LIMIT_TOLERANCE && stimulus.stepMs() >= contract.minStepMs()) {
+            violations.add(new FieldViolation("stimulus.stepMs",
+                    "must be greater than or equal to " + format(limits.minStepMs()) + SERVER_LIMIT));
+        }
+        if (stimulus.frequencyHz() > limits.maxFrequencyHz() + LIMIT_TOLERANCE
+                && stimulus.frequencyHz() <= contract.maxFrequencyHz()) {
+            violations.add(new FieldViolation("stimulus.frequencyHz",
+                    "must be less than or equal to " + format(limits.maxFrequencyHz()) + SERVER_LIMIT));
+        }
+        request.requestedUnits().ifPresentOrElse(units -> checkUnitLimits(units, violations), () -> {
+            if (request.modelVariant() == ModelVariant.LITERATURE
+                    && SimulationDefaults.LITERATURE_AUTO_UNITS > limits.maxTotalUnits()) {
+                violations.add(new FieldViolation("unitsPerType", "must be given: the automatic "
+                        + SimulationDefaults.LITERATURE_AUTO_UNITS + " units exceed the " + limits.maxTotalUnits()
+                        + " motor units in total" + SERVER_LIMIT));
+            }
+        });
+        double outputStepMs = request.outputStepMs();
+        if (limits.capsOutputPoints() && outputStepMs > 0
+                && stimulus.durationMs() / outputStepMs > limits.maxOutputPoints() + LIMIT_TOLERANCE) {
+            violations.add(new FieldViolation("outputStepMs", "must be at least "
+                    + format(stimulus.durationMs() / limits.maxOutputPoints()) + " for this duration (at most "
+                    + limits.maxOutputPoints() + " points per series, limit of this server)"));
+        }
+    }
+
+    private void checkUnitLimits(MotorUnitCounts units, List<FieldViolation> violations) {
+        int perType = limits.maxUnitsPerType();
+        if (perType < SimulationLimits.CONTRACT.maxUnitsPerType()) {
+            checkPerType("S", units.slow(), perType, violations);
+            checkPerType("FR", units.fastResistant(), perType, violations);
+            checkPerType("FF", units.fastFatigable(), perType, violations);
+        }
+        if (units.total() > limits.maxTotalUnits()) {
+            violations.add(new FieldViolation("unitsPerType",
+                    "must contain at most " + limits.maxTotalUnits() + " motor units in total" + SERVER_LIMIT));
+        }
+    }
+
+    private static void checkPerType(String type, int requested, int max, List<FieldViolation> violations) {
+        if (requested > max && requested <= SimulationLimits.CONTRACT.maxUnitsPerType()) {
+            violations.add(new FieldViolation("unitsPerType." + type,
+                    "must be less than or equal to " + max + SERVER_LIMIT));
         }
     }
 

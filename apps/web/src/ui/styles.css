@@ -314,6 +314,7 @@ body { overflow: hidden; }
 .seed-button { width: 3.4rem; display: inline-flex; align-items: center; justify-content: flex-start; padding: 2px; border: 0; background: none; color: var(--text-2); cursor: default; }
 .seed-button:hover:not(:disabled) { color: var(--accent); }
 .seed-button:disabled { opacity: 0.4; }
+.field-note { display: block; margin: 0.1rem 0 0.15rem; color: var(--text-2); font-size: var(--fs-xs); text-align: right; }
 .field-error { display: block; margin: 0.1rem 0 0.15rem; color: var(--danger); font-size: var(--fs-xs); text-align: right; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
@@ -775,3 +776,13 @@ body { overflow: hidden; }
 }
 .three-angle strong { font-size: var(--fs-lg); font-weight: 600; font-variant-numeric: tabular-nums; }
 .three-angle span { color: rgba(245, 245, 247, 0.7); }
+
+/* ---------- sign-in (only with VITE_FIREBASE_* set) ---------- */
+.auth-screen { min-height: 100vh; display: grid; place-items: center; padding: 1rem; }
+.auth-card { width: min(100%, 24rem); display: flex; flex-direction: column; align-items: center; gap: 0.75rem; text-align: center; padding: 1.5rem; }
+.auth-card h1 { margin: 0; font-size: var(--fs-md); }
+.auth-card p { margin: 0; color: var(--text-2); }
+.auth-language { align-self: flex-end; }
+.auth-card .auth-denied { color: var(--danger); font-weight: 500; }
+.auth-card .auth-error { text-align: center; }
+.toolbar-account { font-size: var(--fs-xs); color: var(--text-2); max-width: 14rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

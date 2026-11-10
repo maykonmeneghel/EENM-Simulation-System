@@ -5,13 +5,21 @@ import com.meneghel.eenm.simulationapi.application.muscle.ListMusclesUseCase;
 import com.meneghel.eenm.simulationapi.application.muscle.MusclePresetCatalog;
 import com.meneghel.eenm.simulationapi.application.port.SimulationEngine;
 import com.meneghel.eenm.simulationapi.application.simulation.RunSimulationUseCase;
+import com.meneghel.eenm.simulationapi.application.simulation.SimulationLimits;
 import com.meneghel.eenm.simulationapi.infrastructure.engine.EngineProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /** Composition root: wires the framework-free use cases to the engine adapter. */
 @Configuration(proxyBeanMethods = false)
+@EnableConfigurationProperties(LimitsProperties.class)
 public class UseCaseConfiguration {
+
+    @Bean
+    SimulationLimits simulationLimits(LimitsProperties properties) {
+        return properties.toLimits();
+    }
 
     @Bean
     MusclePresetCatalog musclePresetCatalog(SimulationEngine engine, EngineProperties properties) {
@@ -19,8 +27,9 @@ public class UseCaseConfiguration {
     }
 
     @Bean
-    RunSimulationUseCase runSimulationUseCase(SimulationEngine engine, MusclePresetCatalog catalog) {
-        return new RunSimulationUseCase(engine, catalog);
+    RunSimulationUseCase runSimulationUseCase(SimulationEngine engine, MusclePresetCatalog catalog,
+            SimulationLimits limits) {
+        return new RunSimulationUseCase(engine, catalog, limits);
     }
 
     @Bean

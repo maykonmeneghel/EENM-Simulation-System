@@ -21,10 +21,14 @@ public final class RunSimulationUseCase {
     private final SimulationRequestRules rules;
 
     public RunSimulationUseCase(SimulationEngine engine, MusclePresetCatalog catalog) {
+        this(engine, catalog, SimulationLimits.CONTRACT);
+    }
+
+    public RunSimulationUseCase(SimulationEngine engine, MusclePresetCatalog catalog, SimulationLimits limits) {
         this.engine = engine;
         this.catalog = catalog;
         this.defaults = new SimulationDefaults();
-        this.rules = new SimulationRequestRules();
+        this.rules = new SimulationRequestRules(limits);
     }
 
     public Flux<SimulationEvent> run(SimulationDraft draft) {

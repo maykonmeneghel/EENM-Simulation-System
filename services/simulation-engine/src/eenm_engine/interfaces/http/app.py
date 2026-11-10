@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from collections.abc import Iterator
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import StreamingResponse
 
 from eenm_engine.application.run_simulation import RunSimulation
@@ -15,6 +17,8 @@ from eenm_engine.domain.texts_en import Lang
 from eenm_engine.infrastructure.compiled_cisi_kohn import CompiledCisiKohnIntegrator
 from eenm_engine.infrastructure.compiled_motoneuron import CompiledPoolIntegrator
 from eenm_engine.infrastructure.scipy_solver import ScipyBdfSolver
+from eenm_engine.interfaces.http.engine_key import ENGINE_SECRET, EngineKeyMiddleware
+from eenm_engine.interfaces.http.limits import ServerLimits
 from eenm_engine.interfaces.http.schemas import (
     ConditionDto,
     MusclePresetDto,
@@ -28,12 +32,25 @@ NDJSON = "application/x-ndjson"
 logger = logging.getLogger(__name__)
 
 
-def create_app(run_simulation: RunSimulation | None = None) -> FastAPI:
-    """Composition root. Tests inject a ``RunSimulation`` with a fake solver."""
+def create_app(
+    run_simulation: RunSimulation | None = None,
+    limits: ServerLimits | None = None,
+    engine_secret: str | None = None,
+) -> FastAPI:
+    """Composition root. Tests inject a ``RunSimulation`` with a fake solver.
+
+    ``limits`` (default: from the ``EENM_MAX_*`` / ``EENM_MIN_*`` environment variables, none set = no caps) and
+    ``engine_secret`` (default: ``EENM_ENGINE_SECRET``; unset or empty = no key required) are the hosted-deployment
+    guards of ``docs/deployment.md``.
+    """
     use_case = run_simulation or RunSimulation(
         ScipyBdfSolver(), pool_integrator=CompiledPoolIntegrator(), drive_integrator=CompiledCisiKohnIntegrator()
     )
+    server_limits = limits if limits is not None else ServerLimits.from_env()
+    secret = engine_secret if engine_secret is not None else os.environ.get(ENGINE_SECRET, "")
     app = FastAPI(title="EENM simulation engine", version="0.1.0")
+    if secret:
+        app.add_middleware(EngineKeyMiddleware, secret=secret)
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -50,6 +67,12 @@ def create_app(run_simulation: RunSimulation | None = None) -> FastAPI:
     @app.post("/v1/simulations/stream")
     def simulate(request: SimulationRequest) -> StreamingResponse:
         config = request.to_config()
+        exceeded = server_limits.violations(config)
+        if exceeded:
+            # the FastAPI 422 format, so the API names the fields as for any other engine rejection
+            raise RequestValidationError(
+                [{"type": "server_limit", "loc": ("body", *loc), "msg": msg, "input": None} for loc, msg in exceeded]
+            )
 
         def lines() -> Iterator[str]:
             # A sync generator: Starlette runs it in a worker thread, one event at a time, and stops

@@ -19,7 +19,8 @@ import type {
   WristPassiveModel,
   WristPeakForce,
 } from '../domain/simulation';
-import { MAX_UNIT_EVENTS_DURATION_MS } from '../domain/simulation';
+import type { ServerLimits } from '../domain/limits';
+import { CONTRACT_LIMITS } from '../domain/limits';
 import { validateRequest } from '../domain/validation';
 import { fmtNumber, tr } from '../i18n/locale';
 
@@ -232,9 +233,14 @@ const parseNumber = (raw: string): number => {
 };
 const round6 = (x: number) => Math.round(x * 1e6) / 1e6;
 
+/** Samples per series the app aims to stay under: the chart budget, or the server's cap when lower. */
+export function pointBudget(limits: ServerLimits = CONTRACT_LIMITS): number {
+  return Math.min(MAX_POINTS_PER_SERIES, limits.maxOutputPoints ?? Infinity);
+}
+
 /** Smallest multiple of `stepMs` that keeps `durationMs / out` ≤ the point budget (≤ 10 ms). */
-export function minOutputStep(durationMs: number, stepMs: number): number {
-  const needed = durationMs / MAX_POINTS_PER_SERIES;
+export function minOutputStep(durationMs: number, stepMs: number, budget: number = MAX_POINTS_PER_SERIES): number {
+  const needed = durationMs / budget;
   const multiples = Math.max(1, Math.ceil(round6(needed / stepMs)));
   return Math.min(MAX_OUTPUT_STEP_MS, round6(multiples * stepMs));
 }
@@ -245,14 +251,15 @@ export interface OutputStepAdvice {
 }
 
 /** Non-null when the chosen output step would exceed the per-series point budget. */
-export function outputStepAdvice(values: FormValues): OutputStepAdvice | null {
+export function outputStepAdvice(values: FormValues, limits: ServerLimits = CONTRACT_LIMITS): OutputStepAdvice | null {
+  const budget = pointBudget(limits);
   const duration = parseNumber(values['stimulus.durationMs']);
   const step = parseNumber(values['stimulus.stepMs']);
   const out = parseNumber(values.outputStepMs);
   if (![duration, step, out].every((x) => Number.isFinite(x) && x > 0)) return null;
   const points = Math.floor(duration / out) + 1;
-  if (points <= MAX_POINTS_PER_SERIES + 1) return null;
-  const suggestedMs = minOutputStep(duration, step);
+  if (points <= budget + 1) return null;
+  const suggestedMs = minOutputStep(duration, step, budget);
   return suggestedMs > out ? { points, suggestedMs } : null;
 }
 
@@ -273,7 +280,11 @@ export type FormResult =
 /** Muscles the 3D step draws (it replays their runs). */
 const FOREARM_MUSCLES: ReadonlySet<string> = new Set(['FLEXOR_CARPI_RADIALIS', 'EXTENSOR_CARPI_RADIALIS']);
 
-export function parseForm(values: FormValues, muscles: readonly MusclePreset[] = []): FormResult {
+export function parseForm(
+  values: FormValues,
+  muscles: readonly MusclePreset[] = [],
+  limits: ServerLimits = CONTRACT_LIMITS,
+): FormResult {
   const errors: FieldError[] = [];
   const notices: FormNotice[] = [];
   const num = (path: FieldPath): number => {
@@ -342,8 +353,8 @@ export function parseForm(values: FormValues, muscles: readonly MusclePreset[] =
     dendriteGeometry: values.dendriteGeometry as Geometry,
     seed: num('seed'),
     outputStepMs: num('outputStepMs'),
-    // the 3D step replays forearm runs; the engine streams per-unit events up to 30 s
-    ...(FOREARM_MUSCLES.has(values.muscle) && num('stimulus.durationMs') <= MAX_UNIT_EVENTS_DURATION_MS
+    // the 3D step replays forearm runs; the engine streams per-unit events up to 30 s (or the server's limit)
+    ...(FOREARM_MUSCLES.has(values.muscle) && num('stimulus.durationMs') <= limits.maxUnitEventsDurationMs
       ? { output: { unitEvents: true } }
       : {}),
     // the wrist turns only on forearm runs of the corrected model
@@ -377,22 +388,22 @@ export function parseForm(values: FormValues, muscles: readonly MusclePreset[] =
   // Parse errors first; range checks would only repeat "must be a number".
   const parseFailed = new Set(errors.map((e) => e.field));
   const muscle = muscles.find((m) => m.id === request.muscle);
-  for (const e of validateRequest(request, muscle)) {
+  for (const e of validateRequest(request, muscle, limits)) {
     if (!parseFailed.has(e.field)) errors.push(e);
   }
   if (errors.length > 0) return { ok: false, errors };
 
-  const advice = outputStepAdvice(values);
+  const advice = outputStepAdvice(values, limits);
   if (advice) {
     notices.push({
       field: 'outputStepMs',
       message: tr({
         'pt-BR':
           `Passo de saída ajustado de ${request.outputStepMs} para ${advice.suggestedMs} ms ` +
-          `(seriam ${fmtNumber(advice.points)} pontos por série; limite ${fmtNumber(MAX_POINTS_PER_SERIES)}).`,
+          `(seriam ${fmtNumber(advice.points)} pontos por série; limite ${fmtNumber(pointBudget(limits))}).`,
         en:
           `Output step raised from ${request.outputStepMs} to ${advice.suggestedMs} ms ` +
-          `(it would be ${fmtNumber(advice.points)} points per series; limit ${fmtNumber(MAX_POINTS_PER_SERIES)}).`,
+          `(it would be ${fmtNumber(advice.points)} points per series; limit ${fmtNumber(pointBudget(limits))}).`,
       }),
     });
     request.outputStepMs = advice.suggestedMs;

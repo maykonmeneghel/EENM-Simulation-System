@@ -16,7 +16,11 @@ public class EngineClientConfiguration {
     @Bean
     WebClientSimulationEngine simulationEngine(WebClient.Builder builder, EngineProperties properties,
             ObjectMapper objectMapper) {
-        WebClient webClient = builder.clone()
+        WebClient.Builder engineBuilder = builder.clone();
+        if (properties.sendsSecret()) {
+            engineBuilder.defaultHeader(EngineProperties.ENGINE_KEY_HEADER, properties.secret());
+        }
+        WebClient webClient = engineBuilder
                 .baseUrl(properties.baseUrl().toString())
                 .clientConnector(new ReactorClientHttpConnector(httpClient(properties)))
                 .codecs(codecs -> codecs.defaultCodecs()

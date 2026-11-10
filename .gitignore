@@ -1,2 +1,6 @@
 .dev-logs/
 .DS_Store
+# environment files may hold secrets (docs/deployment.md); the examples are committed
+.env
+.env.*
+!.env.example

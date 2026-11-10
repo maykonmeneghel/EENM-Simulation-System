@@ -14,6 +14,8 @@ import {
 } from '../application/formModel';
 import { STIMULATOR_PATHS } from '../application/stimulatorForm';
 import { LITERATURE_AUTO_UNITS } from '../domain/defaults';
+import type { ServerLimits } from '../domain/limits';
+import { CONTRACT_LIMITS, limitsDuration } from '../domain/limits';
 import { axonRecruitment } from '../domain/modelEquations';
 import type {
   CalibrationTarget,
@@ -64,6 +66,8 @@ export interface SimulationFormProps {
   /** Conditions and their adjustments (engine catalog). */
   conditions?: readonly ConditionInfo[];
   conditionsError?: string | null;
+  /** Limits of the server (`GET /api/v1/limits`); the contract ranges when not given. */
+  limits?: ServerLimits;
 }
 
 
@@ -103,6 +107,7 @@ export function SimulationForm({
   onClientErrors,
   conditions = [],
   conditionsError = null,
+  limits = CONTRACT_LIMITS,
 }: SimulationFormProps) {
   const [clientErrors, setClientErrors] = useState<FieldError[]>([]);
   const [notices, setNotices] = useState<FormNotice[]>([]);
@@ -124,7 +129,7 @@ export function SimulationForm({
     setLastLocale(locale);
     if (clientErrors.length > 0) {
       const shown = new Set(clientErrors.map((e) => e.field));
-      const result = parseForm(values, muscles);
+      const result = parseForm(values, muscles, limits);
       const again = result.ok ? [] : result.errors.filter((e) => shown.has(e.field));
       setClientErrors(again);
       onClientErrors?.(again);
@@ -141,7 +146,7 @@ export function SimulationForm({
     [clientErrors, serverErrors, editedSinceServer],
   );
   const inactive = useMemo(() => inactiveFields(values), [values]);
-  const advice = useMemo(() => outputStepAdvice(values), [values]);
+  const advice = useMemo(() => outputStepAdvice(values, limits), [values, limits]);
   const isLiterature = values.modelVariant === 'LITERATURE';
   const stimulatorErrors = STIMULATOR_PATHS.flatMap((p) => (byField[p] ?? []).map((m) => ({ path: p, message: m })));
   const muscleOptions = muscles.map((m) => ({ value: m.id, label: m.label }));
@@ -175,7 +180,7 @@ export function SimulationForm({
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (running) return;
-    const result = parseForm(values, muscles);
+    const result = parseForm(values, muscles, limits);
     if (result.ok) {
       setClientErrors([]);
       onClientErrors?.([]);
@@ -273,7 +278,14 @@ export function SimulationForm({
     </span>
   );
 
-  const renderField = (spec: FieldSpec) => {
+  const durationLimited = limitsDuration(limits);
+  const withServerRange = (spec: FieldSpec): FieldSpec =>
+    spec.path === 'stimulus.durationMs' && spec.kind === 'number' && durationLimited
+      ? { ...spec, hint: `${fmt(limits.minDurationMs)} – ${fmt(limits.maxDurationMs)}` }
+      : spec;
+
+  const renderField = (field: FieldSpec) => {
+    const spec = withServerRange(field);
     if (HIDDEN_WHEN_INACTIVE.has(spec.path) && inactive.has(spec.path)) return null;
     const id = `f-${spec.path.replace(/\./g, '-')}`;
     const errs = byField[spec.path];
@@ -350,6 +362,14 @@ export function SimulationForm({
         {errs ? (
           <small id={`${id}-err`} className="field-error" role="alert">
             {errs.join('; ')}
+          </small>
+        ) : null}
+        {spec.path === 'stimulus.durationMs' && durationLimited && !errs ? (
+          <small className="field-note">
+            {tr({
+              'pt-BR': `Este servidor permite até ${fmt(limits.maxDurationMs)} ms por simulação.`,
+              en: `This server allows up to ${fmt(limits.maxDurationMs)} ms per simulation.`,
+            })}
           </small>
         ) : null}
       </div>

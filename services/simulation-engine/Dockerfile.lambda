@@ -1,0 +1,34 @@
+# AWS Lambda image of the engine (docs/deployment.md): uvicorn behind the Lambda Web Adapter, response streaming.
+# The local image (Dockerfile) is unchanged. Build for the Lambda architecture, e.g.
+#   docker build --platform linux/arm64 -f Dockerfile.lambda -t eenm/simulation-engine:lambda .
+FROM python:3.12-slim
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:1.1.0 /lambda-adapter /opt/extensions/lambda-adapter
+COPY --from=ghcr.io/astral-sh/uv:0.10 /uv /usr/local/bin/uv
+WORKDIR /app
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
+COPY pyproject.toml uv.lock README.md ./
+RUN uv sync --frozen --no-dev --no-install-project
+COPY src ./src
+COPY lambda-entrypoint.sh /usr/local/bin/lambda-entrypoint.sh
+RUN uv sync --frozen --no-dev
+
+# Numba: code for a generic CPU of the architecture (the Lambda host's CPU is not the build machine's; a cache built
+# for the build CPU would be a miss there), cached at build time. Lambda's filesystem is read-only except /tmp and
+# Numba only uses a cache directory it can write to, so the entrypoint copies this cache (≈ 0.5 MB) to /tmp.
+# NUMBA_CPU_NAME can be raised at build time (e.g. a newer x86-64 level) when the Lambda CPUs are known to have it.
+ARG NUMBA_CPU_NAME=generic
+ENV NUMBA_CPU_NAME=$NUMBA_CPU_NAME \
+    NUMBA_CACHE_DIR=/opt/numba-cache \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH=/app/.venv/bin:$PATH
+RUN python -m eenm_engine.warmup \
+    && python -m eenm_engine.warmup --expect-cached \
+    && chmod -R a+rX /opt/numba-cache
+
+# Lambda Web Adapter (README of v1.1.0): forwards the invocation to the port, streams the response body.
+ENV AWS_LWA_PORT=8001 \
+    AWS_LWA_READINESS_CHECK_PATH=/health \
+    AWS_LWA_INVOKE_MODE=response_stream \
+    NUMBA_RUNTIME_CACHE_DIR=/tmp/numba-cache
+EXPOSE 8001
+ENTRYPOINT ["/usr/local/bin/lambda-entrypoint.sh"]
