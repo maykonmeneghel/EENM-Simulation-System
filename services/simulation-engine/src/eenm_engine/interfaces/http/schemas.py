@@ -54,6 +54,9 @@ class StimulusDto(_CamelModel):
     """Stimulator mode: replaces ``duty_cycle_percent``."""
     ramp_up_ms: float = Field(0.0, ge=0)
     ramp_down_ms: float = Field(0.0, ge=0)
+    pulse_times_ms: list[float] | None = None
+    """Explicit pulse sequence: onsets in ms (from each train's start with trains). Needs ``pulse_width_us``;
+    ``frequency_hz`` and ``duty_cycle_percent`` then have no effect (``StimulusProtocol.pulse_times_ms``)."""
 
 
 class UnitsPerTypeDto(BaseModel):
@@ -164,6 +167,7 @@ class SimulationRequest(_CamelModel):
                 pulse_width_us=s.pulse_width_us,
                 ramp_up_ms=s.ramp_up_ms,
                 ramp_down_ms=s.ramp_down_ms,
+                pulse_times_ms=None if s.pulse_times_ms is None else tuple(s.pulse_times_ms),
             ),
             muscle=self.muscle,
             units_per_type=self._units(),

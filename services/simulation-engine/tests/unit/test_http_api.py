@@ -177,3 +177,19 @@ def test_trains_are_passed_to_the_stimulus() -> None:
     config = SimulationRequest.model_validate({"stimulus": {"trainOnMs": 330, "trainPeriodMs": 1000}}).to_config()
     assert (config.stimulus.train_on_ms, config.stimulus.train_period_ms) == (330, 1000)
     assert client.post("/v1/simulations/stream", json={"stimulus": {"trainOnMs": 330}}).status_code == 422
+
+
+def test_pulse_times_are_passed_to_the_stimulus_and_validated() -> None:
+    from eenm_engine.interfaces.http.schemas import SimulationRequest
+
+    doublet = {"durationMs": 50, "pulseWidthUs": 500, "pulseTimesMs": [0, 6, 20]}
+    stimulus = SimulationRequest.model_validate({"stimulus": doublet}).to_config().stimulus
+    assert stimulus.pulse_times_ms == (0.0, 6.0, 20.0) and stimulus.pulse_count == 3
+    assert SimulationRequest().to_config().stimulus.pulse_times_ms is None  # absent = the periodic train
+    response = client.post("/v1/simulations/stream", json={"stimulus": doublet, "outputStepMs": 1})
+    assert response.status_code == 200 and events(response)[-1]["type"] == "completed"
+    unsorted = {"stimulus": {**doublet, "pulseTimesMs": [6, 0]}}
+    without_width = {"stimulus": {"durationMs": 50, "pulseTimesMs": [0, 6]}}
+    for body in (unsorted, without_width):
+        assert client.post("/v1/simulations/stream", json=body).status_code == 422
+    assert "strictly increasing" in client.post("/v1/simulations/stream", json=unsorted).text

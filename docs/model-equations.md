@@ -35,6 +35,23 @@ $$ E(t) = \min\left(1,\ \frac{u}{t_\uparrow},\ \frac{T_{on} - u}{t_\downarrow}\r
 `durationMs`), `T_trem = trainPeriodMs`. Modulation must stay AMPLITUDE / STEP. The web preview
 (`apps/web/src/domain/stimulator.ts`) is tested against the engine on `stimulator.fixture.json`.
 
+**Explicit pulse sequence** (not in the original; `pulseTimesMs` set, needs `pulseWidthUs`): the onsets
+`t_1 < t_2 < … < t_N` replace the periodic onsets `k·T_p`; `p(t)` is the same pulse with `τ` measured from the latest
+onset reached, and `E(t)` is unchanged:
+
+$$ u = t \bmod T_{trem}\ \ (u = t\ \text{without trains}), \qquad j = \max\{\,i : t_i \le u + 10^{-9}\,\}, \qquad \tau = u - t_j $$
+
+Without trains the `t_i` are times of the run; with trains they are times from the start of every train and the
+sequence repeats in each one. `frequencyHz` and `dutyCyclePercent` have no effect; `amplitude`, `pulseWidthUs`,
+`waveform` (MONOPHASIC or BIPHASIC_SYMMETRIC), `trainOnMs` / `trainPeriodMs` and `rampUpMs` / `rampDownMs` apply as
+above. Only whole pulses are delivered (`I = 0` for a pulse that would end after `durationMs`; the periodic train keeps
+such a pulse, cut). Rules: `0 ≤ t_1`, strictly increasing; consecutive onsets at least `phases·PW + stepMs` apart (one
+sample of zero current between pulses, otherwise the sampled pulses touch and stage 2b reads them as one longer pulse;
+with trains this includes the last pulse of a train to the first of the next); `t_N + phases·PW ≤ trainOnMs` (with
+trains) or `≤ durationMs`; `PW ≥ stepMs`; at most `max_pulses` (default 100 000) pulses over the whole run. A periodic
+train written as its onsets `k·T_p` gives a bit-identical stimulus, spike trains and force
+(`tests/unit/test_pulse_sequences.py`).
+
 ## 2a. Motoneuron (ORIGINAL) — `domain/motoneuron.py` (port of `rates.m`)
 
 Two compartments per unit, soma `V_s` and dendrite `V_d`, coupled through `g_c` and the soma-area fraction
@@ -64,6 +81,12 @@ first unit at 56.9 and all units at 102.1; use these expressions, not rounded va
 the end of the pulse. A pulse is its **leading phase**: a run of same-sign current that starts after zero current; the
 opposite phase of a biphasic pulse follows within the refractory period and is ignored. Fields: `amplitude`,
 `pulseWidthUs` (or `dutyCyclePercent` and `frequencyHz` → PW), `seed`.
+
+No refractoriness is modelled in this layer (FES only, no central drive): every suprathreshold pulse fires the axon,
+however close to the previous one. The code justifies this by the periodic range (≤ 200 Hz, pulses ≥ 5 ms apart); an
+explicit sequence can place pulses down to `phases·PW + stepMs` apart, where that justification no longer holds (an
+open decision, not changed here). With a central drive the axon merge applies a 1.6 ms electrode refractory period
+(`infrastructure/axon_merge.py`).
 
 ## 3. Conduction to the muscle — `domain/force_pipeline.py`, `domain/motor_unit_pool.py`
 
