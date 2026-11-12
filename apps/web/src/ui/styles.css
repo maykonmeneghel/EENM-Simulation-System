@@ -876,3 +876,17 @@ body { overflow: hidden; }
   .toolbar-title h1 { font-size: var(--fs-sm); }
   .live-pill { display: none; }
 }
+
+/* ---------- Simulation step on phones: the block diagram in one column (DiagramView's VerticalChain) ---------- */
+.diagram-svg--vertical { max-width: 300px; margin: 0.25rem auto 0; }
+/* secondary labels at 12 px instead of 11 in the one-column layout */
+.diagram-svg--vertical .dg-small { font-size: calc(var(--fs-sm) / var(--svg-k, 1)); }
+.dg-link { stroke: var(--text-3); stroke-width: 2; stroke-linecap: round; }
+.dg-link-head { fill: var(--text-3); }
+.dg-pulse--down { animation-name: travel-down; }
+@keyframes travel-down {
+  0% { transform: translateY(0); opacity: 0; }
+  8% { opacity: 1; }
+  92% { opacity: 1; }
+  100% { transform: translateY(var(--travel, 0px)); opacity: 0; }
+}
