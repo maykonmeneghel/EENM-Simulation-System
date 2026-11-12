@@ -182,15 +182,26 @@ const EXPLANATIONS: Record<StageId, LocalizedExplanation> = {
   '5b': {
     plain: {
       'pt-BR':
-        'Como o abalo anterior, mas o expoente m controla a forma: com m maior o abalo relaxa mais depressa. T e m foram ' +
+        'Cada disparo produz um abalo (twitch): a força sobe até o pico P no tempo T e depois cai; a força da unidade é a ' +
+        'soma dos abalos de todos os seus disparos. O expoente m controla a forma: com m = 1 é o abalo clássico de ' +
+        'Fuglevand 1993; com m maior, o abalo relaxa mais depressa. T e m foram ' +
         'ajustados a dados humanos: ao abalo do músculo inteiro ou à média de unidades motoras isoladas, conforme a ' +
         'calibração escolhida na barra lateral.',
       en:
-        'Like the previous twitch, but the exponent m controls the shape: with a larger m the twitch relaxes faster. T and ' +
+        'Each spike produces a twitch: the force rises to the peak P at time T and then falls; the force of the unit is the ' +
+        'sum of the twitches of all its spikes. The exponent m controls the shape: with m = 1 it is the classic Fuglevand ' +
+        '1993 twitch; with a larger m the twitch relaxes faster. T and ' +
         'm were fitted to human data: to the whole-muscle twitch or to the mean of single motor units, according to the ' +
         'calibration chosen in the sidebar.',
     },
     refs: [
+      {
+        id: 'fuglevand1993',
+        supports: {
+          'pt-BR': 'abalo criticamente amortecido (o caso m = 1)',
+          en: 'critically damped twitch (the m = 1 case)',
+        },
+      },
       {
         id: 'raikova2013',
         supports: {
