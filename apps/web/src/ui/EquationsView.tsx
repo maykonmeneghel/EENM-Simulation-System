@@ -31,7 +31,7 @@ export function EquationsView({
 }: {
   snapshot: ModelSnapshot;
   focus: StageFocus | null;
-  /** Clicking a stage card opens its explanation and sources in the right sidebar. */
+  /** Clicking a stage card opens the glossary of its symbols in the right sidebar (the card keeps the explanation and sources). */
   onInspect?(topic: InspectorTopic): void;
 }) {
   const locale = useLocale();
@@ -70,7 +70,7 @@ export function EquationsView({
           tabIndex={-1}
           onClick={onInspect ? (e) => {
             if ((e.target as HTMLElement).closest('a, button')) return;
-            onInspect({ kind: 'stage', stage: st.id });
+            onInspect({ kind: 'stage', stage: st.id, from: 'equations' });
           } : undefined}
           aria-labelledby={`${stageElementId(st.id)}-title`}
           data-stage={st.id}
@@ -89,7 +89,7 @@ export function EquationsView({
                 type="button"
                 className="icon-button"
                 aria-label={L(`Etapa ${st.id} — ver explicação`, `Stage ${st.id} — show explanation`)}
-                onClick={() => onInspect({ kind: 'stage', stage: st.id })}
+                onClick={() => onInspect({ kind: 'stage', stage: st.id, from: 'equations' })}
               >
                 <InfoIcon />
               </button>

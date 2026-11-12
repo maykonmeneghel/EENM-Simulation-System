@@ -8,7 +8,11 @@ import type { ReferenceId } from '../domain/references';
 import { REFERENCES, scholarUrl, shortCite, sourceUrl } from '../domain/references';
 import type { AxonEvents, ModelVariant, StimulationSite } from '../domain/simulation';
 import { formatDecimal as fmt, signalPath } from '../application/signalPath';
+import { buildModelSnapshot } from '../application/modelView';
 import { STAGE_EXPLANATIONS, STAGE_TITLES } from './stageExplanations';
+import { stageSymbols, subscriptNote, symbolContext } from './stageSymbols';
+import { Tex } from './Tex';
+import { useMemo } from 'react';
 import type { Localized } from '../i18n/locale';
 import { getLocale, tr } from '../i18n/locale';
 import { useLocale } from '../i18n/useLocale';
@@ -41,7 +45,8 @@ export interface InspectorPanelProps {
 /**
  * Right sidebar: explains the component of the centre column the user clicked — what it shows in plain words, the
  * sources (Google Scholar + DOI), and, where it matters, the signal path of the current mode, the central drive, the
- * live axon-merge counts and the known limits.
+ * live axon-merge counts and the known limits. A stage opened from its equation card shows the glossary of its symbols
+ * instead of the plain words and sources, which the card already shows.
  */
 export function InspectorPanel({ topic, values, axonEvents, onShowEquation }: InspectorPanelProps) {
   useLocale();
@@ -99,13 +104,18 @@ export function InspectorPanel({ topic, values, axonEvents, onShowEquation }: In
         return (
           <section key={id} className="explain-section" aria-label={`${stageWord} ${id}`}>
             {view.stages.length > 1 ? <h3>{stageWord} {id} · {STAGE_TITLES[id]}</h3> : null}
-            <p>{ex.plain}</p>
-            {ex.inherited ? <p className="muted">{tr({ 'pt-BR': 'Herdado do modelo original', en: 'Inherited from the original model' })}: {ex.inherited}</p> : null}
-            <ul className="explain-refs">
-              {ex.refs.map((r) => (
-                <Cite key={r.id} id={r.id} supports={r.supports} />
-              ))}
-            </ul>
+            {view.stageText ? (
+              <>
+                <p>{ex.plain}</p>
+                {ex.inherited ? <p className="muted">{tr({ 'pt-BR': 'Herdado do modelo original', en: 'Inherited from the original model' })}: {ex.inherited}</p> : null}
+                <ul className="explain-refs">
+                  {ex.refs.map((r) => (
+                    <Cite key={r.id} id={r.id} supports={r.supports} />
+                  ))}
+                </ul>
+              </>
+            ) : null}
+            {view.symbols ? <SymbolGlossary stage={id} values={values} /> : null}
             {onShowEquation && stagesNow.includes(id) ? (
               <button type="button" className="btn btn--small btn--link" onClick={() => onShowEquation(id)}>
                 {tr({ 'pt-BR': 'Ver a equação', en: 'See the equation' })}
@@ -181,6 +191,40 @@ export function InspectorPanel({ topic, values, axonEvents, onShowEquation }: In
           </ul>
         </section>
       ) : null}
+    </div>
+  );
+}
+
+/** What each symbol of a stage's equations means, its unit and where its value comes from (for the current settings). */
+function SymbolGlossary({ stage, values }: { stage: StageId; values: FormValues }) {
+  const context = useMemo(() => symbolContext(buildModelSnapshot({ values, muscles: [] })), [values]);
+  const symbols = stageSymbols(stage, context);
+  const note = subscriptNote(stage);
+  const headingId = `explain-symbols-${stage}`;
+  const unitWord = tr({ 'pt-BR': 'Unidade', en: 'Unit' });
+  const sourceWord = tr({ 'pt-BR': 'De onde vem', en: 'Where it comes from' });
+  return (
+    <div className="explain-symbols" role="group" aria-labelledby={headingId}>
+      <h3 id={headingId}>{tr({ 'pt-BR': 'O que cada símbolo significa', en: 'What each symbol means' })}</h3>
+      {note ? <p className="muted explain-symbols-note">{note}</p> : null}
+      <dl className="symbol-list">
+        {symbols.map((s) => (
+          <div key={s.tex} className="symbol-item">
+            <dt className="symbol-tex">
+              <Tex tex={s.tex} />
+            </dt>
+            <dd className="symbol-meaning">
+              <p>{s.meaning}</p>
+              <p className="symbol-meta">
+                <span className="symbol-meta-label">{unitWord}:</span> {s.unit}
+              </p>
+              <p className="symbol-meta">
+                <span className="symbol-meta-label">{sourceWord}:</span> {s.source}
+              </p>
+            </dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }

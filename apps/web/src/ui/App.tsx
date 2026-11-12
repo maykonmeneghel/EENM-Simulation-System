@@ -192,7 +192,7 @@ export function App({
     [compact],
   );
   const showHelp = useCallback<ShowHelp>((label, content) => inspect({ kind: 'help', label, content }), [inspect]);
-  const inspectStage = useCallback((stage: StageId) => inspect({ kind: 'stage', stage }), [inspect]);
+  const inspectStage = useCallback((stage: StageId) => inspect({ kind: 'stage', stage, from: 'diagram' }), [inspect]);
   const showEquation = useCallback((stage: StageId) => {
     setStep('physiology');
     setFocus((f) => ({ stage, nonce: (f?.nonce ?? 0) + 1 }));
