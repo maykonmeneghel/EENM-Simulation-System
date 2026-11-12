@@ -277,8 +277,16 @@ export type FormResult =
  * Omits `unitsPerType` for LITERATURE in automatic mode, sends train fields only when enabled,
  * and raises `outputStepMs` (with a notice) when the run would exceed the point budget.
  */
-/** Muscles the 3D step draws (it replays their runs). */
+/** Forearm muscles: the wrist turns only on their runs. */
 const FOREARM_MUSCLES: ReadonlySet<string> = new Set(['FLEXOR_CARPI_RADIALIS', 'EXTENSOR_CARPI_RADIALIS']);
+/** Muscles the 3D step draws (it replays their runs): the forearm and the lower leg (`anatomy3d.MUSCLE_REGION`). */
+export const REPLAY_MUSCLES: ReadonlySet<string> = new Set([
+  ...FOREARM_MUSCLES,
+  'SOLEUS',
+  'GASTROCNEMIUS_MEDIAL',
+  'GASTROCNEMIUS_LATERAL',
+  'TIBIALIS_ANTERIOR',
+]);
 
 export function parseForm(
   values: FormValues,
@@ -353,8 +361,9 @@ export function parseForm(
     dendriteGeometry: values.dendriteGeometry as Geometry,
     seed: num('seed'),
     outputStepMs: num('outputStepMs'),
-    // the 3D step replays forearm runs; the engine streams per-unit events up to 30 s (or the server's limit)
-    ...(FOREARM_MUSCLES.has(values.muscle) && num('stimulus.durationMs') <= limits.maxUnitEventsDurationMs
+    // the 3D step replays forearm and leg runs; the engine streams per-unit events up to 30 s (or the server's limit)
+    // (parseNumber, not num: the duration's own error is reported once, where it is read)
+    ...(REPLAY_MUSCLES.has(values.muscle) && parseNumber(values['stimulus.durationMs']) <= limits.maxUnitEventsDurationMs
       ? { output: { unitEvents: true } }
       : {}),
     // the wrist turns only on forearm runs of the corrected model

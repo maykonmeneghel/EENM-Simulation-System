@@ -53,7 +53,7 @@ describe('SimulationForm', () => {
   it('submits the default request', async () => {
     const { onSubmit, user } = setup();
     await user.click(screen.getByRole('button', { name: 'Simular' }));
-    expect(onSubmit).toHaveBeenCalledWith(defaultRequest());
+    expect(onSubmit).toHaveBeenCalledWith({ ...defaultRequest(), output: { unitEvents: true } }); // the 3D step replays soleus runs
   });
 
   it('blocks submit and shows a client-side error next to the field', async () => {

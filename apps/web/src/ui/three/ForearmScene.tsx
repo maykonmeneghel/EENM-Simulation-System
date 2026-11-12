@@ -1,7 +1,7 @@
 /**
- * The 3D scene (docs/design/3d-view.md §3–5): atlas meshes of the forearm, the run's units drawn from the layout, and
- * the replay of the run's per-unit events on them. Metres throughout; x along the forearm toward the wrist, y toward
- * the palm.
+ * The 3D scene (docs/design/3d-view.md §3–5, §10): atlas meshes of the region (forearm or lower leg), the run's units
+ * drawn from the layout, and the replay of the run's per-unit events on them. Metres throughout; x along the limb
+ * (toward the wrist / the ankle), y toward the palm / the calf.
  */
 import { useEffect, useMemo, useRef } from 'react';
 import type { MutableRefObject, RefObject } from 'react';
@@ -14,7 +14,6 @@ import {
   AXIS_BREAK_X,
   AXON_RADIUS,
   BUNDLE_RADIUS,
-  FOREARM,
   SPINAL_X,
   axonPath,
   bendAtWrist,
@@ -26,7 +25,7 @@ import {
 } from '../../application/anatomy3d';
 import type { Replay } from '../../application/replay';
 import { activeSpikes, recentFlashes } from '../../application/replay';
-import { FOREARM_URL, TAN_HALF_FOV, distanceFor, levelCamera } from './camera';
+import { FOREARM_URL, LEG_URL, REGION_URL, TAN_HALF_FOV, distanceFor, levelCamera } from './camera';
 import { FLASH_COLORS, SPIKE_COLORS } from './replayStyle';
 
 /** Electrode pad radius: not in the model (its recruitment is analytic), a common 5 × 5 cm-class pad, illustrative. */
@@ -115,7 +114,7 @@ function Atlas({ layout, level, clock, forceAt, angleAt }: {
   forceAt: SceneProps['forceAt'];
   angleAt: SceneProps['angleAt'];
 }) {
-  const gltf = useGLTF(FOREARM_URL);
+  const gltf = useGLTF(REGION_URL[layout.region.id]);
   const clip = useMemo(() => new THREE.Plane(new THREE.Vector3(-1, 0, 0), layout.endplateX), [layout.endplateX]);
   // L1 opens the stimulated muscle at the endplates (keeps the proximal part, the cut faces the camera)
   const opened = level === 'L1';
@@ -133,12 +132,13 @@ function Atlas({ layout, level, clock, forceAt, angleAt }: {
     };
   }, [opened, deep, clip]);
   const live = useRef(materials);
-  const bend = useMemo(() => restPose(gltf.scene), [gltf]);
+  // only the forearm has a joint: the leg is static (no ankle model), so none of its meshes move
+  const bend = useMemo(() => (layout.region.joint ? restPose(gltf.scene) : { meshes: [], angle: Number.NaN }), [gltf, layout.region.joint]);
   useEffect(() => () => restoreRest(bend), [bend]);
   useEffect(() => {
     live.current = materials;
-    paint(gltf.scene, layout.parts, materials);
-  }, [gltf, layout.parts, materials]);
+    paint(gltf.scene, layout.parts, layout.region.bones, materials);
+  }, [gltf, layout.parts, layout.region.bones, materials]);
   useFrame(() => {
     // the muscle glows with the force at the replay's time (fraction of the healthy maximum)
     const t = clock.current?.t ?? 0;
@@ -240,15 +240,15 @@ function applyWrist(pose: { meshes: BentMesh[]; angle: number }, angle: number):
 }
 
 /** Normals and materials of the atlas meshes (three.js objects are mutated outside React's render). */
-function paint(scene: THREE.Object3D, parts: readonly string[], materials: AtlasMaterials): void {
+function paint(scene: THREE.Object3D, parts: readonly string[], bones: readonly string[], materials: AtlasMaterials): void {
   scene.traverse((o) => {
     if (!(o instanceof THREE.Mesh)) return;
     if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals();
-    const id = o.name as keyof typeof FOREARM.faces;
+    const id = o.name;
     o.material =
       id === 'skin'
         ? materials.skin
-        : id === 'radius' || id === 'ulna' || id === 'humerus' || (id as string) === 'handBones'
+        : bones.includes(id)
           ? materials.bone
           : parts.includes(id)
             ? materials.stimulated
@@ -271,10 +271,10 @@ function lowerBound(times: readonly number[], t: number): number {
 
 /** Where the pad sits on the skin over the motor point: a ray from the muscle outward, stopped by the skin mesh. */
 function useElectrodePlacement(layout: Layout): { point: THREE.Vector3; q: THREE.Quaternion; normal: THREE.Vector3 } | null {
-  const gltf = useGLTF(FOREARM_URL);
+  const gltf = useGLTF(REGION_URL[layout.region.id]);
   return useMemo(() => {
     const skin = gltf.scene.getObjectByName('skin');
-    const s = sectionAt(layout.parts[0]!, layout.motorPoint.x);
+    const s = sectionAt(layout.sections, layout.motorPoint.x);
     const origin = new THREE.Vector3(layout.motorPoint.x, s.centre[0], s.centre[1]);
     const outward = new THREE.Vector3(0, s.centre[0], s.centre[1]).normalize();
     if (!skin) return null;
@@ -723,3 +723,4 @@ export function ForearmScene({ layout, level, fly, colors, selected, onSelect, o
 }
 
 useGLTF.preload(FOREARM_URL);
+useGLTF.preload(LEG_URL);
