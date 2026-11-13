@@ -49,6 +49,22 @@ const SOURCE_LABEL: Record<NonNullable<MotorPointSource>, string> = {
 };
 
 /** Motor point readout: distance below the elbow / knee, its tag and its source. */
+/** The pad as drawn: the run's electrode (model) with its factor G, or the fallback (illustrative). */
+function padText(layout: Layout): string {
+  const p = layout.pad;
+  if (!p.fromRun) {
+    return tr({
+      'pt-BR': 'Eletrodo: disco de 25 mm (Baier 2024), ilustrativo (simulação sem eletrodo registrado).',
+      en: 'Electrode: 25 mm disk (Baier 2024), illustrative (run with no recorded electrode).',
+    });
+  }
+  const size = p.shape === 'ROUND' ? `Ø ${fmt(p.radiusM * 200, 1)} cm` : `${fmt(p.widthM * 100, 1)} × ${fmt(p.lengthM * 100, 1)} cm`;
+  return tr({
+    'pt-BR': `Eletrodo: ${size} (${fmt(p.areaCm2, 1)} cm²), o da simulação (modelo), G = ${fmt(p.thresholdFactor ?? 1, 2)}; desenhado sobre o ponto motor.`,
+    en: `Electrode: ${size} (${fmt(p.areaCm2, 1)} cm²), the run's (model), G = ${fmt(p.thresholdFactor ?? 1, 2)}; drawn over the motor point.`,
+  });
+}
+
 function motorPointText(layout: Layout): string {
   const cm = fmt(layout.motorPoint.x * 100, 1);
   const tag = TAG_LABEL[layout.motorPoint.tag]();
@@ -401,8 +417,8 @@ export default function ThreeDView({ run, running = false, axonLengthPercent, mu
       )}
       <p className="three-notes muted">
         {layout.region.id === 'leg' ? legNotes(layout) : tr({
-          'pt-BR': `Pele, ossos e músculos: atlas (malhas em escala real). Unidades, tamanhos do soma e do dendrito, tempos de condução e disparos: modelo (${layout.motoneuron === 'CISI_KOHN_2008' ? 'Cisi & Kohn 2008' : 'Booth 1997'}). Posição das unidades, territórios, trajeto do nervo e tamanho do eletrodo: ilustrativos. Axônio de ${fmt(layout.axonLength, 2)} m; ${motorPointText(layout)}. Um disparo some no trecho omitido e reaparece do outro lado no tempo real de condução. O músculo brilha com a força (% da máxima). A mão gira no punho com o torque dele (1 grau de liberdade: inércia e amortecimento de Davidson & Charles 2017, braço de momento de Corie & Charles 2019, força máxima e resistência passiva escolhidas na Fisiologia); o músculo perde força ao encurtar rápido (força–velocidade de Thelen 2003, sem força–comprimento), só o músculo estimulado age, e o ângulo para em 90° de flexão e de extensão (onde Delp 1996 mediu; o máximo anatômico não foi verificado). Cada simulação começa com o punho em repouso.`,
-          en: `Skin, bones and muscles: atlas (meshes at real scale). Units, soma and dendrite sizes, conduction times and spikes: model (${layout.motoneuron === 'CISI_KOHN_2008' ? 'Cisi & Kohn 2008' : 'Booth 1997'}). Unit positions, territories, nerve path and electrode size: illustrative. Axon ${fmt(layout.axonLength, 2)} m; ${motorPointText(layout)}. A spike disappears into the omitted stretch and comes back on the other side at its real conduction time. The muscle glows with the force (% of maximum). The hand turns at the wrist with its torque (1 degree of freedom: inertia and damping from Davidson & Charles 2017, moment arm from Corie & Charles 2019, peak force and passive resistance chosen in Physiology); the muscle loses force when it shortens fast (Thelen 2003 force–velocity, no force–length), only the stimulated muscle acts, and the angle stops at 90° flexion and extension (where Delp 1996 measured; the anatomical maximum was not verified). Every run starts with the wrist at rest.`,
+          'pt-BR': `Pele, ossos e músculos: atlas (malhas em escala real). Unidades, tamanhos do soma e do dendrito, tempos de condução e disparos: modelo (${layout.motoneuron === 'CISI_KOHN_2008' ? 'Cisi & Kohn 2008' : 'Booth 1997'}). Posição das unidades, territórios e trajeto do nervo: ilustrativos. ${padText(layout)} Axônio de ${fmt(layout.axonLength, 2)} m; ${motorPointText(layout)}. Um disparo some no trecho omitido e reaparece do outro lado no tempo real de condução. O músculo brilha com a força (% da máxima). A mão gira no punho com o torque dele (1 grau de liberdade: inércia e amortecimento de Davidson & Charles 2017, braço de momento de Corie & Charles 2019, força máxima e resistência passiva escolhidas na Fisiologia); o músculo perde força ao encurtar rápido (força–velocidade de Thelen 2003, sem força–comprimento), só o músculo estimulado age, e o ângulo para em 90° de flexão e de extensão (onde Delp 1996 mediu; o máximo anatômico não foi verificado). Cada simulação começa com o punho em repouso.`,
+          en: `Skin, bones and muscles: atlas (meshes at real scale). Units, soma and dendrite sizes, conduction times and spikes: model (${layout.motoneuron === 'CISI_KOHN_2008' ? 'Cisi & Kohn 2008' : 'Booth 1997'}). Unit positions, territories and nerve path: illustrative. ${padText(layout)} Axon ${fmt(layout.axonLength, 2)} m; ${motorPointText(layout)}. A spike disappears into the omitted stretch and comes back on the other side at its real conduction time. The muscle glows with the force (% of maximum). The hand turns at the wrist with its torque (1 degree of freedom: inertia and damping from Davidson & Charles 2017, moment arm from Corie & Charles 2019, peak force and passive resistance chosen in Physiology); the muscle loses force when it shortens fast (Thelen 2003 force–velocity, no force–length), only the stimulated muscle acts, and the angle stops at 90° flexion and extension (where Delp 1996 measured; the anatomical maximum was not verified). Every run starts with the wrist at rest.`,
         })}
       </p>
       <p className="three-credit muted">{CREDIT}</p>
@@ -415,8 +431,8 @@ function legNotes(layout: Layout): string {
   const model = layout.motoneuron === 'CISI_KOHN_2008' ? 'Cisi & Kohn 2008' : 'Booth 1997';
   const axon = fmt(layout.axonLength, 2);
   return `${tr({
-    'pt-BR': `Pele, ossos e músculos da perna direita: atlas (malhas em escala real). Unidades, tamanhos do soma e do dendrito, tempos de condução e disparos: modelo (${model}). Posição das unidades, territórios e tamanho do eletrodo: ilustrativos. Axônio de ${axon} m: o comprimento do modelo, o mesmo para todos os músculos (não é a distância medida da medula lombossacral à perna). Eletrodo sobre a zona de maior ramificação intramuscular do nervo: ${motorPointText(layout)}.`,
-    en: `Skin, bones and muscles of the right leg: atlas (meshes at real scale). Units, soma and dendrite sizes, conduction times and spikes: model (${model}). Unit positions, territories and electrode size: illustrative. Axon ${axon} m: the model's length, the same for every muscle (not a measured distance from the lumbosacral cord to the leg). Electrode over the zone where the nerve branches most inside the muscle: ${motorPointText(layout)}.`,
+    'pt-BR': `Pele, ossos e músculos da perna direita: atlas (malhas em escala real). Unidades, tamanhos do soma e do dendrito, tempos de condução e disparos: modelo (${model}). Posição das unidades e territórios: ilustrativos. ${padText(layout)} Axônio de ${axon} m: o comprimento do modelo, o mesmo para todos os músculos (não é a distância medida da medula lombossacral à perna). Eletrodo sobre a zona de maior ramificação intramuscular do nervo: ${motorPointText(layout)}.`,
+    en: `Skin, bones and muscles of the right leg: atlas (meshes at real scale). Units, soma and dendrite sizes, conduction times and spikes: model (${model}). Unit positions and territories: illustrative. ${padText(layout)} Axon ${axon} m: the model's length, the same for every muscle (not a measured distance from the lumbosacral cord to the leg). Electrode over the zone where the nerve branches most inside the muscle: ${motorPointText(layout)}.`,
   })} ${legNerveText(layout)} ${tr({
     'pt-BR': 'Um disparo some no trecho omitido e reaparece do outro lado no tempo real de condução. O músculo brilha com a força (% da máxima). A perna é estática: o modelo não tem o tornozelo, então o pé não se move.',
     en: 'A spike disappears into the omitted stretch and comes back on the other side at its real conduction time. The muscle glows with the force (% of maximum). The leg is static: the model has no ankle, so the foot does not move.',
