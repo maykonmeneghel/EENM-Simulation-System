@@ -1,6 +1,7 @@
 package com.meneghel.eenm.simulationapi.infrastructure.engine;
 
 import com.meneghel.eenm.simulationapi.domain.simulation.CentralDrive;
+import com.meneghel.eenm.simulationapi.domain.simulation.Electrode;
 import com.meneghel.eenm.simulationapi.domain.simulation.Modulation;
 import com.meneghel.eenm.simulationapi.domain.simulation.MotorUnitCounts;
 import com.meneghel.eenm.simulationapi.domain.simulation.SimulationRequest;
@@ -27,7 +28,21 @@ final class EngineRequestMapper {
                 request.outputStepMs(),
                 toBody(request.centralDrive()),
                 request.unitEvents() ? new EngineSimulationRequestBody.Output(true) : null,
-                new EngineSimulationRequestBody.Joint(request.wrist().peakForce().name(), request.wrist().passive().name()));
+                new EngineSimulationRequestBody.Joint(request.wrist().peakForce().name(), request.wrist().passive().name()),
+                toBody(request.electrode()));
+    }
+
+    private EngineSimulationRequestBody.Electrode toBody(Electrode electrode) {
+        if (electrode == null) {
+            return null;
+        }
+        Electrode.Calibration c = electrode.calibration();
+        return new EngineSimulationRequestBody.Electrode(
+                electrode.shape() == null ? null : electrode.shape().name(), electrode.widthCm(), electrode.lengthCm(),
+                electrode.diameterCm(), electrode.fatThicknessCm(), electrode.axonDepthCm(),
+                electrode.effectModel() == null ? null : electrode.effectModel().name(),
+                c == null ? null : new EngineSimulationRequestBody.Calibration(c.motorThresholdMa(),
+                        c.fullRecruitmentMa(), c.pulseWidthUs(), c.electrodeAreaCm2()));
     }
 
     private EngineSimulationRequestBody.CentralDrive toBody(CentralDrive drive) {

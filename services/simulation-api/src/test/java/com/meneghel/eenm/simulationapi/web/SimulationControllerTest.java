@@ -12,6 +12,7 @@ import com.meneghel.eenm.simulationapi.domain.event.SimulationEvent;
 import com.meneghel.eenm.simulationapi.domain.muscle.MusclePreset;
 import com.meneghel.eenm.simulationapi.domain.simulation.CalibrationTarget;
 import com.meneghel.eenm.simulationapi.domain.simulation.Condition;
+import com.meneghel.eenm.simulationapi.domain.simulation.Electrode;
 import com.meneghel.eenm.simulationapi.domain.simulation.StimulationSite;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModelVariant;
 import com.meneghel.eenm.simulationapi.domain.simulation.MotorUnitCounts;
@@ -198,6 +199,39 @@ class SimulationControllerTest {
                 })
                 .expectComplete()
                 .verify(Duration.ofSeconds(10));
+    }
+
+    @Test
+    void electrodeIsPassedToTheEngine() {
+        when(engine.stream(any())).thenReturn(Flux.just(SampleEvents.started(), SampleEvents.completed()));
+
+        post("{\"modelVariant\":\"LITERATURE\",\"electrode\":{\"shape\":\"RECTANGLE\",\"widthCm\":5,"
+                + "\"lengthCm\":9,\"fatThicknessCm\":1.2,\"effectModel\":\"NONE\","
+                + "\"calibration\":{\"motorThresholdMa\":18,\"pulseWidthUs\":300}}}")
+                .expectStatus().isOk().returnResult(SSE).getResponseBody().blockLast();
+
+        ArgumentCaptor<SimulationRequest> request = ArgumentCaptor.forClass(SimulationRequest.class);
+        verify(engine).stream(request.capture());
+        Electrode electrode = request.getValue().electrode();
+        assertThat(electrode.shape()).isEqualTo(Electrode.Shape.RECTANGLE);
+        assertThat(electrode.areaCm2()).isEqualTo(45.0);
+        assertThat(electrode.fatThicknessCm()).isEqualTo(1.2);
+        assertThat(electrode.effectModel()).isEqualTo(Electrode.EffectModel.NONE);
+        assertThat(electrode.calibration().motorThresholdMa()).isEqualTo(18.0);
+    }
+
+    @Test
+    void outOfRangeElectrodeFieldsAreAProblem() {
+        post("{\"modelVariant\":\"LITERATURE\",\"electrode\":{\"fatThicknessCm\":4,\"axonDepthCm\":0.05,"
+                + "\"calibration\":{\"motorThresholdMa\":18,\"pulseWidthUs\":5000}}}")
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.errors.length()").isEqualTo(3)
+                .jsonPath("$.errors[?(@.field == 'electrode.fatThicknessCm')].message").isEqualTo("must be between 0 and 3")
+                .jsonPath("$.errors[?(@.field == 'electrode.axonDepthCm')].message").isEqualTo("must be between 0.1 and 1.1")
+                .jsonPath("$.errors[?(@.field == 'electrode.calibration.pulseWidthUs')].message")
+                .isEqualTo("must be between 20 and 1000");
+        verify(engine, never()).stream(any());
     }
 
     @Test

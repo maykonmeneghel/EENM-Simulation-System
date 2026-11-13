@@ -26,7 +26,29 @@ record EngineSimulationRequestBody(
         double outputStepMs,
         @JsonInclude(JsonInclude.Include.NON_NULL) CentralDrive centralDrive,
         @JsonInclude(JsonInclude.Include.NON_NULL) Output output,
-        Joint joint) {
+        Joint joint,
+        @JsonInclude(JsonInclude.Include.NON_NULL) Electrode electrode) {
+
+    EngineSimulationRequestBody(Stimulus stimulus, String modelVariant, String calibrationTarget,
+            String stimulationSite, String condition, List<String> conditionAdjustments, String muscle,
+            UnitCounts unitsPerType, double axonLengthPercent, double temperatureCelsius, String injectionSite,
+            String somaGeometry, String dendriteGeometry, long seed, double outputStepMs, CentralDrive centralDrive,
+            Output output, Joint joint) {
+        this(stimulus, modelVariant, calibrationTarget, stimulationSite, condition, conditionAdjustments, muscle,
+                unitsPerType, axonLengthPercent, temperatureCelsius, injectionSite, somaGeometry, dendriteGeometry, seed,
+                outputStepMs, centralDrive, output, joint, null);
+    }
+
+    /** Unset fields are left out, so the engine applies the muscle's default electrode and effect. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    record Electrode(String shape, Double widthCm, Double lengthCm, Double diameterCm, Double fatThicknessCm,
+            Double axonDepthCm, String effectModel, Calibration calibration) {
+    }
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    record Calibration(Double motorThresholdMa, Double fullRecruitmentMa, Double pulseWidthUs,
+            Double electrodeAreaCm2) {
+    }
 
     record Output(boolean unitEvents) {
     }

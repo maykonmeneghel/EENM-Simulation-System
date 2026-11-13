@@ -30,7 +30,8 @@ final class SimulationRequestDtoMapper {
                 dto.centralDrive() == null ? null : dto.centralDrive().toDomain(),
                 dto.output() == null ? null : dto.output().unitEvents(),
                 dto.joint() == null ? null : dto.joint().peakForce(),
-                dto.joint() == null ? null : dto.joint().passive());
+                dto.joint() == null ? null : dto.joint().passive(),
+                dto.electrode() == null ? null : dto.electrode().toDomain());
     }
 
     private StimulusDraft toDraft(StimulusDto dto) {

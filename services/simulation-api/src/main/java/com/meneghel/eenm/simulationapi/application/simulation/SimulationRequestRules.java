@@ -1,12 +1,14 @@
 package com.meneghel.eenm.simulationapi.application.simulation;
 
 import com.meneghel.eenm.simulationapi.domain.muscle.MusclePreset;
+import com.meneghel.eenm.simulationapi.domain.simulation.Electrode;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModelVariant;
 import com.meneghel.eenm.simulationapi.domain.simulation.Modulation;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModulationShape;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModulationTarget;
 import com.meneghel.eenm.simulationapi.domain.simulation.MotorUnitCounts;
 import com.meneghel.eenm.simulationapi.domain.simulation.SimulationRequest;
+import com.meneghel.eenm.simulationapi.domain.simulation.StimulationSite;
 import com.meneghel.eenm.simulationapi.domain.simulation.Stimulus;
 import com.meneghel.eenm.simulationapi.domain.simulation.Waveform;
 import java.math.BigDecimal;
@@ -25,6 +27,9 @@ public final class SimulationRequestRules {
     private static final String TRAIN_ON = "stimulus.trainOnMs";
     private static final String TRAIN_PERIOD = "stimulus.trainPeriodMs";
     private static final String PULSE_WIDTH = "stimulus.pulseWidthUs";
+    /** Electrode area range (Kuhn 2010: 0.64 cm²; Alon 1985: 81 cm²). */
+    static final double ELECTRODE_MIN_AREA_CM2 = 0.5;
+    static final double ELECTRODE_MAX_AREA_CM2 = 100;
 
     private final SimulationLimits limits;
 
@@ -45,6 +50,7 @@ public final class SimulationRequestRules {
         checkStimulator(request.stimulus(), violations);
         checkOutputStep(request, violations);
         checkUnitEvents(request, violations);
+        checkElectrode(request, violations);
         request.requestedUnits().ifPresent(units -> checkAtLeastOneUnit(units, violations));
         return List.copyOf(violations);
     }
@@ -140,6 +146,53 @@ public final class SimulationRequestRules {
         if (request.unitEvents() && request.stimulus().durationMs() > max + LIMIT_TOLERANCE) {
             violations.add(new FieldViolation("output.unitEvents", "needs stimulus.durationMs at most " + format(max)
                     + " (the 3D replay is limited to " + format(max / 1000) + " s)"));
+        }
+    }
+
+    /** Electrode rules of {@code docs/design/electrode.md} §5–6 that involve more than one field. */
+    private void checkElectrode(SimulationRequest request, List<FieldViolation> violations) {
+        Electrode electrode = request.electrode();
+        if (electrode == null) {
+            return;
+        }
+        if (request.modelVariant() != ModelVariant.LITERATURE
+                || request.stimulationSite() != StimulationSite.SKIN_SURFACE) {
+            violations.add(new FieldViolation("electrode", "applies only to modelVariant LITERATURE with "
+                    + "stimulationSite SKIN_SURFACE"));
+            return;
+        }
+        if (electrode.shape() == Electrode.Shape.ROUND
+                && (electrode.widthCm() != null || electrode.lengthCm() != null)) {
+            violations.add(new FieldViolation("electrode.shape", "ROUND takes diameterCm, not widthCm / lengthCm"));
+        } else if (electrode.shape() == Electrode.Shape.RECTANGLE && electrode.diameterCm() != null) {
+            violations.add(new FieldViolation("electrode.shape", "RECTANGLE takes widthCm and lengthCm, not diameterCm"));
+        } else if (electrode.shape() == null && (electrode.widthCm() != null || electrode.lengthCm() != null
+                || electrode.diameterCm() != null)) {
+            violations.add(new FieldViolation("electrode.shape", "is required with a size"));
+        }
+        Double area = electrode.areaCm2();
+        if (area != null && (area < ELECTRODE_MIN_AREA_CM2 - LIMIT_TOLERANCE
+                || area > ELECTRODE_MAX_AREA_CM2 + LIMIT_TOLERANCE)) {
+            String field = electrode.shape() == Electrode.Shape.ROUND ? "electrode.diameterCm" : "electrode.widthCm";
+            violations.add(new FieldViolation(field, "gives an area of " + format(Math.round(area * 100) / 100.0)
+                    + " cm²; it must be between " + format(ELECTRODE_MIN_AREA_CM2) + " and "
+                    + format(ELECTRODE_MAX_AREA_CM2) + " cm²"));
+        }
+        Electrode.Calibration c = electrode.calibration();
+        if (c == null) {
+            return;
+        }
+        if (c.motorThresholdMa() == null) {
+            violations.add(new FieldViolation("electrode.calibration.motorThresholdMa", "is required"));
+        }
+        if (c.pulseWidthUs() == null) {
+            violations.add(new FieldViolation("electrode.calibration.pulseWidthUs", "is required"));
+        }
+        if (c.motorThresholdMa() != null && c.fullRecruitmentMa() != null
+                && c.fullRecruitmentMa() <= c.motorThresholdMa()) {
+            violations.add(new FieldViolation("electrode.calibration.fullRecruitmentMa",
+                    "must be greater than electrode.calibration.motorThresholdMa (" + format(c.motorThresholdMa())
+                            + ")"));
         }
     }
 

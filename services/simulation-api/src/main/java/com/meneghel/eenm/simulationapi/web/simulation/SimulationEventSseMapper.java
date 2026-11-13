@@ -22,7 +22,8 @@ final class SimulationEventSseMapper {
             case SimulationStarted started -> new SimulationEventPayloads.Started(started.type(),
                     started.simulationId(), started.durationMs(), started.outputStepMs(),
                     MotorUnitCountsPayload.from(started.motorUnits()), started.muscle(), started.maxForce(),
-                    started.electrodeFraction(), started.units(), started.stepMs(), started.joint());
+                    started.electrodeFraction(), started.units(), started.stepMs(), started.joint(),
+                    started.electrode(), started.amplitudeUnit());
             case SimulationChunk chunk -> new SimulationEventPayloads.Chunk(chunk.type(), chunk.progress(),
                     chunk.timeMs(), chunk.stimulus(), toPayload(chunk.force()), chunk.emg(), toPayload(chunk.fatigue()),
                     toPayload(chunk.axonEvents()), chunk.unitEvents(), chunk.joint());

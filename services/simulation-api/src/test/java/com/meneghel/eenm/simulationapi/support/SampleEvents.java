@@ -4,6 +4,7 @@ import com.meneghel.eenm.simulationapi.domain.event.FatigueSnapshot;
 import com.meneghel.eenm.simulationapi.domain.event.ForceSeries;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationChunk;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationCompleted;
+import com.meneghel.eenm.simulationapi.domain.event.RunElectrode;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationStarted;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationSummary;
 import com.meneghel.eenm.simulationapi.domain.event.UnitAnatomy;
@@ -41,7 +42,23 @@ public final class SampleEvents {
     public static String startedLine() {
         return "{\"type\":\"started\",\"simulationId\":\"sim-1\",\"durationMs\":1000,\"outputStepMs\":0.1,"
                 + "\"motorUnits\":{\"S\":5,\"FR\":2,\"FF\":2},\"muscle\":\"SOLEUS\",\"maxForce\":5.1754,"
-                + "\"electrodeFraction\":null,\"units\":null,\"stepMs\":null,\"joint\":null}";
+                + "\"electrodeFraction\":null,\"units\":null,\"stepMs\":null,\"joint\":null,"
+                + "\"electrode\":null,\"amplitudeUnit\":null}";
+    }
+
+    /** A skin-surface run's started event, with the electrode it used and the amplitude in mA (calibrated). */
+    public static String startedWithElectrodeLine() {
+        return startedLine().replace("\"electrode\":null,\"amplitudeUnit\":null", "\"electrode\":{"
+                + "\"shape\":\"RECTANGLE\",\"widthCm\":5.0,\"lengthCm\":9.0,\"diameterCm\":null,\"areaCm2\":45.0,"
+                + "\"fatThicknessCm\":0.75,\"axonDepthCm\":0.5,\"effectModel\":\"HALF_SPACE_AF\","
+                + "\"thresholdFactor\":1.95,\"calibration\":{\"motorThresholdMa\":18.0,\"fullRecruitmentMa\":null,"
+                + "\"pulseWidthUs\":300.0,\"electrodeAreaCm2\":25.0}},\"amplitudeUnit\":\"MA\"");
+    }
+
+    public static SimulationStarted startedWithElectrode() {
+        return new SimulationStarted("sim-1", 1000, 0.1, new MotorUnitCounts(5, 2, 2), "SOLEUS", 5.1754, null, null,
+                null, null, new RunElectrode("RECTANGLE", 5.0, 9.0, null, 45.0, 0.75, 0.5, "HALF_SPACE_AF", 1.95,
+                        new RunElectrode.Calibration(18.0, null, 300.0, 25.0)), "MA");
     }
 
     /** {@code started} with the 3D view's unit table (two units, electrode at 90 %). */

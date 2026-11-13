@@ -74,7 +74,8 @@ public final class SimulationDefaults {
                 source.centralDrive(),
                 Boolean.TRUE.equals(source.unitEvents()),
                 new WristOptions(orDefault(source.wristPeakForce(), WristOptions.DEFAULT.peakForce()),
-                        orDefault(source.wristPassive(), WristOptions.DEFAULT.passive())));
+                        orDefault(source.wristPassive(), WristOptions.DEFAULT.passive())),
+                source.electrode());
     }
 
     private Stimulus resolve(StimulusDraft draft) {

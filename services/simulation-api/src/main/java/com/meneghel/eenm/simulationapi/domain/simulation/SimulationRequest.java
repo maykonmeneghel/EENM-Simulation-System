@@ -27,7 +27,9 @@ public record SimulationRequest(
         double outputStepMs,
         CentralDrive centralDrive,
         boolean unitEvents,
-        WristOptions wrist) {
+        WristOptions wrist,
+        Electrode electrode) {
+    // electrode: the surface electrode (LITERATURE + SKIN_SURFACE only); null = the muscle's default (engine).
     // centralDrive: null = none (the engine's default). unitEvents: stream the 3D replay's per-unit events.
     // wrist: the wrist model's choices (forearm runs; ignored by the engine for the leg muscles).
 
@@ -52,6 +54,16 @@ public record SimulationRequest(
         this(stimulus, modelVariant, calibrationTarget, stimulationSite, condition, conditionAdjustments, muscle,
                 unitsPerType, axonLengthPercent, temperatureCelsius, injectionSite, somaGeometry, dendriteGeometry,
                 seed, outputStepMs, centralDrive, unitEvents, WristOptions.DEFAULT);
+    }
+
+    public SimulationRequest(Stimulus stimulus, ModelVariant modelVariant, CalibrationTarget calibrationTarget,
+            StimulationSite stimulationSite, Condition condition, List<String> conditionAdjustments, Muscle muscle,
+            MotorUnitCounts unitsPerType, double axonLengthPercent, double temperatureCelsius,
+            InjectionSite injectionSite, CompartmentGeometry somaGeometry, CompartmentGeometry dendriteGeometry,
+            long seed, double outputStepMs, CentralDrive centralDrive, boolean unitEvents, WristOptions wrist) {
+        this(stimulus, modelVariant, calibrationTarget, stimulationSite, condition, conditionAdjustments, muscle,
+                unitsPerType, axonLengthPercent, temperatureCelsius, injectionSite, somaGeometry, dendriteGeometry,
+                seed, outputStepMs, centralDrive, unitEvents, wrist, null);
     }
 
     public SimulationRequest {

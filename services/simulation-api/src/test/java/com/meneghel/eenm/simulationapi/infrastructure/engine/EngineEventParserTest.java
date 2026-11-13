@@ -33,6 +33,11 @@ class EngineEventParserTest {
     }
 
     @Test
+    void parsesTheElectrodeOfASkinSurfaceRunAndItsAmplitudeUnit() {
+        assertThat(parser.parse(SampleEvents.startedWithElectrodeLine())).contains(SampleEvents.startedWithElectrode());
+    }
+
+    @Test
     void parsesTheWristOfAForearmRun() {
         assertThat(parser.parse(SampleEvents.startedWithJointLine())).contains(SampleEvents.startedWithJoint());
         assertThat(parser.parse(SampleEvents.chunkWithJointLine())).contains(SampleEvents.chunkWithJoint());

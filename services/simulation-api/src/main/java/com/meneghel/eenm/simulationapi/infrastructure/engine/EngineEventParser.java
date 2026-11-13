@@ -17,6 +17,7 @@ import com.meneghel.eenm.simulationapi.domain.event.SimulationChunk;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationCompleted;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationEvent;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationFailed;
+import com.meneghel.eenm.simulationapi.domain.event.RunElectrode;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationStarted;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationSummary;
 import com.meneghel.eenm.simulationapi.domain.event.UnitAnatomy;
@@ -81,7 +82,31 @@ final class EngineEventParser {
                 optionalNumber(node, "electrodeFraction"),
                 units(node.get("units")),
                 optionalNumber(node, "stepMs"),
-                wristJoint(node.get("joint")));
+                wristJoint(node.get("joint")),
+                runElectrode(node.get("electrode")),
+                optionalText(node, "amplitudeUnit"));
+    }
+
+    /** Absent or {@code null} outside skin-surface LITERATURE runs (or from an engine older than the field). */
+    private static RunElectrode runElectrode(JsonNode node) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        if (!node.isObject()) {
+            throw new EngineProtocolException("Engine field 'electrode' must be an object");
+        }
+        JsonNode c = node.get("calibration");
+        RunElectrode.Calibration calibration = c == null || c.isNull() ? null
+                : new RunElectrode.Calibration(number(c, "motorThresholdMa"), optionalNumber(c, "fullRecruitmentMa"),
+                        number(c, "pulseWidthUs"), optionalNumber(c, "electrodeAreaCm2"));
+        return new RunElectrode(text(node, "shape"), optionalNumber(node, "widthCm"), optionalNumber(node, "lengthCm"),
+                optionalNumber(node, "diameterCm"), number(node, "areaCm2"), number(node, "fatThicknessCm"),
+                number(node, "axonDepthCm"), text(node, "effectModel"), number(node, "thresholdFactor"), calibration);
+    }
+
+    private static String optionalText(JsonNode node, String field) {
+        JsonNode value = node.get(field);
+        return value == null || value.isNull() ? null : text(node, field);
     }
 
     /** Absent or {@code null} outside forearm runs (or from an engine older than the field). */
