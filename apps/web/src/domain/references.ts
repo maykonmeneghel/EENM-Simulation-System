@@ -35,9 +35,56 @@ export type ReferenceId =
   | 'binderMarkey2023'
   | 'delp1996'
   | 'thelen2003'
-  | 'davidsonCharles2017';
+  | 'davidsonCharles2017'
+  | 'baier2024'
+  | 'lieberKelly1991'
+  | 'doheny2010'
+  | 'flodin2022'
+  | 'dogan2022';
 
 export const REFERENCES: Record<ReferenceId, Reference> = {
+  // the electrode sources (docs/research/electrode-literature.md), checked against Crossref on 2026-11-12
+  baier2024: {
+    id: 'baier2024',
+    authors: 'Baier J, Selkmann S, Bender B',
+    year: 2024,
+    title: 'Simulation of FES on the forearm with muscle-specific activation resolution',
+    venue: 'Front Bioeng Biotechnol 12:1384617',
+    doi: '10.3389/fbioe.2024.1384617',
+  },
+  lieberKelly1991: {
+    id: 'lieberKelly1991',
+    authors: 'Lieber RL, Kelly MJ',
+    year: 1991,
+    title: 'Factors Influencing Quadriceps Femoris Muscle Torque Using Transcutaneous Neuromuscular Electrical Stimulation',
+    venue: 'Phys Ther 71:715–721',
+    doi: '10.1093/ptj/71.10.715',
+  },
+  doheny2010: {
+    id: 'doheny2010',
+    authors: 'Doheny EP, Caulfield BM, Minogue CM, Lowery MM',
+    year: 2010,
+    title: 'Effect of subcutaneous fat thickness and surface electrode configuration during neuromuscular electrical stimulation',
+    venue: 'Med Eng Phys 32:468–474',
+    doi: '10.1016/j.medengphy.2010.03.004',
+  },
+  flodin2022: {
+    id: 'flodin2022',
+    authors: 'Flodin J, Juthberg R, Ackermann PW',
+    year: 2022,
+    title:
+      'Effects of electrode size and placement on comfort and efficiency during low-intensity neuromuscular electrical stimulation of quadriceps, hamstrings and gluteal muscles',
+    venue: 'BMC Sports Sci Med Rehabil 14:11',
+    doi: '10.1186/s13102-022-00403-7',
+  },
+  dogan2022: {
+    id: 'dogan2022',
+    authors: 'Doğan Y, Kara M, Culha MA, Özçakar L, Kaymak B',
+    year: 2022,
+    title: 'The relationship between vitamin D deficiency, body composition, and physical/cognitive functions',
+    venue: 'Arch Osteoporos 17:66',
+    doi: '10.1007/s11657-022-01109-6',
+  },
   booth1997: {
     id: 'booth1997',
     authors: 'Booth V, Rinzel J, Kiehn O',

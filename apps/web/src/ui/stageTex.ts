@@ -330,22 +330,68 @@ function stage2b(s: ModelSnapshot): StageContent {
           ),
         ]
       : undefined;
+  const e = s.electrode;
+  const x = e?.excitability ?? null;
+  const g = x?.g ?? 1;
+  const rhMin = x?.rheobaseMin ?? CONSTANTS.rheobaseMin;
+  const spread = x?.rheobaseSpread ?? CONSTANTS.rheobaseSpread;
+  const calibration = e?.input.calibration ?? null;
+  const unitText = x?.unit === 'MA' ? '\\ \\text{mA}' : '';
+  const symbolic = [
+    e
+      ? 'A \\;\\ge\\; G\\, I_{rh,k}\\left(1 + \\frac{\\tau_{SD}}{PW}\\right), \\qquad \\tau_{SD} = 0{,}459\\ \\text{ms} \\;\\text{(Mogyoros et al. 1996)}'
+      : 'A \\;\\ge\\; I_{rh,k}\\left(1 + \\frac{\\tau_{SD}}{PW}\\right), \\qquad \\tau_{SD} = 0{,}459\\ \\text{ms} \\;\\text{(Mogyoros et al. 1996)}',
+    calibration
+      ? `I_{rh,k} \\in [I_{rh,\\min},\\ R\\, I_{rh,\\min}], \\qquad I_{rh,\\min} = \\frac{I_{MT}}{1 + \\tau_{SD}/PW_c}, \\qquad R = ${
+          calibration.fullRecruitmentMa ? '\\frac{I_{full}}{I_{MT}}' : '\\frac{102{,}1}{56{,}9}'
+        }`
+      : 'I_{rh,k} \\in [I_{rh,\\min},\\ R\\, I_{rh,\\min}], \\qquad I_{rh,\\min} = \\frac{56{,}9}{1 + 0{,}459/0{,}3}, \\qquad R = \\frac{102{,}1}{56{,}9}',
+  ];
+  const substituted = [
+    `I_{rh,\\min} = ${texNum(rhMin, 4)}${unitText}, \\qquad R = ${texNum(spread, 4)}`,
+    `${texNum(st.amplitude)} \\;\\ge\\; ${e ? `${texNum(g, 3)}\\, ` : ''}I_{rh,k}\\left(1 + \\frac{${texNum(tau, 3)}}{${texNum(st.pwMs)}}\\right) = ${texNum(g * sd, 3)}\\, I_{rh,k}`,
+    r
+      ? `${e ? 'G\\, ' : ''}I_{rh,\\min}\\left(1 + \\frac{\\tau_{SD}}{PW}\\right) = ${e ? `${texNum(g, 3)} \\cdot ` : ''}${texNum(rhMin, 3)} \\cdot ${texNum(sd, 3)} = ${texNum(r.thresholdMin, 1)} \\;\\ldots\\; \\times R = ${texNum(r.thresholdMax, 1)}${unitText}`
+      : `\\text{${L('PW inválido', 'invalid PW')}}`,
+  ];
+  if (e) {
+    if (e.effectModel === 'HALF_SPACE_AF') {
+      symbolic.push(
+        'G = \\frac{\\max_{x} \\mathrm{AF}(a_{ref},\\, d_{ref},\\, x)}{\\max_{x} \\mathrm{AF}(a,\\, d,\\, x)}, \\qquad a = \\sqrt{S/\\pi}, \\qquad d = f + h',
+        '\\mathrm{AF}(0) = -\\frac{\\rho\\, I}{2\\pi\\,(a^2 + d^2)^{3/2}} \\quad \\text{(' + L('disco sobre meio semi-infinito; o máximo pode ficar sob a borda', 'disk on a half-space; the maximum may lie under the edge') + ')}',
+      );
+      substituted.push(
+        `S = ${texNum(e.areaCm2, 2)}\\ \\text{cm}^2,\\ a = ${texNum(e.radiusCm, 3)},\\ f = ${texNum(e.input.electrode.fatThicknessCm, 2)},\\ h = ${texNum(e.input.electrode.axonDepthCm, 2)},\\ d = ${texNum(e.depthCm, 3)}\\ \\text{cm}`,
+        `a_{ref} = ${texNum(e.refRadiusCm, 3)},\\ d_{ref} = ${texNum(e.refDepthCm, 3)}\\ \\text{cm} \\;\\Rightarrow\\; G = ${texNum(g, 3)}`,
+      );
+      if (calibration) symbolic.push('a_{ref} = \\sqrt{S_c/\\pi}, \\qquad d_{ref} = d \\quad \\text{(' + L('eletrodo da medida', 'measurement electrode') + ')}');
+    } else {
+      symbolic.push('G = 1 \\quad \\text{(Lieber \\& Kelly 1991)}');
+      substituted.push(`G = 1`);
+    }
+    notes.push(
+      e.effectModel === 'HALF_SPACE_AF'
+        ? L(
+            'Eletrodo: fórmula derivada — modelo derivado, magnitude ilustrativa, não validada. A direção bate com as medidas (eletrodo maior ou gordura mais grossa pedem mais corrente: Alon 1994, Doheny 2010, Flodin 2022), mas o meio homogêneo exagera o efeito do tamanho para alvos rasos (teste V5, falha esperada). No eletrodo, gordura e profundidade padrão do músculo, G = 1.',
+            'Electrode: derived formula — derived model, illustrative magnitude, not validated. The direction matches the measurements (a larger electrode or thicker fat needs more current: Alon 1994, Doheny 2010, Flodin 2022), but the homogeneous medium overstates the size effect for shallow targets (test V5, expected failure). At the muscle\'s default electrode, fat and depth, G = 1.',
+          )
+        : L('Eletrodo: sem efeito do tamanho (Lieber & Kelly 1991), G = 1.', 'Electrode: no effect of size (Lieber & Kelly 1991), G = 1.'),
+    );
+    if (calibration)
+      notes.push(
+        L(
+          'Calibrado com a sua medida: a amplitude está em mA; I_rh,min e R vêm do limiar motor (e do recrutamento total) medidos.',
+          'Calibrated with your measurement: the amplitude is in mA; I_rh,min and R come from the measured motor threshold (and full recruitment).',
+        ),
+      );
+  }
   return {
     ...(condition ? { condition } : {}),
     id: '2b',
     title: L('Axônio motor (Weiss)', 'Motor axon (Weiss)'),
-    source: 'domain/axon_stimulation.py',
-    symbolic: [
-      'A \\;\\ge\\; I_{rh,k}\\left(1 + \\frac{\\tau_{SD}}{PW}\\right), \\qquad \\tau_{SD} = 0{,}459\\ \\text{ms} \\;\\text{(Mogyoros et al. 1996)}',
-      'I_{rh,k} \\in [I_{rh,\\min},\\ R\\, I_{rh,\\min}], \\qquad I_{rh,\\min} = \\frac{56{,}9}{1 + 0{,}459/0{,}3}, \\qquad R = \\frac{102{,}1}{56{,}9}',
-    ],
-    substituted: [
-      `I_{rh,\\min} = ${texNum(CONSTANTS.rheobaseMin, 4)}, \\qquad R = ${texNum(CONSTANTS.rheobaseSpread, 4)}`,
-      `${texNum(st.amplitude)} \\;\\ge\\; I_{rh,k}\\left(1 + \\frac{0{,}459}{${texNum(st.pwMs)}}\\right) = ${texNum(sd, 3)}\\, I_{rh,k}`,
-      r
-        ? `I_{rh,\\min}\\left(1 + \\frac{\\tau_{SD}}{PW}\\right) = ${texNum(CONSTANTS.rheobaseMin, 3)} \\cdot ${texNum(sd, 3)} = ${texNum(r.thresholdMin, 1)} \\;\\ldots\\; \\times R = ${texNum(r.thresholdMax, 1)}`
-        : `\\text{${L('PW inválido', 'invalid PW')}}`,
-    ],
+    source: e ? 'domain/axon_stimulation.py, domain/electrode.py' : 'domain/axon_stimulation.py',
+    symbolic,
+    substituted,
     notes,
     ...(status ? { status } : {}),
   };
