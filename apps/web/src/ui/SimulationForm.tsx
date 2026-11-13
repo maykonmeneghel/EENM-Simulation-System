@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { Dispatch, FormEvent, ReactNode, SetStateAction } from 'react';
 import type { FieldPath, FormFlags, FormNotice, FormValues } from '../application/formModel';
 import {
+  changeMuscle,
   defaultFormValues,
   driveActive,
   inactiveFields,
@@ -162,7 +163,7 @@ export function SimulationForm({
   };
 
   const update = (path: FieldPath, value: string) => {
-    setValues((v) => ({ ...v, [path]: value }));
+    setValues((v) => (path === 'muscle' ? changeMuscle(v, value) : { ...v, [path]: value }));
     touch([path]);
   };
 

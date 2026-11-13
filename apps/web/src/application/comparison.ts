@@ -94,6 +94,14 @@ const IGNORED: ReadonlySet<string> = new Set(['autoUnits']);
 
 const show = (v: unknown): string => (Array.isArray(v) ? v.join(', ') : typeof v === 'boolean' ? (v ? '✓' : '—') : String(v ?? ''));
 
+/**
+ * Unit of each run's amplitude: mA when the run was calibrated with the user's measurement, else the model unit (runs
+ * saved before the electrode existed have no calibration). Amplitudes in different units are not overlaid.
+ */
+export function amplitudeUnit(s: { request: SavedSimulation['request'] }): 'MA' | 'MODEL_UNIT' {
+  return s.request.electrode?.calibration ? 'MA' : 'MODEL_UNIT';
+}
+
 /** The settings (as form fields) whose value is not the same in every compared simulation. */
 export function differingFields(sims: readonly { request: SavedSimulation['request'] }[]): { key: string; values: string[] }[] {
   if (sims.length < 2) return [];

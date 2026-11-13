@@ -78,5 +78,5 @@ describe('the whole app in English', () => {
       expect(portugueseIn(shownText(container)), step).toEqual([]);
     }
     expect(screen.getByRole('contentinfo')).toHaveTextContent('Built by Maykon Meneghel');
-  });
+  }, 20_000); // walks every step of the whole app: about 4 s alone, more when the suite runs in parallel
 });

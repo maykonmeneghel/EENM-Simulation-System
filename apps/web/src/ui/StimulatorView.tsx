@@ -3,9 +3,12 @@ import type { ReactNode } from 'react';
 import type { InspectorTopic } from '../application/inspectorTopics';
 import type { Dispatch, SetStateAction } from 'react';
 import type { FieldPath, FormValues } from '../application/formModel';
-import { partitionFieldErrors, stepNumber } from '../application/formModel';
+import { electrodeActive, electrodeInput, partitionFieldErrors, stepNumber } from '../application/formModel';
+import type { Excitability } from '../domain/electrode';
+import { excitability } from '../domain/electrode';
 import { settingsFromForm } from '../application/stimulatorForm';
-import { axonRecruitment } from '../domain/modelEquations';
+import { axonRecruitment, CONSTANTS } from '../domain/modelEquations';
+import { ElectrodeSection } from './ElectrodeSection';
 import type { FieldError, StimulationSite } from '../domain/simulation';
 import type { Point, StimulatorSettings, StimulatorWaveform } from '../domain/stimulator';
 import {
@@ -130,12 +133,12 @@ function PulseScope({ s }: { s: StimulatorSettings }) {
   );
 }
 
-function EnvelopeScope({ s }: { s: StimulatorSettings }) {
+function EnvelopeScope({ s, excit }: { s: StimulatorSettings; excit: Excitability | null }) {
   const [measureSvg, svgScale] = useSvgScale(W);
   const windowMs = envelopeWindowMs(s);
   const outline = envelopeOutline(s, windowMs);
   // every pulse (a stride would skip short trains in a long run), then only where the fraction changes
-  const recruit = pulseRecruitment(s, windowMs, Infinity);
+  const recruit = pulseRecruitment(s, windowMs, Infinity, excit);
   const sx = scale([0, windowMs], [PAD.l, W - PAD.r]);
   const sy = scale([0, ampRange(s) * 1.15], [H - PAD.b, PAD.t]);
   const sr = scale([0, 1.15], [H - PAD.b, PAD.t]);
@@ -426,14 +429,24 @@ function useStimulator(values: FormValues, errors: readonly FieldError[]) {
   const { byField } = useMemo(() => partitionFieldErrors(errors), [errors]);
   const settings = useMemo(() => settingsFromForm(values), [values]);
   const problems = settings ? stimulatorProblems(settings) : [];
-  const plateau = settings ? axonRecruitment(settings.amplitude, settings.pulseWidthUs / 1000) : null;
+  // the electrode's G (and the calibrated rheobases) on skin-surface LITERATURE runs; null elsewhere (G = 1)
+  const excit = useMemo(() => {
+    if (!electrodeActive(values)) return null;
+    const input = electrodeInput(values);
+    return input
+      ? excitability(values.muscle, input, { tauSdMs: CONSTANTS.tauSdMs, rheobaseMin: CONSTANTS.rheobaseMin, rheobaseSpread: CONSTANTS.rheobaseSpread })
+      : null;
+  }, [values]);
+  const electrodeInvalid = electrodeActive(values) && excit === null;
+  const plateau = settings && !electrodeInvalid ? axonRecruitment(settings.amplitude, settings.pulseWidthUs / 1000, CONSTANTS.tauSdMs, excit) : null;
   const plateauPct = plateau ? Math.round((plateau.status === 'none' ? 0 : plateau.fraction) * 100) : null;
-  return { byField, settings, problems, plateau, plateauPct };
+  const amplitudeUnit = excit?.unit === 'MA' ? 'mA' : null;
+  return { byField, settings, problems, plateau, plateauPct, excit, amplitudeUnit };
 }
 
 /** The device's controls (left sidebar, step 1): mode, dials, waveform, trains and ramps. */
 export function StimulatorControls({ values, onValuesChange: setValues, errors, running }: StimulatorViewProps) {
-  const { byField, settings, plateau, plateauPct } = useStimulator(values, errors);
+  const { byField, settings, plateau, plateauPct, excit, amplitudeUnit } = useStimulator(values, errors);
   const duration = parse(values['stimulus.durationMs']);
   const onTime = parse(values['stimulus.trainOnMs']);
   const trainPeriod = onTime + parse(values['stimulus.trainOffMs']);
@@ -493,10 +506,22 @@ export function StimulatorControls({ values, onValuesChange: setValues, errors, 
         />
       </div>
 
+      {electrodeActive(values) ? (
+        <ElectrodeSection
+          values={values}
+          setValues={setValues}
+          byField={byField}
+          running={running}
+          excitability={excit}
+          plateau={plateau}
+          pulseWidthUs={settings?.pulseWidthUs ?? null}
+        />
+      ) : null}
+
       <div className="dial-grid">
         {dial(C.frequency)}
         {dial(C.pulseWidth)}
-        {dial(C.amplitude)}
+        {dial(amplitudeUnit ? { ...C.amplitude, unit: amplitudeUnit, hint: tr({ 'pt-BR': 'calibrado com a sua medida', en: 'calibrated with your measurement' }) } : C.amplitude)}
         <div className="dial dial--wide">
           <span className="dial-label" id="stim-waveform-label">
             {tr({ 'pt-BR': 'Forma de onda', en: 'Waveform' })}
@@ -538,8 +563,8 @@ export function StimulatorControls({ values, onValuesChange: setValues, errors, 
           {plateau ? (
             <small className="dial-hint">
               {tr({
-                'pt-BR': `Limiar com ${fmt(settings!.pulseWidthUs, 0)} µs: primeira unidade em ${fmt(plateau.thresholdMin)}, todas em ${fmt(plateau.thresholdMax)}.`,
-                en: `Threshold at ${fmt(settings!.pulseWidthUs, 0)} µs: first unit at ${fmt(plateau.thresholdMin)}, all at ${fmt(plateau.thresholdMax)}.`,
+                'pt-BR': `Limiar com ${fmt(settings!.pulseWidthUs, 0)} µs: primeira unidade em ${fmt(plateau.thresholdMin)}, todas em ${fmt(plateau.thresholdMax)}${amplitudeUnit ? ' mA' : ''}${excit && excit.g !== 1 ? ` (eletrodo: G = ${fmt(excit.g, 2)})` : ''}.`,
+                en: `Threshold at ${fmt(settings!.pulseWidthUs, 0)} µs: first unit at ${fmt(plateau.thresholdMin)}, all at ${fmt(plateau.thresholdMax)}${amplitudeUnit ? ' mA' : ''}${excit && excit.g !== 1 ? ` (electrode: G = ${fmt(excit.g, 2)})` : ''}.`,
               })}
             </small>
           ) : null}
@@ -626,7 +651,7 @@ function InspectableCard({
 
 /** What the stimulator produces (centre column, step 1): the mode, the recruitment and the scopes. */
 export function StimulatorScopes({ values, errors, onInspect }: StimulatorScopesProps) {
-  const { settings, problems } = useStimulator(values, errors);
+  const { settings, problems, excit } = useStimulator(values, errors);
   const inspect = (topic: InspectorTopic) => (onInspect ? () => onInspect(topic) : undefined);
   const invasive = values.stimulationSite === 'MOTONEURON_POOL';
   return (
@@ -647,7 +672,7 @@ export function StimulatorScopes({ values, errors, onInspect }: StimulatorScopes
             <PulseScope s={settings} />
           </InspectableCard>
           <InspectableCard label={tr({ 'pt-BR': 'Envelope e trens', en: 'Envelope and trains' })} onInspect={inspect({ kind: 'scope', scope: 'envelope' })} className="scope-card">
-            <EnvelopeScope s={settings} />
+            <EnvelopeScope s={settings} excit={excit} />
           </InspectableCard>
         </>
       ) : !settings ? (

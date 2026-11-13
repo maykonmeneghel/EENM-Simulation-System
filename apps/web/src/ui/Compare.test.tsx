@@ -100,7 +100,7 @@ describe('saving runs and comparing them', () => {
     await user.click(within(list).getAllByRole('button', { name: 'Abrir parâmetros' })[1]!);
     expect(screen.getByRole('tab', { name: /Estimulador/ })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByLabelText('Amplitude')).toHaveValue('120');
-  });
+  }, 20_000); // two full runs through the app: about 3 s alone, more when the suite runs in parallel
 
   it('the Compare step says how to start when nothing is saved', async () => {
     const api = fakeApi();

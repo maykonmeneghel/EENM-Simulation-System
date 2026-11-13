@@ -1,6 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormValues } from '../application/formModel';
-import { defaultFormValues, toFormValues } from '../application/formModel';
+import { changeMuscle, defaultFormValues, toFormValues } from '../application/formModel';
 import { SavedSimulations } from '../application/savedSimulations';
 import { MemorySavedSimulationStore } from '../infrastructure/savedSimulationStore';
 import type { InspectorTopic } from '../application/inspectorTopics';
@@ -347,7 +347,7 @@ export function App({
                   joint={controller.joint}
                   axonLengthPercent={state.request?.axonLengthPercent ?? Number(values.axonLengthPercent)}
                   muscleLabel={muscleLabel}
-                  onUseMuscle={(id) => setValues((v) => ({ ...v, muscle: id }))}
+                  onUseMuscle={(id) => setValues((v) => changeMuscle(v, id))}
                 />
               </Suspense>
             ) : step === 'compare' ? (

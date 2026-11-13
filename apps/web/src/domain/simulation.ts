@@ -2,6 +2,7 @@
  * Types mirroring docs/contracts.md (SimulationRequest, stream events, muscle presets).
  * All times in milliseconds; JSON is camelCase.
  */
+import type { ElectrodeRequest, RunElectrode } from './electrode';
 
 /** BIPHASIC = FES.m's raw square wave; BIPHASIC_SYMMETRIC = a stimulator's +A/−A pulse (needs pulseWidthUs). */
 export const WAVEFORMS = ['MONOPHASIC', 'BIPHASIC', 'BIPHASIC_SYMMETRIC'] as const;
@@ -145,6 +146,11 @@ export interface SimulationRequest {
   output?: { unitEvents: boolean };
   /** Wrist model choices where the sources disagree (FCR / ECR runs); omitted = SAUL_2015 / LINEAR. */
   joint?: WristOptions;
+  /**
+   * Surface electrode (LITERATURE + SKIN_SURFACE only). Omitted = the muscle's default electrode with the default
+   * effect, where G = 1 (runs saved before the field re-run identically).
+   */
+  electrode?: ElectrodeRequest;
 }
 
 export const WRIST_PEAK_FORCES = ['SAUL_2015', 'DIRECT_SPECIFIC_TENSION'] as const;
@@ -194,6 +200,10 @@ export interface StartedEvent {
   stepMs?: number | null;
   /** Wrist joint driven by the stimulated muscle (FCR / ECR runs of the LITERATURE model), else null. */
   joint?: WristJointModel | null;
+  /** The electrode the run used and its threshold factor G (skin-surface LITERATURE runs), else null. */
+  electrode?: RunElectrode | null;
+  /** MA when the run was calibrated in mA; MODEL_UNIT otherwise; older servers omit it. */
+  amplitudeUnit?: 'MODEL_UNIT' | 'MA' | null;
 }
 
 /** Constants of the 1-DOF wrist (engine `domain/wrist_joint.py`; sources there). */

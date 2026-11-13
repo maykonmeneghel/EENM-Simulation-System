@@ -124,6 +124,64 @@ describe('StimulatorView', () => {
     expect(screen.getByLabelText('Frequência (controle deslizante)')).toBeDisabled();
   });
 
+  it('has an Electrode section on the skin only, with the sourced defaults, the effect options and G = 1', async () => {
+    const user = setup();
+    const section = screen.getByRole('group', { name: 'Eletrodo' });
+    expect(section).toHaveTextContent('5 × 5 cm · G = 1');
+    expect(screen.getByLabelText('Largura')).toHaveValue('5');
+    expect(screen.getByLabelText('Gordura subcutânea')).toHaveValue('0.75');
+    expect(screen.getByRole('radio', { name: /Fórmula derivada/ })).toBeChecked();
+    expect(section).toHaveTextContent('modelo derivado, magnitude ilustrativa, não validada');
+    expect(screen.getByRole('radio', { name: /Sem efeito — Lieber & Kelly 1991/ })).not.toBeChecked();
+    expect(section).toHaveTextContent('Sem efeito: o estimulador é de corrente constante');
+    expect(section).toHaveTextContent('Leitura: G = 1 · 1ª unidade 56,9 u.m. · todas 102,1 u.m.');
+    // the electrode position on the axon lives here now; it counts only with a central drive
+    expect(screen.getByLabelText('Posição no axônio (com comando central)')).toBeDisabled();
+    await user.click(screen.getByRole('radio', { name: 'Invasivo (pool)' }));
+    expect(screen.queryByRole('group', { name: 'Eletrodo' })).toBeNull();
+  });
+
+  it('a larger electrode needs more amplitude: the recruited fraction falls', async () => {
+    const user = setup();
+    const meter = screen.getByRole('meter', { name: 'Unidades recrutadas' });
+    expect(meter).toHaveAttribute('aria-valuenow', '100');
+    const length = screen.getByLabelText('Comprimento');
+    await user.clear(length);
+    await user.type(length, '9');
+    expect(Number(meter.getAttribute('aria-valuenow'))).toBeLessThan(100);
+    expect(screen.getByRole('group', { name: 'Eletrodo' })).toHaveTextContent(/G = 1,9/);
+    expect(request().electrode).toMatchObject({ widthCm: 5, lengthCm: 9 });
+    // the "no effect" option keeps G = 1
+    await user.click(screen.getByRole('radio', { name: /Sem efeito/ }));
+    expect(meter).toHaveAttribute('aria-valuenow', '100');
+    expect(request().electrode!.effectModel).toBe('NONE');
+  });
+
+  it('a measured fat thickness is one click, and a round pad keeps the area', async () => {
+    const user = setup();
+    await user.click(screen.getByRole('radio', { name: 'Redondo' }));
+    expect(screen.getByLabelText('Diâmetro')).toHaveValue('5.64'); // the disk of 25 cm²
+    expect(screen.getByRole('group', { name: 'Eletrodo' })).toHaveTextContent('G = 1');
+    expect(screen.getByRole('button', { name: '0,75 cm' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('calibrating in mA turns the amplitude into mA', async () => {
+    const user = setup();
+    await user.click(screen.getByRole('switch', { name: /Calibrar em mA/ }));
+    const mt = screen.getByLabelText('Limiar motor medido');
+    await user.type(mt, '18');
+    const full = screen.getByLabelText('Recrutamento total (opcional)');
+    await user.type(full, '40');
+    const amp = screen.getByLabelText('Amplitude');
+    await user.clear(amp);
+    await user.type(amp, '29');
+    expect(screen.getAllByText('mA').length).toBeGreaterThan(0);
+    expect(screen.getByRole('group', { name: 'Eletrodo' })).toHaveTextContent('1ª unidade 18 mA · todas 40 mA');
+    const meter = screen.getByRole('meter', { name: 'Unidades recrutadas' });
+    expect(meter).toHaveAttribute('aria-valuenow', '50'); // (29 − 18) / (40 − 18)
+    expect(request().electrode!.calibration).toEqual({ motorThresholdMa: 18, fullRecruitmentMa: 40, pulseWidthUs: 300, electrodeAreaCm2: 25 });
+  });
+
   it('settingsFromForm is null while a value is not a number', () => {
     expect(settingsFromForm(defaultFormValues())).not.toBeNull();
     expect(settingsFromForm({ ...defaultFormValues(), 'stimulus.pulseWidthUs': 'x' })).toBeNull();

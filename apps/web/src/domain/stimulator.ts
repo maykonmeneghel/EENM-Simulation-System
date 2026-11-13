@@ -155,14 +155,19 @@ export interface PulseRecruitment {
 }
 
 /** Amplitude and recruited fraction of every pulse in the window (for the recruitment trace). */
-export function pulseRecruitment(s: StimulatorSettings, windowMs = envelopeWindowMs(s), maxPulses = 4000): PulseRecruitment[] {
+export function pulseRecruitment(
+  s: StimulatorSettings,
+  windowMs = envelopeWindowMs(s),
+  maxPulses = 4000,
+  electrode?: { g: number; rheobaseMin: number; rheobaseSpread: number } | null,
+): PulseRecruitment[] {
   const period = periodMs(s);
   const stride = Math.max(1, Math.ceil(windowMs / period / maxPulses));
   const out: PulseRecruitment[] = [];
   for (let k = 0; k * period < windowMs; k += stride) {
     const t = k * period;
     const amplitude = s.amplitude * envelope(t, s);
-    const r = axonRecruitment(amplitude, pulseWidthMs(s));
+    const r = axonRecruitment(amplitude, pulseWidthMs(s), undefined, electrode);
     out.push({ tMs: t, amplitude, fraction: amplitude > 0 && r ? r.fraction * (r.status === 'none' ? 0 : 1) : 0 });
   }
   return out;

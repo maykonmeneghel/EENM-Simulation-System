@@ -130,11 +130,6 @@ export const FIELD_GROUPS: FieldGroup[] = [
           L('0,1 – 20', '0.1 – 20'),
         ),
         num({ path: 'centralDrive.tremor.amplitudeNa', kind: 'number', stepBy: 0.5, unit: 'nA', step: 'any' }, L('Amplitude do tremor', 'Tremor amplitude'), L('0 – 20', '0 – 20')),
-        num(
-          { path: 'centralDrive.electrodeFraction', kind: 'number', stepBy: 0.05, step: 'any' },
-          L('Posição do eletrodo no axônio', 'Electrode position on the axon'),
-          L('0,01 – 1 (do soma)', '0.01 – 1 (from the soma)'),
-        ),
       ],
     },
     L('Drive central', 'Central drive'),

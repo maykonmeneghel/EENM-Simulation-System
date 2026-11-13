@@ -3,6 +3,7 @@ import { MAX_OUTPUT_STEP_MS, MAX_RAMP_MS, PULSE_WIDTH_US } from './defaults';
 import type { ServerLimits } from './limits';
 import { CONTRACT_LIMITS } from './limits';
 import { MOTOR_UNIT_TYPES } from './simulation';
+import { ELECTRODE_RANGES, electrodeArea } from './electrode';
 import type { Localized } from '../i18n/locale';
 import { tr } from '../i18n/locale';
 
@@ -116,6 +117,42 @@ export function validateRequest(
           en: `this server limits the run to ${limits.maxTotalUnits} motor units in total`,
         }),
       });
+  }
+
+  const e = req.electrode;
+  if (e) {
+    const R = ELECTRODE_RANGES;
+    if (e.shape === 'ROUND') range('electrode.diameterCm', e.diameterCm ?? NaN, R.diameterCm.min, R.diameterCm.max);
+    else {
+      range('electrode.widthCm', e.widthCm ?? NaN, R.sideCm.min, R.sideCm.max);
+      range('electrode.lengthCm', e.lengthCm ?? NaN, R.sideCm.min, R.sideCm.max);
+    }
+    const area = electrodeArea({ shape: e.shape ?? 'RECTANGLE', widthCm: e.widthCm ?? null, lengthCm: e.lengthCm ?? null, diameterCm: e.diameterCm ?? null });
+    if (Number.isFinite(area) && (area < R.areaCm2.min || area > R.areaCm2.max))
+      errors.push({
+        field: e.shape === 'ROUND' ? 'electrode.diameterCm' : 'electrode.widthCm',
+        message: tr({
+          'pt-BR': `a área (${Math.round(area * 100) / 100} cm²) deve estar entre ${R.areaCm2.min} e ${R.areaCm2.max} cm²`,
+          en: `the area (${Math.round(area * 100) / 100} cm²) must be between ${R.areaCm2.min} and ${R.areaCm2.max} cm²`,
+        }),
+      });
+    range('electrode.fatThicknessCm', e.fatThicknessCm ?? NaN, R.fatThicknessCm.min, R.fatThicknessCm.max);
+    range('electrode.axonDepthCm', e.axonDepthCm ?? NaN, R.axonDepthCm.min, R.axonDepthCm.max);
+    const c = e.calibration;
+    if (c) {
+      range('electrode.calibration.motorThresholdMa', c.motorThresholdMa, R.currentMa.min, R.currentMa.max);
+      range('electrode.calibration.pulseWidthUs', c.pulseWidthUs, R.pulseWidthUs.min, R.pulseWidthUs.max);
+      if (c.fullRecruitmentMa !== null && c.fullRecruitmentMa !== undefined) {
+        range('electrode.calibration.fullRecruitmentMa', c.fullRecruitmentMa, R.currentMa.min, R.currentMa.max);
+        if (Number.isFinite(c.motorThresholdMa) && c.fullRecruitmentMa <= c.motorThresholdMa)
+          errors.push({
+            field: 'electrode.calibration.fullRecruitmentMa',
+            message: tr({ 'pt-BR': 'deve ser maior que o limiar motor', en: 'must be greater than the motor threshold' }),
+          });
+      }
+      if (c.electrodeAreaCm2 !== null && c.electrodeAreaCm2 !== undefined)
+        range('electrode.calibration.electrodeAreaCm2', c.electrodeAreaCm2, R.areaCm2.min, R.areaCm2.max);
+    }
   }
 
   range('axonLengthPercent', req.axonLengthPercent, 1, 100);
