@@ -23,6 +23,8 @@ import type { ServerLimits } from '../domain/limits';
 import { CONTRACT_LIMITS } from '../domain/limits';
 import { validateRequest } from '../domain/validation';
 import { fmtNumber, tr } from '../i18n/locale';
+import type { CalibrationRequest, EffectModel, ElectrodeInput, ElectrodeShape } from '../domain/electrode';
+import { DEFAULT_EFFECT_MODEL, defaultElectrode, electrodeArea } from '../domain/electrode';
 
 /**
  * Form state: every SimulationRequest field as a string, keyed by its contract path
@@ -70,6 +72,17 @@ export const FIELD_PATHS = [
   'centralDrive.electrodeFraction',
   'joint.peakForce',
   'joint.passive',
+  'electrode.shape',
+  'electrode.widthCm',
+  'electrode.lengthCm',
+  'electrode.diameterCm',
+  'electrode.fatThicknessCm',
+  'electrode.axonDepthCm',
+  'electrode.effectModel',
+  'electrode.calibration.motorThresholdMa',
+  'electrode.calibration.fullRecruitmentMa',
+  'electrode.calibration.pulseWidthUs',
+  'electrode.calibration.electrodeAreaCm2',
 ] as const;
 export type FieldPath = (typeof FIELD_PATHS)[number];
 
@@ -80,6 +93,8 @@ export interface FormFlags {
   trainsEnabled: boolean;
   /** Descending drive into the motoneurons (the Parkinson tremor turns it on by itself). */
   driveEnabled: boolean;
+  /** Send `electrode.calibration` (the amplitude is then in mA). */
+  calibrationEnabled: boolean;
 }
 /** Chosen adjustments of the condition; null = leave them to the engine's defaults. */
 export interface FormExtras {
@@ -120,6 +135,55 @@ export const DRIVE_DEFAULTS = {
 export const WRIST_DEFAULTS = { peakForce: 'SAUL_2015', passive: 'LINEAR' } as const;
 /** Wrist inputs: they act only on forearm runs of the LITERATURE model (the ones with a joint). */
 export const WRIST_FIELDS: readonly FieldPath[] = ['joint.peakForce', 'joint.passive'];
+
+/** Electrode inputs: they act only on skin-surface runs of the LITERATURE model. */
+export const ELECTRODE_FIELDS: readonly FieldPath[] = [
+  'electrode.shape',
+  'electrode.widthCm',
+  'electrode.lengthCm',
+  'electrode.diameterCm',
+  'electrode.fatThicknessCm',
+  'electrode.axonDepthCm',
+  'electrode.effectModel',
+];
+export const CALIBRATION_FIELDS: readonly FieldPath[] = [
+  'electrode.calibration.motorThresholdMa',
+  'electrode.calibration.fullRecruitmentMa',
+  'electrode.calibration.pulseWidthUs',
+  'electrode.calibration.electrodeAreaCm2',
+];
+
+/** The run has a skin electrode (the Electrode section applies). */
+export function electrodeActive(values: Pick<FormValues, 'modelVariant' | 'stimulationSite'>): boolean {
+  return values.modelVariant === 'LITERATURE' && values.stimulationSite !== 'MOTONEURON_POOL';
+}
+
+type ElectrodeFormValues = Pick<FormValues, Extract<FieldPath, `electrode.${string}`>>;
+
+const fixed = (x: number) => String(Number(x.toFixed(4)));
+
+/** Form values of a muscle's default electrode (no calibration). */
+export function defaultElectrodeValues(muscle: string): ElectrodeFormValues {
+  const e = defaultElectrode(muscle);
+  return {
+    'electrode.shape': e.shape,
+    'electrode.widthCm': e.widthCm !== null ? fixed(e.widthCm) : '5',
+    'electrode.lengthCm': e.lengthCm !== null ? fixed(e.lengthCm) : '5',
+    'electrode.diameterCm': e.diameterCm !== null ? fixed(e.diameterCm) : fixed(2 * Math.sqrt(25 / Math.PI)),
+    'electrode.fatThicknessCm': fixed(e.fatThicknessCm),
+    'electrode.axonDepthCm': fixed(e.axonDepthCm),
+    'electrode.effectModel': DEFAULT_EFFECT_MODEL,
+    'electrode.calibration.motorThresholdMa': '',
+    'electrode.calibration.fullRecruitmentMa': '',
+    'electrode.calibration.pulseWidthUs': '300',
+    'electrode.calibration.electrodeAreaCm2': fixed(electrodeArea(e)),
+  };
+}
+
+/** Switch muscle: the electrode goes back to the new muscle's default (a calibration belongs to the old muscle). */
+export function changeMuscle(values: FormValues, muscle: string): FormValues {
+  return { ...values, muscle, ...defaultElectrodeValues(muscle), calibrationEnabled: false };
+}
 
 /** The Parkinson resting tremor is chosen (condition PARKINSON with PD_TREMOR on; it is off by default). */
 export function tremorActive(values: FormValues): boolean {
@@ -187,7 +251,61 @@ export function toFormValues(r: SimulationRequest = defaultRequest()): FormValue
     'centralDrive.electrodeFraction': String(r.centralDrive?.electrodeFraction ?? DRIVE_DEFAULTS.electrodeFraction),
     'joint.peakForce': r.joint?.peakForce ?? WRIST_DEFAULTS.peakForce,
     'joint.passive': r.joint?.passive ?? WRIST_DEFAULTS.passive,
+    ...electrodeValues(r),
   };
+}
+
+/** The request's electrode over the muscle's default (a run saved before the field gets the default: G = 1). */
+function electrodeValues(r: SimulationRequest): ElectrodeFormValues & Pick<FormFlags, 'calibrationEnabled'> {
+  const base = defaultElectrodeValues(r.muscle);
+  const e = r.electrode;
+  if (!e) return { ...base, calibrationEnabled: false };
+  const shape = e.shape ?? (base['electrode.shape'] as ElectrodeShape);
+  const c = e.calibration ?? null;
+  const pick = (x: number | null | undefined, fallback: string) => (x === null || x === undefined ? fallback : String(x));
+  return {
+    'electrode.shape': shape,
+    'electrode.widthCm': pick(e.widthCm, base['electrode.widthCm']),
+    'electrode.lengthCm': pick(e.lengthCm, base['electrode.lengthCm']),
+    'electrode.diameterCm': pick(e.diameterCm, base['electrode.diameterCm']),
+    'electrode.fatThicknessCm': pick(e.fatThicknessCm, base['electrode.fatThicknessCm']),
+    'electrode.axonDepthCm': pick(e.axonDepthCm, base['electrode.axonDepthCm']),
+    'electrode.effectModel': e.effectModel ?? DEFAULT_EFFECT_MODEL,
+    'electrode.calibration.motorThresholdMa': c ? String(c.motorThresholdMa) : '',
+    'electrode.calibration.fullRecruitmentMa': pick(c?.fullRecruitmentMa, ''),
+    'electrode.calibration.pulseWidthUs': c ? String(c.pulseWidthUs) : base['electrode.calibration.pulseWidthUs'],
+    'electrode.calibration.electrodeAreaCm2': pick(c?.electrodeAreaCm2, base['electrode.calibration.electrodeAreaCm2']),
+    calibrationEnabled: c !== null,
+  };
+}
+
+/** The Electrode section's inputs as numbers, for the recruitment meter (null when one of them is not a number). */
+export function electrodeInput(values: FormValues): ElectrodeInput | null {
+  const n = (path: FieldPath) => parseNumber(values[path]);
+  const shape = values['electrode.shape'] === 'ROUND' ? 'ROUND' : 'RECTANGLE';
+  const electrode = {
+    shape,
+    widthCm: shape === 'RECTANGLE' ? n('electrode.widthCm') : null,
+    lengthCm: shape === 'RECTANGLE' ? n('electrode.lengthCm') : null,
+    diameterCm: shape === 'ROUND' ? n('electrode.diameterCm') : null,
+    fatThicknessCm: n('electrode.fatThicknessCm'),
+    axonDepthCm: n('electrode.axonDepthCm'),
+  } as const;
+  const numbers = [electrode.widthCm, electrode.lengthCm, electrode.diameterCm, electrode.fatThicknessCm, electrode.axonDepthCm];
+  if (numbers.some((x) => x !== null && !Number.isFinite(x))) return null;
+  let calibration: CalibrationRequest | null = null;
+  if (values.calibrationEnabled) {
+    const full = n('electrode.calibration.fullRecruitmentMa');
+    const area = n('electrode.calibration.electrodeAreaCm2');
+    calibration = {
+      motorThresholdMa: n('electrode.calibration.motorThresholdMa'),
+      pulseWidthUs: n('electrode.calibration.pulseWidthUs'),
+      fullRecruitmentMa: Number.isFinite(full) ? full : null,
+      electrodeAreaCm2: Number.isFinite(area) ? area : null,
+    };
+    if (!Number.isFinite(calibration.motorThresholdMa) || !Number.isFinite(calibration.pulseWidthUs)) return null;
+  }
+  return { electrode, effectModel: values['electrode.effectModel'] === 'NONE' ? 'NONE' : 'HALF_SPACE_AF', calibration };
 }
 
 /** Defaults of the app (the corrected model, automatic units, stimulator pulses). */
@@ -214,6 +332,8 @@ export function inactiveFields(values: FormValues): ReadonlySet<FieldPath> {
     if (values.stimulationSite !== 'MOTONEURON_POOL' || driveActive(values)) for (const f of MOTONEURON_FIELDS) out.add(f);
     if (!driveActive(values)) for (const f of DRIVE_FIELDS) out.add(f);
     if (values.stimulationSite === 'MOTONEURON_POOL') out.add('centralDrive.electrodeFraction');
+    if (!electrodeActive(values)) for (const f of [...ELECTRODE_FIELDS, ...CALIBRATION_FIELDS]) out.add(f);
+    if (!values.calibrationEnabled) for (const f of CALIBRATION_FIELDS) out.add(f);
     if (!FOREARM_MUSCLES.has(values.muscle)) for (const f of WRIST_FIELDS) out.add(f);
     if (!tremorActive(values)) for (const f of TREMOR_FIELDS) out.add(f);
     if (!values.manualUnits) {
@@ -222,7 +342,7 @@ export function inactiveFields(values: FormValues): ReadonlySet<FieldPath> {
       out.add('unitsPerType.FF');
     }
   } else {
-    for (const f of [...DRIVE_FIELDS, ...TREMOR_FIELDS, ...WRIST_FIELDS]) out.add(f);
+    for (const f of [...DRIVE_FIELDS, ...TREMOR_FIELDS, ...WRIST_FIELDS, ...ELECTRODE_FIELDS, ...CALIBRATION_FIELDS]) out.add(f);
   }
   return out;
 }
@@ -393,6 +513,30 @@ export function parseForm(
         }
       : {}),
   };
+
+  if (electrodeActive(values)) {
+    const round = values['electrode.shape'] === 'ROUND';
+    const optional = (path: FieldPath) => (values[path].trim() === '' ? null : num(path));
+    request.electrode = {
+      shape: round ? 'ROUND' : 'RECTANGLE',
+      ...(round
+        ? { diameterCm: num('electrode.diameterCm') }
+        : { widthCm: num('electrode.widthCm'), lengthCm: num('electrode.lengthCm') }),
+      fatThicknessCm: num('electrode.fatThicknessCm'),
+      axonDepthCm: num('electrode.axonDepthCm'),
+      effectModel: values['electrode.effectModel'] as EffectModel,
+      ...(values.calibrationEnabled
+        ? {
+            calibration: {
+              motorThresholdMa: num('electrode.calibration.motorThresholdMa'),
+              fullRecruitmentMa: optional('electrode.calibration.fullRecruitmentMa'),
+              pulseWidthUs: num('electrode.calibration.pulseWidthUs'),
+              electrodeAreaCm2: optional('electrode.calibration.electrodeAreaCm2'),
+            },
+          }
+        : {}),
+    };
+  }
 
   // Parse errors first; range checks would only repeat "must be a number".
   const parseFailed = new Set(errors.map((e) => e.field));

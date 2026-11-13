@@ -55,7 +55,7 @@ Same body on the public API and on the engine. Defaults reproduce `Mathematical 
 | `stimulus.stepMs` | number | 0.01 | 0.005 – 0.1 | `step` |
 | `stimulus.frequencyHz` | number | 40 | 1 – 200 | `Fb` |
 | `stimulus.dutyCyclePercent` | number | 20 | 1 – 99 | `Wb` |
-| `stimulus.amplitude` | number | 100 | 0 – 500 (µA/cm²) | `Amp` |
+| `stimulus.amplitude` | number | 100 | 0 – 500: µA/cm² in the soma path (`ORIGINAL`, `MOTONEURON_POOL`); model units (u.m.) in `SKIN_SURFACE`, or mA when `electrode.calibration` is given | `Amp` |
 | `stimulus.waveform` | enum | `MONOPHASIC` | `MONOPHASIC`, `BIPHASIC`, `BIPHASIC_SYMMETRIC` (needs `pulseWidthUs`) | `Type` |
 | `stimulus.modulation.target` | enum | `AMPLITUDE` | `AMPLITUDE`, `FREQUENCY`, `PULSE_WIDTH` | `ModulationWhere` |
 | `stimulus.modulation.shape` | enum | `STEP` | `STEP`, `RAMP`, `TRIANGLE`, `SINUSOIDAL` | `ModulationType` |
@@ -136,8 +136,37 @@ sequence repeats in each train. Example, a 12-pulse 15 Hz train whose first inte
   each unit's own spikes, summed force with rate saturation (Potvin & Fuglevand 2017), stimulation of the
   motor axons (Weiss strength–duration), duration-independent conduction delay and peripheral fatigue (no
   recovery). With this variant `injectionSite`, `somaGeometry`, `dendriteGeometry` and `temperatureCelsius`
-  have no effect (the motoneuron compartments are not simulated), and `amplitude` is a current in the same
-  units, whose recruitment range (≈ 57–102 with 0.3 ms pulses) is inherited from the original model.
+  have no effect (the motoneuron compartments are not simulated), and `amplitude` is a current in model units
+  (u.m.), whose recruitment range (≈ 57–102 with 0.3 ms pulses at the muscle's default electrode) is inherited from
+  the original model; with `electrode.calibration` it is in mA.
+
+### `electrode` (LITERATURE + `SKIN_SURFACE` only)
+
+The surface electrode (`domain/electrode.py`, `docs/design/electrode.md`). Every effect is one factor `G` on the Weiss
+threshold of every axon: `A ≥ G · I_rh,k (1 + τ_SD/PW)`.
+
+```json
+"electrode": { "shape": "RECTANGLE", "widthCm": 5.0, "lengthCm": 5.0,
+               "fatThicknessCm": 0.75, "axonDepthCm": 0.5, "effectModel": "HALF_SPACE_AF",
+               "calibration": { "motorThresholdMa": 18, "fullRecruitmentMa": 42, "pulseWidthUs": 300, "electrodeAreaCm2": 25 } }
+```
+
+| Field | Default | Range | Meaning |
+|---|---|---|---|
+| `shape` | the muscle's | `RECTANGLE` (`widthCm`, `lengthCm`) or `ROUND` (`diameterCm`) | the shape enters only through the area (disk of equal area) |
+| `widthCm`, `lengthCm` | the muscle's | 0.5 – 15 each | rectangle; area 0.5 – 100 cm² |
+| `diameterCm` | the muscle's | 0.5 – 11.3 | round pad; area 0.5 – 100 cm² |
+| `fatThicknessCm` | the muscle's | 0 – 3 | subcutaneous fat `f` |
+| `axonDepthCm` | 0.5 | 0.1 – 1.1 | axon depth below the fat `h` (illustrative) |
+| `effectModel` | `HALF_SPACE_AF` | `HALF_SPACE_AF` (derived activating function, magnitude illustrative), `NONE` (Lieber & Kelly 1991: G = 1) | |
+| `calibration` | `null` | `motorThresholdMa` 0.1 – 200 (required), `fullRecruitmentMa` > `motorThresholdMa` (optional), `pulseWidthUs` 20 – 1000 (required), `electrodeAreaCm2` 0.5 – 100 (optional; the run's electrode when absent) | the amplitude is then in mA |
+
+Defaults per muscle (`G = 1` there, so a run without `electrode` and a run with the default electrode give the same
+result as before the field existed): FCR and ECR round Ø 2.5 cm (Baier 2024), fat 0.56 cm for FCR (Doğan 2022) and
+0.48 cm for ECR (Petrofsky 2008, biceps, inherited); medial and lateral gastrocnemius round Ø 5 cm = 19.63 cm²
+(Lyons 2004), fat 0.75 cm (Petrofsky 2008); soleus and TA 5 × 5 cm (Flodin 2022, quadriceps, inherited), fat 0.75 cm
+(inherited). The engine ignores `electrode` in other runs; the public API rejects it there (400). Material and skin
+impedance are not fields: under current control their verified effect is zero (Farmer 2021; Jafari 2025).
 
 ### `condition` and `conditionAdjustments`
 
@@ -193,6 +222,11 @@ object's `type` as the SSE `event:` name and the whole object as `data:`.
 
 `electrodeFraction` — electrode position along the motor axon from the soma; `null` when the stimulus goes into the
 soma (`stimulationSite = MOTONEURON_POOL`).
+
+`electrode` — the electrode the run used, as resolved by the engine (skin-surface LITERATURE runs, else `null`):
+`shape`, `widthCm`, `lengthCm`, `diameterCm`, `areaCm2`, `fatThicknessCm`, `axonDepthCm`, `effectModel`, the factor it gave
+(`thresholdFactor`, G) and `calibration` (or `null`). `amplitudeUnit` — `MA` when calibrated, else `MODEL_UNIT`. Older
+engines omit both.
 
 `units` — what each simulated unit looks like, for the 3D step (`domain/unit_anatomy.py`, docs/design/3d-view.md §4):
 column arrays with one entry per simulated unit, S then FR then FF (the column order of the engine). `motoneuron` is

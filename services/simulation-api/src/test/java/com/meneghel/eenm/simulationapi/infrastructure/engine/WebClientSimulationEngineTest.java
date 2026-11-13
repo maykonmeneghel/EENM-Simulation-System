@@ -11,6 +11,7 @@ import com.meneghel.eenm.simulationapi.domain.simulation.CentralDrive;
 import com.meneghel.eenm.simulationapi.application.simulation.SimulationDraft;
 import com.meneghel.eenm.simulationapi.domain.event.SimulationStarted;
 import com.meneghel.eenm.simulationapi.domain.language.Language;
+import com.meneghel.eenm.simulationapi.domain.simulation.Electrode;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModelVariant;
 import com.meneghel.eenm.simulationapi.domain.simulation.SimulationRequest;
 import com.meneghel.eenm.simulationapi.domain.simulation.Waveform;
@@ -90,6 +91,35 @@ class WebClientSimulationEngineTest {
         assertThat(body.has("centralDrive")).as("none unless asked").isFalse();
         assertThat(body.path("joint").path("peakForce").stringValue()).isEqualTo("SAUL_2015");
         assertThat(body.path("joint").path("passive").stringValue()).isEqualTo("LINEAR");
+        assertThat(body.has("electrode")).as("the engine applies the muscle's default electrode").isFalse();
+    }
+
+    @Test
+    void relaysTheElectrodeLeavingUnsetFieldsToTheEngine() throws InterruptedException {
+        server.enqueue(ndjson(lines(SampleEvents.startedWithElectrodeLine(), SampleEvents.completedLine())));
+        SimulationRequest base = new SimulationDefaults().resolve(Drafts.draft(null, ModelVariant.LITERATURE, null,
+                null));
+        SimulationRequest request = new SimulationRequest(base.stimulus(), base.modelVariant(),
+                base.calibrationTarget(), base.stimulationSite(), base.condition(), base.conditionAdjustments(),
+                base.muscle(), base.unitsPerType(), base.axonLengthPercent(), base.temperatureCelsius(),
+                base.injectionSite(), base.somaGeometry(), base.dendriteGeometry(), base.seed(), base.outputStepMs(),
+                base.centralDrive(), false, base.wrist(), new Electrode(Electrode.Shape.ROUND, null, null, 3.0, null,
+                        0.8, null, new Electrode.Calibration(15.0, null, 250.0, null)));
+
+        StepVerifier.create(engine.stream(request))
+                .expectNext(SampleEvents.startedWithElectrode(), SampleEvents.completed())
+                .expectComplete().verify(TIMEOUT);
+
+        JsonNode electrode = jsonMapper.readTree(server.takeRequest(1, TimeUnit.SECONDS).getBody().utf8())
+                .path("electrode");
+        assertThat(electrode.path("shape").stringValue()).isEqualTo("ROUND");
+        assertThat(electrode.path("diameterCm").doubleValue()).isEqualTo(3.0);
+        assertThat(electrode.path("axonDepthCm").doubleValue()).isEqualTo(0.8);
+        assertThat(electrode.has("widthCm")).isFalse();
+        assertThat(electrode.has("fatThicknessCm")).as("left to the muscle's default").isFalse();
+        assertThat(electrode.has("effectModel")).as("left to the engine's default").isFalse();
+        assertThat(electrode.path("calibration").path("motorThresholdMa").doubleValue()).isEqualTo(15.0);
+        assertThat(electrode.path("calibration").has("fullRecruitmentMa")).isFalse();
     }
 
     @Test

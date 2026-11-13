@@ -91,6 +91,7 @@ class RunSimulation:
                 if config.model.stimulation_site is StimulationSite.MOTONEURON_SOMA
                 else config.model.electrode_fraction
             ),
+            electrode=config.electrode,
         )
 
         merge: list[DrivenPoolIntegration] = []  # the merged integration, once started (its axon-event totals)

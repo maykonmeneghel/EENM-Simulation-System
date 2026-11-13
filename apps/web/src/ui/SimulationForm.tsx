@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { Dispatch, FormEvent, ReactNode, SetStateAction } from 'react';
 import type { FieldPath, FormFlags, FormNotice, FormValues } from '../application/formModel';
 import {
+  changeMuscle,
   defaultFormValues,
   driveActive,
   inactiveFields,
@@ -12,7 +13,7 @@ import {
   stepNumber,
   tremorActive,
 } from '../application/formModel';
-import { STIMULATOR_PATHS } from '../application/stimulatorForm';
+import { formExcitability, STIMULATOR_PATHS } from '../application/stimulatorForm';
 import { LITERATURE_AUTO_UNITS } from '../domain/defaults';
 import type { ServerLimits } from '../domain/limits';
 import { CONTRACT_LIMITS, limitsDuration } from '../domain/limits';
@@ -162,7 +163,7 @@ export function SimulationForm({
   };
 
   const update = (path: FieldPath, value: string) => {
-    setValues((v) => ({ ...v, [path]: value }));
+    setValues((v) => (path === 'muscle' ? changeMuscle(v, value) : { ...v, [path]: value }));
     touch([path]);
   };
 
@@ -387,7 +388,10 @@ export function SimulationForm({
   );
 
   const pw = Number(values['stimulus.pulseWidthUs'].replace(',', '.'));
-  const recruitment = axonRecruitment(Number(values['stimulus.amplitude'].replace(',', '.')), pw / 1000);
+  const formExcit = formExcitability(values);
+  const recruitment =
+    formExcit === 'invalid' ? null : axonRecruitment(Number(values['stimulus.amplitude'].replace(',', '.')), pw / 1000, undefined, formExcit);
+  const amplitudeUnit = formExcit !== 'invalid' && formExcit?.unit === 'MA' ? ' mA' : '';
   const waveformLabel = STIMULATOR_WAVEFORMS.find((w) => w.value === values['stimulus.waveform'])?.label ?? '—';
   const pool = values.stimulationSite === 'MOTONEURON_POOL';
   const stimulusSummary = [
@@ -395,7 +399,7 @@ export function SimulationForm({
     `${values['stimulus.frequencyHz']} Hz`,
     `${values['stimulus.pulseWidthUs']} µs`,
     waveformLabel.toLowerCase(),
-    `amplitude ${values['stimulus.amplitude']}`,
+    `amplitude ${values['stimulus.amplitude']}${amplitudeUnit}`,
     trainsText(values),
   ].join(' · ');
 
@@ -671,12 +675,14 @@ function RunRecap({
     PARKINSON: tr({ 'pt-BR': 'Doença de Parkinson', en: "Parkinson's disease" }),
     SCI_CHRONIC: tr({ 'pt-BR': 'Lesão medular crônica', en: 'Chronic spinal cord injury' }),
   };
+  const recapExcit = formExcitability(values);
+  const amplitudeUnit = recapExcit !== 'invalid' && recapExcit?.unit === 'MA' ? ' mA' : '';
   const rows: Record<Exclude<StepId, 'results' | 'anatomy' | 'compare'>, string[]> = {
     stimulator: [
       invasive
         ? tr({ 'pt-BR': 'Invasivo (pool de motoneurônios)', en: 'Invasive (motoneuron pool)' })
         : tr({ 'pt-BR': 'Não invasivo (pele)', en: 'Non-invasive (skin)' }),
-      `${values['stimulus.frequencyHz']} Hz · ${values['stimulus.pulseWidthUs']} µs · amplitude ${values['stimulus.amplitude']}`,
+      `${values['stimulus.frequencyHz']} Hz · ${values['stimulus.pulseWidthUs']} µs · amplitude ${values['stimulus.amplitude']}${amplitudeUnit}`,
       trainsText(values),
     ],
     physiology: [

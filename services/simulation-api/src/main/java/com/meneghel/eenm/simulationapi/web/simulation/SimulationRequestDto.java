@@ -37,7 +37,8 @@ public record SimulationRequestDto(
         @DecimalMax(value = "10", message = "must be less than or equal to 10") Double outputStepMs,
         @Valid CentralDriveDto centralDrive,
         OutputDto output,
-        JointDto joint) {
+        JointDto joint,
+        @Valid ElectrodeDto electrode) {
 
     public SimulationRequestDto(StimulusDto stimulus, ModelVariant modelVariant, CalibrationTarget calibrationTarget,
             StimulationSite stimulationSite, Condition condition, List<String> conditionAdjustments, Muscle muscle,
@@ -46,7 +47,7 @@ public record SimulationRequestDto(
             Long seed, Double outputStepMs, CentralDriveDto centralDrive) {
         this(stimulus, modelVariant, calibrationTarget, stimulationSite, condition, conditionAdjustments, muscle,
                 unitsPerType, axonLengthPercent, temperatureCelsius, injectionSite, somaGeometry, dendriteGeometry,
-                seed, outputStepMs, centralDrive, null, null);
+                seed, outputStepMs, centralDrive, null, null, null);
     }
 
     public SimulationRequestDto(StimulusDto stimulus, ModelVariant modelVariant, CalibrationTarget calibrationTarget,
@@ -57,6 +58,16 @@ public record SimulationRequestDto(
         this(stimulus, modelVariant, calibrationTarget, stimulationSite, condition, conditionAdjustments, muscle,
                 unitsPerType, axonLengthPercent, temperatureCelsius, injectionSite, somaGeometry, dendriteGeometry,
                 seed, outputStepMs, centralDrive, output, null);
+    }
+
+    public SimulationRequestDto(StimulusDto stimulus, ModelVariant modelVariant, CalibrationTarget calibrationTarget,
+            StimulationSite stimulationSite, Condition condition, List<String> conditionAdjustments, Muscle muscle,
+            UnitsPerTypeDto unitsPerType, Double axonLengthPercent, Double temperatureCelsius,
+            InjectionSite injectionSite, CompartmentGeometry somaGeometry, CompartmentGeometry dendriteGeometry,
+            Long seed, Double outputStepMs, CentralDriveDto centralDrive, OutputDto output, JointDto joint) {
+        this(stimulus, modelVariant, calibrationTarget, stimulationSite, condition, conditionAdjustments, muscle,
+                unitsPerType, axonLengthPercent, temperatureCelsius, injectionSite, somaGeometry, dendriteGeometry,
+                seed, outputStepMs, centralDrive, output, joint, null);
     }
 
     /** What the stream carries besides the series; {@code unitEvents}: the per-unit events of the 3D replay. */

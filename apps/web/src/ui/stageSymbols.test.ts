@@ -59,6 +59,22 @@ const CONFIGS: Record<string, () => ModelSnapshot> = {
       },
       muscles: [soleus],
     }),
+  'LITERATURE electrode with no size effect (Lieber & Kelly)': () =>
+    buildModelSnapshot({ values: { ...lit, 'electrode.effectModel': 'NONE' }, muscles: [soleus] }),
+  'LITERATURE larger electrode, calibrated in mA with full recruitment': () =>
+    buildModelSnapshot({
+      values: {
+        ...lit,
+        'electrode.widthCm': '5',
+        'electrode.lengthCm': '9',
+        calibrationEnabled: true,
+        'electrode.calibration.motorThresholdMa': '18',
+        'electrode.calibration.fullRecruitmentMa': '42',
+        'electrode.calibration.pulseWidthUs': '300',
+        'electrode.calibration.electrodeAreaCm2': '25',
+      },
+      muscles: [soleus],
+    }),
   'LITERATURE spinal cord injury (all adjustments)': () =>
     buildModelSnapshot({
       values: { ...lit, condition: 'SCI', conditionAdjustments: ['SCI_FATIGABILITY', 'SCI_FAST_TWITCH', 'SCI_ATROPHY', 'SCI_CHRONAXIE'] },

@@ -1,4 +1,5 @@
 import type { ModelVariant, MusclePreset, SimulationRequest } from './simulation';
+import { defaultElectrodeRequest } from './electrode';
 
 /**
  * Defaults of the app: the corrected model (LITERATURE) driven like a stimulator — 40 Hz, 300 µs symmetric
@@ -36,6 +37,8 @@ export function defaultRequest(variant: ModelVariant = 'LITERATURE'): Simulation
     // Let the server pick 120 representative units in the pool's proportions.
     delete req.unitsPerType;
     req.stimulus = { ...req.stimulus, ...STIMULATOR_DEFAULTS };
+    // the soleus's default electrode, where its factor G is 1 (domain/electrode.ts)
+    req.electrode = defaultElectrodeRequest(req.muscle);
   }
   return req;
 }

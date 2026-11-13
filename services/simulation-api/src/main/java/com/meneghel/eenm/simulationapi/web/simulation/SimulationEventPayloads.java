@@ -1,5 +1,6 @@
 package com.meneghel.eenm.simulationapi.web.simulation;
 
+import com.meneghel.eenm.simulationapi.domain.event.RunElectrode;
 import com.meneghel.eenm.simulationapi.domain.event.UnitAnatomy;
 import com.meneghel.eenm.simulationapi.domain.event.UnitEvents;
 import com.meneghel.eenm.simulationapi.domain.event.JointSeries;
@@ -14,7 +15,7 @@ final class SimulationEventPayloads {
 
     record Started(String type, String simulationId, double durationMs, double outputStepMs,
             MotorUnitCountsPayload motorUnits, String muscle, Double maxForce, Double electrodeFraction,
-            UnitAnatomy units, Double stepMs, WristJoint joint) {
+            UnitAnatomy units, Double stepMs, WristJoint joint, RunElectrode electrode, String amplitudeUnit) {
     }
 
     record Chunk(String type, double progress, List<Double> timeMs, List<Double> stimulus, Force force,

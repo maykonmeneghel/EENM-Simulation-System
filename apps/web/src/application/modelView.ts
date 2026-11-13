@@ -36,7 +36,10 @@ import type {
   Waveform,
 } from '../domain/simulation';
 import type { FormValues } from './formModel';
-import { driveActive, tremorActive } from './formModel';
+import { driveActive, electrodeActive, electrodeInput, tremorActive } from './formModel';
+import type { EffectModel, ElectrodeInput, Excitability } from '../domain/electrode';
+import { CONSTANTS } from '../domain/modelEquations';
+import { defaultElectrode, electrodeArea, equivalentRadius, excitability } from '../domain/electrode';
 
 /**
  * Live view-model of the model for the "Equações" and "Diagrama" views: every number the
@@ -88,6 +91,18 @@ export interface ModelSnapshot {
     phi: number;
   };
   recruitment: AxonRecruitment | null;
+  /** The skin electrode and its factor G (skin-surface LITERATURE runs); null otherwise (G = 1, inherited rheobases). */
+  electrode: {
+    input: ElectrodeInput;
+    effectModel: EffectModel;
+    excitability: Excitability;
+    areaCm2: number;
+    radiusCm: number;
+    depthCm: number;
+    /** Reference the factor is relative to: the muscle's default electrode, or the calibration electrode. */
+    refRadiusCm: number;
+    refDepthCm: number;
+  } | null;
   conduction: {
     axonLengthPercent: number;
     x: number;
@@ -143,6 +158,8 @@ export function buildModelSnapshot({ values, muscles, lastRequest, lastStarted }
   // Pool sizes: from the API presets, else the table in model-equations.md.
   const pool = preset?.poolSize ?? POOL_SIZES[values.muscle as keyof typeof POOL_SIZES] ?? null;
 
+  const electrode = electrodeSnapshot(values, effects.tauSdMs);
+
   const explicitUnits = variant === 'ORIGINAL' || values.manualUnits;
   let units: ModelSnapshot['units'];
   if (explicitUnits) {
@@ -196,7 +213,8 @@ export function buildModelSnapshot({ values, muscles, lastRequest, lastStarted }
       temperatureCelsius,
       phi: temperatureFactor(temperatureCelsius),
     },
-    recruitment: axonRecruitment(amplitude, pwMs, effects.tauSdMs),
+    recruitment: axonRecruitment(amplitude, pwMs, effects.tauSdMs, electrode?.excitability),
+    electrode,
     conduction: {
       axonLengthPercent,
       x: axonLength(axonLengthPercent),
@@ -255,4 +273,28 @@ export function twitchCurve(
     out.push([x, twitch(x, 1, timeScale, m)]);
   }
   return out;
+}
+
+function electrodeSnapshot(values: FormValues, tauSdMs: number): ModelSnapshot['electrode'] {
+  if (!electrodeActive(values)) return null;
+  const input = electrodeInput(values);
+  if (!input) return null;
+  const excit = excitability(values.muscle, input, { tauSdMs, rheobaseMin: CONSTANTS.rheobaseMin, rheobaseSpread: CONSTANTS.rheobaseSpread });
+  if (!excit) return null;
+  const areaCm2 = electrodeArea(input.electrode);
+  const depthCm = input.electrode.fatThicknessCm + input.electrode.axonDepthCm;
+  const c = input.calibration;
+  const ref = defaultElectrode(values.muscle);
+  const refRadiusCm = c ? equivalentRadius(c.electrodeAreaCm2 ?? areaCm2) : equivalentRadius(electrodeArea(ref));
+  const refDepthCm = c ? depthCm : ref.fatThicknessCm + ref.axonDepthCm;
+  return {
+    input,
+    effectModel: input.effectModel,
+    excitability: excit,
+    areaCm2,
+    radiusCm: equivalentRadius(areaCm2),
+    depthCm,
+    refRadiusCm,
+    refDepthCm,
+  };
 }

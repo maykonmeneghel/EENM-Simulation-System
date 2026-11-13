@@ -1,0 +1,231 @@
+{
+ "defaults": {
+  "FLEXOR_CARPI_RADIALIS": {
+   "shape": "ROUND",
+   "widthCm": null,
+   "lengthCm": null,
+   "diameterCm": 2.5,
+   "fatThicknessCm": 0.56,
+   "axonDepthCm": 0.5
+  },
+  "EXTENSOR_CARPI_RADIALIS": {
+   "shape": "ROUND",
+   "widthCm": null,
+   "lengthCm": null,
+   "diameterCm": 2.5,
+   "fatThicknessCm": 0.48,
+   "axonDepthCm": 0.5
+  },
+  "GASTROCNEMIUS_MEDIAL": {
+   "shape": "ROUND",
+   "widthCm": null,
+   "lengthCm": null,
+   "diameterCm": 5.0,
+   "fatThicknessCm": 0.75,
+   "axonDepthCm": 0.5
+  },
+  "GASTROCNEMIUS_LATERAL": {
+   "shape": "ROUND",
+   "widthCm": null,
+   "lengthCm": null,
+   "diameterCm": 5.0,
+   "fatThicknessCm": 0.75,
+   "axonDepthCm": 0.5
+  },
+  "SOLEUS": {
+   "shape": "RECTANGLE",
+   "widthCm": 5.0,
+   "lengthCm": 5.0,
+   "diameterCm": null,
+   "fatThicknessCm": 0.75,
+   "axonDepthCm": 0.5
+  },
+  "TIBIALIS_ANTERIOR": {
+   "shape": "RECTANGLE",
+   "widthCm": 5.0,
+   "lengthCm": 5.0,
+   "diameterCm": null,
+   "fatThicknessCm": 0.75,
+   "axonDepthCm": 0.5
+  }
+ },
+ "peaks": [
+  {
+   "radiusCm": 2.8,
+   "depthCm": 0.35,
+   "peak": 0.1053517381246723
+  },
+  {
+   "radiusCm": 1.25,
+   "depthCm": 0.35,
+   "peak": 0.5584767253190753
+  },
+  {
+   "radiusCm": 2.8,
+   "depthCm": 1.25,
+   "peak": 0.034995829886789585
+  },
+  {
+   "radiusCm": 2.8,
+   "depthCm": 2.5,
+   "peak": 0.018907473933537325
+  },
+  {
+   "radiusCm": 0.5,
+   "depthCm": 1.0,
+   "peak": 0.7155417527999327
+  }
+ ],
+ "factors": [
+  {
+   "muscle": "SOLEUS",
+   "electrode": {
+    "shape": "RECTANGLE",
+    "widthCm": 5.0,
+    "lengthCm": 9.0,
+    "diameterCm": null,
+    "fatThicknessCm": 0.75,
+    "axonDepthCm": 0.5
+   },
+   "g": 1.953855113970793
+  },
+  {
+   "muscle": "SOLEUS",
+   "electrode": {
+    "shape": "RECTANGLE",
+    "widthCm": 2.0,
+    "lengthCm": 2.0,
+    "diameterCm": null,
+    "fatThicknessCm": 0.25,
+    "axonDepthCm": 0.5
+   },
+   "g": 0.08553477342388083
+  },
+  {
+   "muscle": "TIBIALIS_ANTERIOR",
+   "electrode": {
+    "shape": "ROUND",
+    "widthCm": null,
+    "lengthCm": null,
+    "diameterCm": 3.2,
+    "fatThicknessCm": 2.0,
+    "axonDepthCm": 1.1
+   },
+   "g": 1.4600306790322914
+  },
+  {
+   "muscle": "FLEXOR_CARPI_RADIALIS",
+   "electrode": {
+    "shape": "RECTANGLE",
+    "widthCm": 5.0,
+    "lengthCm": 5.0,
+    "diameterCm": null,
+    "fatThicknessCm": 0.75,
+    "axonDepthCm": 0.5
+   },
+   "g": 6.60527069664157
+  },
+  {
+   "muscle": "FLEXOR_CARPI_RADIALIS",
+   "electrode": {
+    "shape": "ROUND",
+    "widthCm": null,
+    "lengthCm": null,
+    "diameterCm": 2.5,
+    "fatThicknessCm": 0.0,
+    "axonDepthCm": 0.1
+   },
+   "g": 0.12210034305554436
+  },
+  {
+   "muscle": "EXTENSOR_CARPI_RADIALIS",
+   "electrode": {
+    "shape": "ROUND",
+    "widthCm": null,
+    "lengthCm": null,
+    "diameterCm": 1.0,
+    "fatThicknessCm": 0.48,
+    "axonDepthCm": 0.5
+   },
+   "g": 0.3323099288009868
+  },
+  {
+   "muscle": "GASTROCNEMIUS_MEDIAL",
+   "electrode": {
+    "shape": "ROUND",
+    "widthCm": null,
+    "lengthCm": null,
+    "diameterCm": 7.0,
+    "fatThicknessCm": 0.75,
+    "axonDepthCm": 0.5
+   },
+   "g": 2.1847265863277388
+  },
+  {
+   "muscle": "GASTROCNEMIUS_LATERAL",
+   "electrode": {
+    "shape": "RECTANGLE",
+    "widthCm": 10.0,
+    "lengthCm": 10.0,
+    "diameterCm": null,
+    "fatThicknessCm": 3.0,
+    "axonDepthCm": 0.5
+   },
+   "g": 13.402689101346617
+  }
+ ],
+ "calibrated": [
+  {
+   "muscle": "SOLEUS",
+   "electrode": null,
+   "calibration": {
+    "motorThresholdMa": 18.0,
+    "fullRecruitmentMa": 42.0,
+    "pulseWidthUs": 300.0,
+    "electrodeAreaCm2": null
+   },
+   "tauSdMs": 0.459,
+   "g": 1.0,
+   "pulseWidthMs": 0.3,
+   "thresholdMin": 18.0,
+   "thresholdMax": 42.0
+  },
+  {
+   "muscle": "SOLEUS",
+   "electrode": null,
+   "calibration": {
+    "motorThresholdMa": 20.0,
+    "fullRecruitmentMa": null,
+    "pulseWidthUs": 200.0,
+    "electrodeAreaCm2": null
+   },
+   "tauSdMs": 0.13,
+   "g": 1.0,
+   "pulseWidthMs": 0.3,
+   "thresholdMin": 17.373737373737374,
+   "thresholdMax": 31.175019083630684
+  },
+  {
+   "muscle": "FLEXOR_CARPI_RADIALIS",
+   "electrode": {
+    "shape": "RECTANGLE",
+    "widthCm": 4.0,
+    "lengthCm": 4.0,
+    "diameterCm": null,
+    "fatThicknessCm": 0.56,
+    "axonDepthCm": 0.5
+   },
+   "calibration": {
+    "motorThresholdMa": 12.0,
+    "fullRecruitmentMa": 30.0,
+    "pulseWidthUs": 300.0,
+    "electrodeAreaCm2": 4.91
+   },
+   "tauSdMs": 0.459,
+   "g": 3.5103050860711966,
+   "pulseWidthMs": 0.3,
+   "thresholdMin": 42.12366103285436,
+   "thresholdMax": 105.3091525821359
+  }
+ ]
+}

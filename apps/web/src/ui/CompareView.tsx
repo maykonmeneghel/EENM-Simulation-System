@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { CompareMeasure } from '../application/comparison';
-import { commonGrid, compareSource, comparisonCsv, differingFields, forceInPercent } from '../application/comparison';
+import { commonGrid, compareSource, comparisonCsv, differingFields, forceInPercent, amplitudeUnit } from '../application/comparison';
 import { maxForceOf, toPercent } from '../application/forcePercent';
 import type { SavedSimulations } from '../application/savedSimulations';
 import type { SavedSimulation } from '../domain/savedSimulation';
@@ -44,7 +44,7 @@ function measureOptions(withFatigue: boolean) {
 
 function axisLabel(m: MeasureId, percent: boolean): string {
   if (m === 'emg') return tr({ 'pt-BR': 'EMG (unidades do modelo)', en: 'EMG (model units)' });
-  if (m === 'stimulus') return 'µA/cm²';
+  if (m === 'stimulus') return tr({ 'pt-BR': 'µA/cm² (soma) ou u.m. (pele)', en: 'µA/cm² (soma) or m.u. (skin)' });
   if (m === 'fatigue') return tr({ 'pt-BR': 'capacidade de força (1 = descansado)', en: 'force capacity (1 = rested)' });
   return percent
     ? tr({ 'pt-BR': 'força (% da máxima)', en: 'force (% of maximum)' })
@@ -206,10 +206,18 @@ export function CompareView({ saved, muscleLabel }: { saved: SavedSimulations; m
       </div>
       <ZoomBar zoom={zoom} durationMs={grid.endMs} />
       <div className="charts">
+        {shown === 'stimulus' && new Set(sims.map(amplitudeUnit)).size > 1 ? (
+          <div className="banner banner--warn" role="status">
+            {tr({
+              'pt-BR': 'As correntes estão em unidades diferentes (mA calibrado e unidade do modelo): não são sobrepostas.',
+              en: 'The currents are in different units (calibrated mA and model unit): they are not overlaid.',
+            })}
+          </div>
+        ) : (
         <LiveChart
           key={`${shown}-${sims.map((s) => s.id).join()}-${percent}`}
           title={`${measureLabel} — ${tr({ 'pt-BR': `${sims.length} simulação(ões)`, en: `${sims.length} simulation(s)` })}`}
-          yLabel={axisLabel(shown, source.percent)}
+          yLabel={shown === 'stimulus' && sims.every((s) => amplitudeUnit(s) === 'MA') ? 'mA' : axisLabel(shown, source.percent)}
           series={series}
           buffer={source}
           samples={grid.timeMs.length}
@@ -221,6 +229,7 @@ export function CompareView({ saved, muscleLabel }: { saved: SavedSimulations; m
           zoom={zoom}
           {...(source.percent ? { yRange: [0, 105] as [number, number] } : {})}
         />
+        )}
       </div>
       <SummaryTable sims={sims} colors={colors} percent={percent} />
       <DifferencesTable sims={sims} colors={colors} {...(muscleLabel ? { muscleLabel } : {})} />

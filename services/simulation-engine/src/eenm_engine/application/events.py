@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
+from eenm_engine.domain.electrode import ElectrodeSetup
 from eenm_engine.domain.motor_unit_pool import MotorUnitType, Muscle
 from eenm_engine.domain.unit_anatomy import UnitAnatomy
 from eenm_engine.domain.unit_events import UnitEvents
@@ -30,6 +31,8 @@ class SimulationStarted:
     """Electrode position along the axon from the soma; ``None`` when the stimulus goes into the soma."""
     joint: WristSetup | None = None
     """The wrist the stimulated muscle moves (FCR / ECR with a force reference), else ``None``."""
+    electrode: ElectrodeSetup | None = None
+    """The surface electrode, its ``G`` and the amplitude unit (LITERATURE + skin surface), else ``None``."""
 
 
 @dataclass(frozen=True)

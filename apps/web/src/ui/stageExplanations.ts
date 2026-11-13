@@ -97,13 +97,47 @@ const EXPLANATIONS: Record<StageId, LocalizedExplanation> = {
       'pt-BR':
         'Na FES de superfície a corrente excita os axônios motores. Um pulso curto precisa de mais corrente que um pulso ' +
         'longo para excitar o mesmo axônio: o limiar é a reobase multiplicada por (1 + τ/PW). Cada axônio tem sua própria ' +
-        'reobase; quanto maior a amplitude, mais axônios passam do limiar, sem preferência por tipo de unidade.',
+        'reobase; quanto maior a amplitude, mais axônios passam do limiar, sem preferência por tipo de unidade. O eletrodo ' +
+        'entra como um fator G no limiar: um eletrodo maior, mais gordura ou um axônio mais fundo pedem mais corrente.',
       en:
         'In surface FES the current excites the motor axons. A short pulse needs more current than a long pulse to excite ' +
         'the same axon: the threshold is the rheobase multiplied by (1 + τ/PW). Each axon has its own rheobase; the larger ' +
-        'the amplitude, the more axons cross the threshold, with no preference for a unit type.',
+        'the amplitude, the more axons cross the threshold, with no preference for a unit type. The electrode enters as one ' +
+        'factor G on the threshold: a larger electrode, more fat or a deeper axon needs more current.',
     },
     refs: [
+      {
+        id: 'baier2024',
+        supports: {
+          'pt-BR': 'função de ativação (Rattay) como preditor da excitação; eletrodo redondo de 25 mm sobre FCR e ECRB',
+          en: 'activating function (Rattay) as the predictor of excitation; round 25 mm electrode over FCR and ECRB',
+        },
+      },
+      {
+        id: 'doheny2010',
+        supports: {
+          'pt-BR': 'direção do fator G: o limiar sobe com o tamanho do eletrodo e a espessura da gordura (resumo)',
+          en: 'direction of the factor G: the threshold rises with electrode size and fat thickness (abstract)',
+        },
+      },
+      {
+        id: 'flodin2022',
+        supports: {
+          'pt-BR': 'eletrodo maior, mais corrente total e menos densidade no limiar (o modelo derivado não reproduz a densidade: teste V5)',
+          en: 'larger electrode, more total current and lower density at threshold (the derived model does not reproduce the density: test V5)',
+        },
+      },
+      {
+        id: 'lieberKelly1991',
+        supports: { 'pt-BR': 'opção “sem efeito” do tamanho do eletrodo (G = 1)', en: 'the “no effect” option of electrode size (G = 1)' },
+      },
+      {
+        id: 'dogan2022',
+        supports: {
+          'pt-BR': 'gordura subcutânea do antebraço anterior (padrão do FCR, 5,6 ± 2,8 mm)',
+          en: 'subcutaneous fat of the anterior forearm (the FCR default, 5.6 ± 2.8 mm)',
+        },
+      },
       { id: 'mogyoros1996', supports: { 'pt-BR': 'lei de Weiss em nervo humano e τ = 0,459 ms', en: 'Weiss law in human nerve and τ = 0.459 ms' } },
       {
         id: 'gregoryBickel2005',
@@ -116,10 +150,12 @@ const EXPLANATIONS: Record<StageId, LocalizedExplanation> = {
     inherited: {
       'pt-BR':
         'A faixa de reobases (primeira unidade em 56,9 e todas em 102,1 com pulso de 0,3 ms) reproduz o modelo original; ' +
-        'não vem de medida publicada.',
+        'não vem de medida publicada. A magnitude do fator do eletrodo G (fórmula derivada) é ilustrativa, não ' +
+        'validada; a profundidade do axônio abaixo da gordura (0,5 cm) é ilustrativa.',
       en:
         'The rheobase range (first unit at 56.9 and all at 102.1 with a 0.3 ms pulse) reproduces the original model; it ' +
-        'does not come from a published measurement.',
+        'does not come from a published measurement. The magnitude of the electrode factor G (derived formula) is ' +
+        'illustrative, not validated; the axon depth below the fat (0.5 cm) is illustrative.',
     },
   },
   '3': {

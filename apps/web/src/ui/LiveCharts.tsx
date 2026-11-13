@@ -66,7 +66,7 @@ export function LiveCharts({
         {...(maxForce ? { yRange: [0, 105] as [number, number] } : {})}
         {...inspect('force')}
       />
-      <LiveChart title={tr({ 'pt-BR': 'Corrente de estímulo', en: 'Stimulus current' })} yLabel="µA/cm²" series={stimulus()} stepped {...common} {...inspect('stimulus')} />
+      <LiveChart title={tr({ 'pt-BR': 'Corrente de estímulo', en: 'Stimulus current' })} yLabel={state.run?.amplitudeUnit === 'MA' ? 'mA' : state.run?.electrode ? tr({ 'pt-BR': 'u.m.', en: 'm.u.' }) : 'µA/cm²'} series={stimulus()} stepped {...common} {...inspect('stimulus')} />
       <LiveChart
         title={tr({ 'pt-BR': 'EMG — potencial de ação médio das unidades motoras', en: 'EMG — mean motor unit action potential' })}
         yLabel={tr({ 'pt-BR': 'EMG (unidades do modelo)', en: 'EMG (model units)' })}

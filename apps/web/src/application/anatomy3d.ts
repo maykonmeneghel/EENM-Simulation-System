@@ -191,8 +191,54 @@ export interface UnitLayout {
   axonRheobase: number;
 }
 
+/**
+ * The electrode pad drawn on the skin: the run's electrode (`started.electrode`, its chosen size and shape), else a
+ * round 25 mm-diameter pad (4.9 cm², the active electrode of Baier et al. 2024) for runs from an older server.
+ */
+export interface Pad {
+  shape: 'ROUND' | 'RECTANGLE';
+  /** ROUND. */
+  radiusM: number;
+  /** RECTANGLE: along the limb (the electrode's length) and across it (its width). */
+  lengthM: number;
+  widthM: number;
+  /** From the run (model) or the fallback (illustrative). */
+  fromRun: boolean;
+  /** G of the run's electrode; null for the fallback. */
+  thresholdFactor: number | null;
+  areaCm2: number;
+}
+
+/** Fallback pad radius (m): a round 25 mm-diameter pad, 4.9 cm² (Baier et al. 2024's active electrode). */
+export const FALLBACK_PAD_RADIUS_M = 0.0125;
+
+export function padOf(run: Pick<StartedEvent, 'electrode'>): Pad {
+  const e = run.electrode;
+  if (!e) {
+    const r = FALLBACK_PAD_RADIUS_M;
+    return { shape: 'ROUND', radiusM: r, lengthM: 2 * r, widthM: 2 * r, fromRun: false, thresholdFactor: null, areaCm2: Math.PI * (r * 100) ** 2 };
+  }
+  if (e.shape === 'ROUND' && e.diameterCm !== null) {
+    const r = e.diameterCm / 200;
+    return { shape: 'ROUND', radiusM: r, lengthM: 2 * r, widthM: 2 * r, fromRun: true, thresholdFactor: e.thresholdFactor, areaCm2: e.areaCm2 };
+  }
+  const length = (e.lengthCm ?? Math.sqrt(e.areaCm2)) / 100;
+  const width = (e.widthCm ?? Math.sqrt(e.areaCm2)) / 100;
+  return {
+    shape: 'RECTANGLE',
+    radiusM: Math.sqrt((length * width) / Math.PI),
+    lengthM: length,
+    widthM: width,
+    fromRun: true,
+    thresholdFactor: e.thresholdFactor,
+    areaCm2: e.areaCm2,
+  };
+}
+
 export interface Layout {
   muscle: MuscleId;
+  /** The electrode pad (size and shape of the run's electrode). */
+  pad: Pad;
   region: Region;
   parts: readonly PartId[];
   /** Cross-sections of the first stimulated part, every 1 cm. */
@@ -300,6 +346,7 @@ export function buildLayout(run: StartedEvent, axonLengthPercent: number): Layou
   }
   return {
     muscle: run.muscle,
+    pad: padOf(run),
     region,
     parts,
     sections,

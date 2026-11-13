@@ -129,11 +129,24 @@ export interface AxonRecruitment {
   fraction: number;
 }
 
-export function axonRecruitment(amplitude: number, pwMs: number, tauMs: number = CONSTANTS.tauSdMs): AxonRecruitment | null {
+/**
+ * Weiss thresholds of the first and last axon, times the electrode's G (domain/electrode.ts). `electrode` omitted =
+ * G = 1 with the inherited rheobases (u.m.); a calibrated electrode gives measured rheobases in mA.
+ */
+export function axonRecruitment(
+  amplitude: number,
+  pwMs: number,
+  tauMs: number = CONSTANTS.tauSdMs,
+  electrode?: { g: number; rheobaseMin: number; rheobaseSpread: number } | null,
+): AxonRecruitment | null {
   if (!finite(amplitude) || !finite(pwMs) || pwMs <= 0) return null;
   const sd = 1 + tauMs / pwMs;
-  const thresholdMin = CONSTANTS.rheobaseMin * sd;
-  const thresholdMax = CONSTANTS.rheobaseSpread * CONSTANTS.rheobaseMin * sd;
+  const g = electrode?.g ?? 1;
+  const rheobaseMin = electrode?.rheobaseMin ?? CONSTANTS.rheobaseMin;
+  const spread = electrode?.rheobaseSpread ?? CONSTANTS.rheobaseSpread;
+  const weissMin = rheobaseMin * sd;
+  const thresholdMin = g === 1 ? weissMin : weissMin * g;
+  const thresholdMax = g === 1 ? spread * rheobaseMin * sd : spread * rheobaseMin * sd * g;
 
   // Relative tolerance so 102.1 counts as ≥ 56.9/(1+τ/0.3)·(102.1/56.9)·(1+τ/0.3) despite float rounding.
   const eps = 1e-9 * thresholdMax;

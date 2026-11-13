@@ -28,6 +28,14 @@ export interface SymbolContext {
   rule2008: boolean;
   fastShift: boolean;
   forceFactors: boolean;
+  /** Skin-surface LITERATURE run: the electrode's factor G is in stage 2b. */
+  electrode: boolean;
+  /** The derived activating-function option (its geometry symbols are shown). */
+  electrodeAf: boolean;
+  /** mA calibration from the user's measurement. */
+  calibrated: boolean;
+  /** The calibration gives the full-recruitment current (R = I_full / I_MT). */
+  fullRecruitment: boolean;
 }
 
 export function symbolContext(s: ModelSnapshot): SymbolContext {
@@ -42,6 +50,10 @@ export function symbolContext(s: ModelSnapshot): SymbolContext {
     rule2008: s.drive?.thresholdRule !== 'WATANABE_2013',
     fastShift: s.condition.effects.fastShift !== 0,
     forceFactors: s.condition.effects.forceFactors.length > 0,
+    electrode: s.electrode !== null,
+    electrodeAf: s.electrode?.effectModel === 'HALF_SPACE_AF',
+    calibrated: (s.electrode?.input.calibration ?? null) !== null,
+    fullRecruitment: Boolean(s.electrode?.input.calibration?.fullRecruitmentMa),
   };
 }
 
@@ -117,6 +129,11 @@ const DURATION_FIELD = L('campo “Duração” (grupo Simulação, etapa Simula
 const NO_UNIT_IN_CODE = L('não definida no código', 'not defined in the code');
 
 const stimulatorOnly = (c: SymbolContext) => c.stimulator;
+const CM = L('cm', 'cm');
+const ELECTRODE_FIELD = (pt: string, en: string) => L(`campo “${pt}” (seção Eletrodo, painel do estimulador)`, `the “${en}” field (Electrode section, stimulator panel)`);
+const withElectrode = (c: SymbolContext) => c.electrode;
+const withAf = (c: SymbolContext) => c.electrodeAf;
+const withCalibration = (c: SymbolContext) => c.calibrated;
 const fesOnly = (c: SymbolContext) => !c.stimulator;
 
 // ---- reused entries ----
@@ -952,6 +969,143 @@ const SYMBOLS: Record<StageId, readonly GlossaryEntry[]> = {
       ),
       DIMENSIONLESS,
       L('reproduz o modelo original (sem medida publicada)', 'reproduces the original model (no published measurement)'),
+    ),
+    entry(
+      'G',
+      ['G'],
+      L(
+        'Fator do eletrodo: multiplica o limiar de todos os axônios. G > 1 pede mais corrente (eletrodo maior, gordura mais grossa ou axônio mais fundo que o padrão); G = 1 no eletrodo padrão do músculo.',
+        "Electrode factor: multiplies every axon's threshold. G > 1 needs more current (a larger electrode, thicker fat or a deeper axon than the default); G = 1 at the muscle's default electrode.",
+      ),
+      DIMENSIONLESS,
+      L(
+        'opção “Efeito no recrutamento”: fórmula derivada (modelo, magnitude ilustrativa, não validada) ou sem efeito (Lieber & Kelly 1991, G = 1)',
+        'the “Effect on recruitment” option: derived formula (model, illustrative magnitude, not validated) or no effect (Lieber & Kelly 1991, G = 1)',
+      ),
+      withElectrode,
+    ),
+    entry(
+      '\\mathrm{AF}',
+      ['\\mathrm{AF}'],
+      L(
+        'Função de ativação: a segunda derivada do potencial extracelular ao longo do axônio. Onde ela é mais positiva o axônio despolariza primeiro.',
+        'Activating function: the second derivative of the extracellular potential along the axon. Where it is most positive, the axon depolarises first.',
+      ),
+      L('V/cm² (aqui só a razão entre dois valores importa)', 'V/cm² (only the ratio of two values matters here)'),
+      L('Rattay 1986, como descrito em Baier et al. 2024 (texto completo); fórmula do disco derivada aqui (docs/design/electrode.md §2.1)', 'Rattay 1986, as stated in Baier et al. 2024 (full text); the disk formula derived here (docs/design/electrode.md §2.1)'),
+      withAf,
+    ),
+    entry(
+      'x',
+      ['x'],
+      L('Posição ao longo do axônio (0 sob o centro do eletrodo); G usa o máximo da função de ativação em x.', 'Position along the axon (0 under the centre of the electrode); G uses the maximum of the activating function over x.'),
+      CM,
+      L('calculado numericamente a cada execução', 'computed numerically on every run'),
+      withAf,
+    ),
+    entry(
+      'a',
+      ['a'],
+      L('Raio do disco de mesma área do eletrodo (a forma entra só pela área).', 'Radius of the disk with the electrode’s area (the shape enters only through the area).'),
+      CM,
+      ELECTRODE_FIELD('Dimensões', 'Dimensions'),
+      withAf,
+    ),
+    entry(
+      'S',
+      ['S'],
+      L('Área do eletrodo ativo.', 'Area of the active electrode.'),
+      L('cm²', 'cm²'),
+      ELECTRODE_FIELD('Dimensões', 'Dimensions'),
+      withAf,
+    ),
+    entry(
+      'd',
+      ['d'],
+      L('Profundidade do axônio a partir da pele: gordura + profundidade abaixo da gordura.', 'Depth of the axon from the skin: fat + depth below the fat.'),
+      CM,
+      COMPUTED,
+      withAf,
+    ),
+    entry(
+      'f',
+      ['f'],
+      L('Espessura da gordura subcutânea sob o eletrodo.', 'Thickness of the subcutaneous fat under the electrode.'),
+      CM,
+      L('artigo escolhido na seção Eletrodo (Doğan 2022, Chatlaong 2026, Petrofsky 2008…)', 'the paper chosen in the Electrode section (Doğan 2022, Chatlaong 2026, Petrofsky 2008…)'),
+      withAf,
+    ),
+    entry(
+      'h',
+      ['h'],
+      L('Profundidade dos axônios motores abaixo da gordura.', 'Depth of the motor axons below the fat.'),
+      CM,
+      L('ilustrativo: 0,5 cm dentro da faixa 0,1–1,1 cm de Kuhn 2010', 'illustrative: 0.5 cm inside the 0.1–1.1 cm range of Kuhn 2010'),
+      withAf,
+    ),
+    entry(
+      'a_{ref}',
+      ['a_{ref}'],
+      L('Raio do eletrodo de referência: o padrão do músculo (ou o da medida, se calibrado).', "Radius of the reference electrode: the muscle's default (or the measurement's, when calibrated)."),
+      CM,
+      L('eletrodo padrão do músculo (Baier 2024, Lyons 2004, Flodin 2022)', "the muscle's default electrode (Baier 2024, Lyons 2004, Flodin 2022)"),
+      withAf,
+    ),
+    entry(
+      'd_{ref}',
+      ['d_{ref}'],
+      L('Profundidade do axônio no eletrodo de referência.', 'Axon depth at the reference electrode.'),
+      CM,
+      L('gordura e profundidade padrão do músculo', "the muscle's default fat and depth"),
+      withAf,
+    ),
+    entry(
+      '\\rho',
+      ['\\rho'],
+      L('Resistividade do tecido (meio homogêneo); cancela na razão que dá G.', 'Resistivity of the tissue (homogeneous medium); it cancels in the ratio that gives G.'),
+      L('Ω·cm', 'Ω·cm'),
+      L('não precisa de valor: cancela', 'needs no value: it cancels'),
+      withAf,
+    ),
+    entry(
+      'I',
+      ['I'],
+      L('Corrente do eletrodo (a amplitude do pulso), espalhada uniformemente sobre o disco.', 'Current of the electrode (the pulse amplitude), spread uniformly over the disk.'),
+      L('mA', 'mA'),
+      L('a amplitude do estimulador', 'the stimulator amplitude'),
+      withAf,
+    ),
+    entry(
+      'S_c',
+      ['S_c'],
+      L('Área do eletrodo usado na medida de calibração.', 'Area of the electrode used for the calibration measurement.'),
+      L('cm²', 'cm²'),
+      ELECTRODE_FIELD('Área do eletrodo da medida', 'Area of the measurement electrode'),
+      (c) => c.calibrated && c.electrodeAf,
+    ),
+    entry(
+      'I_{MT}',
+      ['I_{MT}'],
+      L('Limiar motor que você mediu: a corrente que recruta a primeira unidade.', 'Motor threshold you measured: the current that recruits the first unit.'),
+      L('mA', 'mA'),
+      ELECTRODE_FIELD('Limiar motor medido', 'Measured motor threshold'),
+      withCalibration,
+    ),
+    entry(
+      'I_{full}',
+      ['I_{full}'],
+      L('Corrente de recrutamento total que você mediu (platô da onda M ou do torque).', 'Full-recruitment current you measured (M-wave or torque plateau).'),
+      L('mA', 'mA'),
+      ELECTRODE_FIELD('Recrutamento total', 'Full recruitment'),
+      (c) => c.fullRecruitment,
+    ),
+    entry(
+      'PW_c',
+      ['PW_c'],
+      L('Largura de pulso usada na medida de calibração.', 'Pulse width used for the calibration measurement.'),
+      L('ms', 'ms'),
+      ELECTRODE_FIELD('Largura de pulso da medida', 'Pulse width of the measurement'),
+      withCalibration,
     ),
   ],
 

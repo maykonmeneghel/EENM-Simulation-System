@@ -4,6 +4,7 @@ import com.meneghel.eenm.simulationapi.domain.simulation.CalibrationTarget;
 import com.meneghel.eenm.simulationapi.domain.simulation.CentralDrive;
 import com.meneghel.eenm.simulationapi.domain.simulation.StimulationSite;
 import com.meneghel.eenm.simulationapi.domain.simulation.Condition;
+import com.meneghel.eenm.simulationapi.domain.simulation.Electrode;
 import com.meneghel.eenm.simulationapi.domain.simulation.CompartmentGeometry;
 import com.meneghel.eenm.simulationapi.domain.simulation.InjectionSite;
 import com.meneghel.eenm.simulationapi.domain.simulation.ModelVariant;
@@ -35,7 +36,9 @@ public record SimulationDraft(
         CentralDrive centralDrive,
         Boolean unitEvents,
         WristPeakForce wristPeakForce,
-        WristPassiveModel wristPassive) {
+        WristPassiveModel wristPassive,
+        Electrode electrode) {
+    // electrode: the surface electrode (LITERATURE + SKIN_SURFACE only); null = the muscle's default.
 
     public SimulationDraft(StimulusDraft stimulus, ModelVariant modelVariant, CalibrationTarget calibrationTarget,
             StimulationSite stimulationSite, Condition condition, List<String> conditionAdjustments, Muscle muscle,
@@ -55,6 +58,17 @@ public record SimulationDraft(
         this(stimulus, modelVariant, calibrationTarget, stimulationSite, condition, conditionAdjustments, muscle,
                 unitsPerType, axonLengthPercent, temperatureCelsius, injectionSite, somaGeometry, dendriteGeometry,
                 seed, outputStepMs, centralDrive, unitEvents, null, null);
+    }
+
+    public SimulationDraft(StimulusDraft stimulus, ModelVariant modelVariant, CalibrationTarget calibrationTarget,
+            StimulationSite stimulationSite, Condition condition, List<String> conditionAdjustments, Muscle muscle,
+            MotorUnitCountsDraft unitsPerType, Double axonLengthPercent, Double temperatureCelsius,
+            InjectionSite injectionSite, CompartmentGeometry somaGeometry, CompartmentGeometry dendriteGeometry,
+            Long seed, Double outputStepMs, CentralDrive centralDrive, Boolean unitEvents,
+            WristPeakForce wristPeakForce, WristPassiveModel wristPassive) {
+        this(stimulus, modelVariant, calibrationTarget, stimulationSite, condition, conditionAdjustments, muscle,
+                unitsPerType, axonLengthPercent, temperatureCelsius, injectionSite, somaGeometry, dendriteGeometry,
+                seed, outputStepMs, centralDrive, unitEvents, wristPeakForce, wristPassive, null);
     }
 
     public static SimulationDraft empty() {

@@ -28,8 +28,6 @@ import { activeSpikes, recentFlashes } from '../../application/replay';
 import { FOREARM_URL, LEG_URL, REGION_URL, TAN_HALF_FOV, distanceFor, levelCamera } from './camera';
 import { FLASH_COLORS, SPIKE_COLORS } from './replayStyle';
 
-/** Electrode pad radius: not in the model (its recruitment is analytic), a common 5 × 5 cm-class pad, illustrative. */
-const PAD_RADIUS = 0.0125;
 const PAD_THICKNESS = 0.0015;
 const SCRATCH = new THREE.Vector3();
 const POINT: [number, number, number] = [0, 0, 0];
@@ -305,7 +303,12 @@ function Electrode({ layout, replay, clock }: { layout: Layout; replay: Replay |
   return (
     <group position={placement.point} quaternion={placement.q}>
       <mesh>
-        <cylinderGeometry args={[PAD_RADIUS, PAD_RADIUS, PAD_THICKNESS, 48]} />
+        {layout.pad.shape === 'ROUND' ? (
+          <cylinderGeometry args={[layout.pad.radiusM, layout.pad.radiusM, PAD_THICKNESS, 48]} />
+        ) : (
+          // length along the limb (local x stays close to the limb axis: the shortest rotation from y to the normal)
+          <boxGeometry args={[layout.pad.lengthM, PAD_THICKNESS, layout.pad.widthM]} />
+        )}
         <meshStandardMaterial ref={material} color="#3b4252" roughness={0.4} emissive="#ffe14d" emissiveIntensity={0} />
       </mesh>
     </group>
