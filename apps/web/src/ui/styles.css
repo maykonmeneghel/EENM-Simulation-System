@@ -184,6 +184,16 @@ body { overflow: hidden; }
 .explain-counts dd { margin: 0; text-align: right; font-weight: 600; }
 .explain-stage summary { cursor: pointer; font-weight: 500; padding: 0.15rem 0; }
 .explain-stage p { margin: 0.3rem 0; }
+.explain-symbols { margin-top: 0.25rem; }
+.explain-symbols h3 { margin-bottom: 0.3rem; }
+.explain-symbols-note { font-size: var(--fs-xs); }
+.symbol-list { margin: 0.4rem 0 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.symbol-item { border-top: 1px solid var(--separator); padding-top: 0.45rem; }
+.symbol-tex { margin: 0 0 0.2rem; font-weight: 400; overflow-x: auto; overflow-y: hidden; }
+.symbol-meaning { margin: 0; min-width: 0; }
+.symbol-meaning p { margin: 0 0 0.15rem; }
+.symbol-meta { font-size: var(--fs-xs); color: var(--text-2); }
+.symbol-meta-label { font-weight: 600; }
 .preset-row { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 .btn--selected { box-shadow: inset 0 0 0 1.5px var(--accent); }
 .toolbar {

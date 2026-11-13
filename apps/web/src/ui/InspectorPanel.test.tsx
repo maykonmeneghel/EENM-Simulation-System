@@ -3,7 +3,11 @@ import { describe, expect, it } from 'vitest';
 import type { FormValues } from '../application/formModel';
 import { defaultFormValues, driveActive, inactiveFields, parseForm, tremorActive } from '../application/formModel';
 import { signalPath } from '../application/signalPath';
+import { buildModelSnapshot } from '../application/modelView';
+import { setLocale } from '../i18n/locale';
 import { InspectorPanel } from './InspectorPanel';
+import { STAGE_EXPLANATIONS } from './stageExplanations';
+import { stageSymbols, symbolContext } from './stageSymbols';
 import { nextStep, stepOfField } from './steps';
 
 const base = defaultFormValues();
@@ -89,6 +93,51 @@ describe('InspectorPanel', () => {
     expect(screen.queryByRole('heading', { name: 'Caminho do sinal' })).toBeNull();
     screen.getByRole('button', { name: 'Ver a equação' }).click();
     expect(shown).toEqual(['2b']);
+  });
+
+  it('opened from the equation card, a stage explains its symbols instead of repeating the card', () => {
+    const { container } = render(<InspectorPanel topic={{ kind: 'stage', stage: '5b', from: 'equations' }} values={base} axonEvents={null} onShowEquation={() => {}} />);
+    const glossary = screen.getByRole('group', { name: 'O que cada símbolo significa' });
+    // the card shows "Em palavras" and the sources: neither is repeated here
+    expect(screen.queryByText(STAGE_EXPLANATIONS['5b'].plain)).toBeNull();
+    expect(screen.queryAllByRole('link', { name: 'Google Scholar' })).toHaveLength(0);
+    const terms = within(glossary).getAllByRole('term');
+    expect(terms.length).toBe(stageSymbols('5b', symbolContext(buildModelSnapshot({ values: base, muscles: [] }))).length);
+    expect(glossary).toHaveTextContent(/Tempo de contração: do disparo ao pico do abalo/);
+    expect(glossary).toHaveTextContent(/Calibração do twitch/);
+    expect(glossary).toHaveTextContent(/O índice k numera as unidades motoras/);
+    expect(container.querySelector('.katex-error')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Ver a equação' })).toBeInTheDocument();
+  });
+
+  it('opened from a diagram block (no text on screen), a stage keeps its plain explanation and sources and adds the symbols', () => {
+    render(<InspectorPanel topic={{ kind: 'stage', stage: '2b', from: 'diagram' }} values={base} axonEvents={null} />);
+    expect(screen.getByText(STAGE_EXPLANATIONS['2b'].plain)).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Google Scholar' }).length).toBeGreaterThan(0);
+    expect(within(screen.getByRole('group', { name: 'O que cada símbolo significa' })).getByText(/Reobase do axônio k/)).toBeInTheDocument();
+  });
+
+  it('charts and scopes keep the plain explanation and sources, without a glossary', () => {
+    render(<InspectorPanel topic={{ kind: 'scope', scope: 'pulse' }} values={base} axonEvents={null} />);
+    expect(screen.getByText(STAGE_EXPLANATIONS['1'].plain)).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'O que cada símbolo significa' })).toBeNull();
+  });
+
+  it('the glossary follows the settings and the language', () => {
+    const { unmount } = render(<InspectorPanel topic={{ kind: 'stage', stage: '1', from: 'equations' }} values={base} axonEvents={null} />);
+    const pt = screen.getByRole('group', { name: 'O que cada símbolo significa' });
+    expect(pt).toHaveTextContent(/Rampa de subida/);
+    expect(pt).not.toHaveTextContent(/Ciclo de trabalho/);
+    unmount();
+    setLocale('en');
+    try {
+      render(<InspectorPanel topic={{ kind: 'stage', stage: '1', from: 'equations' }} values={defaultFormValues('ORIGINAL')} axonEvents={null} />);
+      const en = screen.getByRole('group', { name: 'What each symbol means' });
+      expect(en).toHaveTextContent(/Duty cycle/);
+      expect(en).not.toHaveTextContent(/Ramp up/);
+    } finally {
+      setLocale('pt-BR');
+    }
   });
 });
 

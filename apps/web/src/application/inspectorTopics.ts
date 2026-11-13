@@ -5,7 +5,8 @@ import { tr } from '../i18n/locale';
 
 /** What the right sidebar explains: a visual component of the centre column the user clicked. */
 export type InspectorTopic =
-  | { kind: 'stage'; stage: StageId }
+  /** `from`: the equation card (which already shows the plain explanation and the sources) or a diagram block. */
+  | { kind: 'stage'; stage: StageId; from?: 'equations' | 'diagram' }
   | { kind: 'chart'; chart: 'force' | 'stimulus' | 'emg' }
   | { kind: 'fatigue' }
   | { kind: 'scope'; scope: 'pulse' | 'envelope' }
@@ -16,8 +17,12 @@ export type InspectorTopic =
 
 export interface TopicView {
   title: string;
-  /** Model stages whose plain explanation and sources are shown. */
+  /** Model stages explained. */
   stages: readonly StageId[];
+  /** Show each stage's plain explanation and sources (false where the centre column already shows them). */
+  stageText: boolean;
+  /** Show the glossary of each stage's symbols (where the symbols are on screen or one click away). */
+  symbols: boolean;
   /** Show the signal path of the current mode. */
   path: boolean;
   /** Show the central drive (when active), its sources and the known limits. */
@@ -77,28 +82,39 @@ const READINGS: Readonly<Record<'force' | 'stimulus' | 'emg' | 'fatigue', Locali
 export function topicView(topic: InspectorTopic, forceStages: readonly StageId[], stageTitle: (s: StageId) => string): TopicView {
   switch (topic.kind) {
     case 'stage':
-      return { title: `${tr({ 'pt-BR': 'Etapa', en: 'Stage' })} ${topic.stage} · ${stageTitle(topic.stage)}`, stages: [topic.stage], path: false, drive: topic.stage === '2c', axon: false };
+      return {
+        title: `${tr({ 'pt-BR': 'Etapa', en: 'Stage' })} ${topic.stage} · ${stageTitle(topic.stage)}`,
+        stages: [topic.stage],
+        // the equation card already shows "In words" and the sources: the sidebar explains the symbols instead
+        stageText: topic.from !== 'equations',
+        symbols: true,
+        path: false,
+        drive: topic.stage === '2c',
+        axon: false,
+      };
     case 'chart':
       if (topic.chart === 'force')
-        return { title: tr({ 'pt-BR': 'Força muscular', en: 'Muscle force' }), stages: forceStages, path: true, drive: true, axon: true, reading: tr(READINGS.force) };
+        return { title: tr({ 'pt-BR': 'Força muscular', en: 'Muscle force' }), stageText: true, symbols: false, stages: forceStages, path: true, drive: true, axon: true, reading: tr(READINGS.force) };
       if (topic.chart === 'stimulus')
-        return { title: tr({ 'pt-BR': 'Corrente de estímulo', en: 'Stimulus current' }), stages: ['1'], path: false, drive: false, axon: false, reading: tr(READINGS.stimulus) };
-      return { title: 'EMG', stages: ['3', '4'], path: false, drive: false, axon: true, reading: tr(READINGS.emg) };
+        return { title: tr({ 'pt-BR': 'Corrente de estímulo', en: 'Stimulus current' }), stageText: true, symbols: false, stages: ['1'], path: false, drive: false, axon: false, reading: tr(READINGS.stimulus) };
+      return { title: 'EMG', stageText: true, symbols: false, stages: ['3', '4'], path: false, drive: false, axon: true, reading: tr(READINGS.emg) };
     case 'fatigue':
-      return { title: tr({ 'pt-BR': 'Fadiga', en: 'Fatigue' }), stages: ['7'], path: false, drive: false, axon: false, reading: tr(READINGS.fatigue) };
+      return { title: tr({ 'pt-BR': 'Fadiga', en: 'Fatigue' }), stageText: true, symbols: false, stages: ['7'], path: false, drive: false, axon: false, reading: tr(READINGS.fatigue) };
     case 'scope':
       return {
         title: topic.scope === 'pulse' ? tr({ 'pt-BR': 'Forma do pulso', en: 'Pulse shape' }) : tr({ 'pt-BR': 'Envelope e trens', en: 'Envelope and trains' }),
         stages: ['1'],
+        stageText: true,
+        symbols: false,
         path: false,
         drive: false,
         axon: false,
       };
     case 'recruitment':
-      return { title: tr({ 'pt-BR': 'Recrutamento dos axônios', en: 'Axon recruitment' }), stages: ['2b'], path: false, drive: false, axon: false };
+      return { title: tr({ 'pt-BR': 'Recrutamento dos axônios', en: 'Axon recruitment' }), stageText: true, symbols: false, stages: ['2b'], path: false, drive: false, axon: false };
     case 'mode':
-      return { title: tr({ 'pt-BR': 'Modo de aplicação', en: 'Application mode' }), stages: [], path: true, drive: true, axon: true };
+      return { title: tr({ 'pt-BR': 'Modo de aplicação', en: 'Application mode' }), stageText: true, symbols: false, stages: [], path: true, drive: true, axon: true };
     case 'help':
-      return { title: topic.label, stages: [], path: false, drive: false, axon: false };
+      return { title: topic.label, stageText: true, symbols: false, stages: [], path: false, drive: false, axon: false };
   }
 }
