@@ -88,6 +88,10 @@ welds the vertices. Output:
 - `apps/web/src/domain/forearm.json`: frame, forearm length (0.249 m) and each muscle's cross-sections every 1 cm,
   used by the layout and its tests.
 
+(2026-11-12: the hand of §5b brought `forearm.glb` to 0.52 MB. The shared steps now live in
+`apps/web/scripts/anatomy/lib.mjs`, also used by `build-leg.mjs`; rebuilding the forearm with it gives byte-identical
+`forearm.glb` and `forearm.json`.)
+
 ## 3. Levels of zoom
 
 | Level | Field of view | What is drawn | Source of each element |
@@ -142,6 +146,7 @@ Two inconsistencies the 3D view will make visible, recorded here so they are not
 
 **DECISION 5 — leg muscles.** The atlas has the leg too, but the request was the forearm. Proposal: the 3D step is
 enabled for FCR and ECR runs; for leg-muscle runs it shows a short message and a button to switch to FCR.
+**Superseded 2026-11-12** by §10: the leg muscles are drawn in a static lower leg.
 
 ## 5. Events: what the engine streams today and what the replay needs
 
@@ -311,6 +316,110 @@ run starts at 0° (the joint buffer is reset and the replay clock goes back to 0
 | 2 | Motoneurons are ≈ 0.8 m away in the spinal cord | broken axis with the omitted length written on it |
 | 3 | "1 µm" level | stop at L3 (≈ 0.5 mm); no nodes of Ranvier without a model that has them |
 | 4 | Where a collision is drawn | (a) where the central spike is at the pulse instant, as the engine computes |
-| 5 | Leg-muscle runs | 3D step for FCR/ECR only, with a message for the others |
+| 5 | Leg-muscle runs | 3D step for FCR/ECR only, with a message for the others; **superseded 2026-11-12**: static lower leg (§10) |
 | 6 | Placement in the app | sixth step "3D" after Resultados |
 | 7 | Velocity 44–53 m/s vs 60–100 / 71.7 m/s in the literature | out of scope for the view; draw the model's value, list it as a model question |
+
+## 10. The lower leg (static; implemented 2026-11-12)
+
+The author asked on 2026-11-12 for the 3D step for the other four muscles (soleus, medial and lateral gastrocnemius,
+tibialis anterior) and chose a **static leg**: everything the forearm view does (atlas at real scale, the run's
+units, axons with the run's conduction times, motoneurons, electrode, replay of pulses, spikes and collisions, the
+muscle glowing with the force, the zoom levels, the inspector and its tags), but **the foot does not move**: there is
+no ankle model, and the wrist joint (`joint.*`) stays forearm-only. An ankle may come in a later PR.
+
+The code is not forked: `anatomy3d.ts` has one `Region` per limb (`forearm`, `leg`), chosen by the muscle
+(`MUSCLE_REGION`); the layout, the nerve curve, the axon mapping, the scene and the replay are the same code. Only
+the forearm region has `joint: true`, so only its meshes bend. The form asks for `unitEvents` for the six muscles
+(same ≤ `maxUnitEventsDurationMs` rule). The engine needed no change: `units` and `unitEvents` never depended on the
+muscle.
+
+### 10.1 Parts used (right leg)
+
+Measured from the vertices of the extracted OBJ files on 2026-11-12, as in §2.2 (mm, z up):
+
+| Part | FMA | File | Faces | Size x × y × z (mm) | z range (mm) |
+|---|---|---|---|---|---|
+| Right soleus | FMA22558 | FJ1437 | 4 418 | 80.2 × 58.9 × 326.2 | 32.5 – 358.6 |
+| Medial head of right gastrocnemius | FMA45957 | FJ1397 | 3 842 | 52.5 × 79.0 × 309.3 | 122.8 – 432.1 |
+| Lateral head of right gastrocnemius | FMA45960 | FJ1394 | 3 052 | 55.8 × 74.8 × 290.5 | 132.8 – 423.3 |
+| Right tibialis anterior | FMA22544 | FJ1439 | 2 510 | 49.8 × 76.8 × 394.1 | −38.8 – 355.3 |
+| Right tibia | FMA24477 | FJ3387 | 1 664 | 74.1 × 62.8 × 380.0 | −6.0 – 373.9 |
+| Right fibula | FMA24480 | FJ3366 | 1 142 | 35.8 × 29.7 × 384.4 | −25.3 – 359.1 |
+| Right femur (knee end only) | FMA24474 | FJ3365 | 3 102 | 118.2 × 62.7 × 466.1 | 368.1 – 834.3 |
+| Right patella | FMA24486 | FJ3381 | 306 | 41.7 × 21.7 × 39.3 | 361.5 – 400.8 |
+| 26 bones of the right foot (merged) | FMA24497 … FMA32658 | FJ3360 … FJ3195 | 14 922 | 124.5 × 212.0 × 73.5 | −70.4 – 3.1 |
+| Skin (whole body, one mesh) | FMA7163 | FJ2810 | 203 382 | 666.9 × 292.0 × 1 719.5 | −78.1 – 1 641.4 |
+
+The foot bones are the calcaneus, talus, navicular, cuboid, three cuneiforms, five metatarsals and fourteen phalanges
+(the list with each FMA id is in the script). The atlas has **no tibial or fibular nerve** (its nerve meshes are all
+orbital/cranial), so the leg's nerve is drawn, as on the forearm.
+
+`apps/web/scripts/anatomy/build-leg.mjs` (same pipeline, `lib.mjs`): pinned zip and SHA-256, FMA id and 1 % size check
+per part (a size changed by hand makes it exit 1: checked), then the **leg frame**: metres, origin at the top of the
+tibia (mean of its vertices within 10 mm of the top: the plateau), x toward the midpoint of the two malleoli (mean of
+the tibia's and of the fibula's lowest 10 mm), y toward the calf (from the tibialis anterior's centroid to the
+triceps surae's), z = x × y; the lateral side (the fibula) is −z. Crops: skin from 6 cm above the plateau to 1 cm past
+the sole, right side of the body only; femur, its distal 8 cm. The skin is decimated to 50 % of its faces and the
+foot bones to 40 % (meshoptimizer, error ≤ 0.1 % of the mesh size); muscles and leg bones keep every face. Output:
+
+- `apps/web/public/anatomy/leg.glb`, **0.48 MB** (forearm.glb: 0.52 MB), no compression; faces written: soleus 4 418,
+  gastrocnemius medial 3 842 and lateral 3 052, tibialis anterior 2 510, tibia 1 664, fibula 1 142, femur 1 256,
+  patella 306, skin 12 511, foot bones 8 708;
+- `apps/web/src/domain/leg.json`: frame, length (plateau → malleoli 0.380 m), landmarks (fibular head apex 1.16 cm
+  below the plateau, lateral malleolus tip 39.57 cm, superior margin of the calcaneal tuberosity 40.05 cm, sole
+  43.85 cm), the two illustrative nerve points and the muscles' cross-sections every 1 cm.
+
+The landmarks are read from the meshes: fibular head = the fibula's most proximal vertex; lateral malleolus = its most
+distal vertex; superior margin of the calcaneal tuberosity = the most proximal vertex of the calcaneus within 10 mm of
+its posterior surface. Fibular head → lateral malleolus is 38.4 cm here against 32.0 ± 1.9 cm in Yi et al. 2017's
+110 legs: the atlas body is 1 719.5 mm tall and is drawn as "a leg", not as the simulated person.
+
+### 10.2 Motor points (where the electrode sits)
+
+Sources checked on 2026-11-12 against Crossref (title, authors, year) and PubMed (abstract); the soleus and
+gastrocnemius full texts are open in PMC and were read for the zone definitions.
+
+| Muscle | Value used | Source | Drawn at (below the plateau) |
+|---|---|---|---|
+| Medial gastrocnemius | densest intramuscular nerve arborization 7/10–8/10 of the line calcaneal tuberosity (0) → fibular head (1); midpoint 0.75 | Yi KH et al. 2023, *Yonsei Med J* 64:511, doi 10.3349/ymj.2023.0124 (13/17 specimens; full text PMC10375242) | 10.9 cm |
+| Lateral gastrocnemius | 7.5/10–8.5/10 of the same line; midpoint 0.80 | same | 8.9 cm |
+| Soleus | zone 5 of 10 zones counted from the bottom (0.4–0.5) of the same line, densest in the lateral (15/20) and medial (16/20) portions; the middle portion's zone 3 is not used; midpoint 0.45 | Yi KH et al. 2025, *Sci Rep* 16:279, doi 10.1038/s41598-025-07508-2 (full text PMC12770594) | 22.5 cm |
+| Tibialis anterior | densest arborization at 70–80 % of the line lateral malleolus → fibular head (32.0 cm); midpoint 75 % | Yi KH et al. 2017, *Surg Radiol Anat* 39:77, doi 10.1007/s00276-016-1698-6 (abstract; full text not read) | 10.8 cm |
+
+These are cadaver arborization zones (where the intramuscular branches are densest), the places the authors propose
+for FES and injections; they are not surface threshold maps. The surface motor-point atlas of Botter et al. 2011
+(*Eur J Appl Physiol* 111:2461, doi 10.1007/s00421-011-2093-y) has TA and both gastrocnemius heads but no soleus, and
+its numbers are not in the abstract (full text not read), so it is not used. For the tibialis anterior, the abstract
+does not say which end is 0 %; 0 % at the malleolus is inferred from the nerve entry points (86.5–90.6 %) being near
+the fibular head, where the deep fibular nerve reaches the muscle, and from Congio et al. 2026 (*Acta Cir Bras*
+41:e414326, doi 10.1590/acb414326) finding the entry points in the upper half of the muscle. As on the forearm, the
+motor point is tagged **model** in the footer (a literature value the drawing uses, with its source named).
+
+The electrode is placed on the skin over the motor point (ray from the muscle's cross-section centre, as §4); the
+endplates sit (1 − f) × axon length distal to it, inside the muscle.
+
+### 10.3 Nerve and axon
+
+| Structure | What is drawn | Tag / source |
+|---|---|---|
+| Nerve to the gastrocnemii and soleus | tibial nerve: a trunk behind the knee from the axis break, the branch leaving it 65 mm (medial gastrocnemius), 54 mm (lateral) and 47 mm (upper soleus) above the fibular head, then to the motor point | level of the branch: Le Roux J et al. 2026, *Am J Phys Med Rehabil*, doi 10.1097/PHM.0000000000003138 (51 legs, abstract; online ahead of print); position across the leg: **illustrative** (the trunk at 55 % of the way from the bone axis to the back skin at the plateau) |
+| Nerve to the tibialis anterior | common → deep fibular nerve: from behind the knee round the fibular neck (25 mm below the head apex, 6 mm outside it), entering the muscle at 86.5–90.6 % of the malleolus → fibular-head line (midpoint, 5.6 cm below the plateau), then to the motor point | entry level: Yi et al. 2017 (abstract); neck point and path: **illustrative** |
+| Axon length | `axonLengthPercent` / 100 m, the same for every muscle (0.8 m by default) | **model** — the original model's single axon length; it is not the lumbosacral → leg distance, which was not looked up. The footer says so. |
+| Conduction times, electrode fraction, events | the run's `units` table and `unitEvents` | **model**, unchanged |
+| Unit positions, territories, electrode size, nerve shape | as on the forearm | **illustrative** |
+
+The motoneurons stay past the broken axis with the omitted length written on it (decision 2).
+
+### 10.4 In the app
+
+The zoom level L0 is "Perna / Leg" and frames 0.7 m, from the motoneurons past the broken axis to the sole, from the
+lateral side, a little in front; the leg stands (the camera's up is the knee). L1 looks up at the cut face of the
+muscle from below and from the muscle's own side, so the tibia and fibula stay behind it. The canvas is made again when
+the region changes, because the camera's up is set when it is made. The footer names, for leg runs, the atlas, the
+model's motoneuron, the axon length as the model's, the motor point with its study, the nerve and the literature point
+on its path, and that the foot does not move. A muscle the 3D step has no region for (none today) still gets the
+message and the button to switch to the FCR.
+
+Open: the model uses one axon length for all muscles; real lower-limb efferents are longer than the forearm's. Changing
+that is a model decision (like decision 7), not a view decision.

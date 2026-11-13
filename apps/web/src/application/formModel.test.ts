@@ -10,6 +10,7 @@ import {
   outputStepAdvice,
   parseForm,
   partitionFieldErrors,
+  REPLAY_MUSCLES,
   toFormValues,
 } from './formModel';
 
@@ -43,7 +44,8 @@ describe('form model — defaults', () => {
 
   it('ORIGINAL contract defaults still round-trip (no stimulator fields)', () => {
     const r = parseForm(defaultFormValues('ORIGINAL'), [soleus]);
-    expect(r).toEqual({ ok: true, request: defaultRequest('ORIGINAL'), notices: [] });
+    // the default muscle (soleus) is drawn by the 3D step, so the form asks for its per-unit events
+    expect(r).toEqual({ ok: true, request: { ...defaultRequest('ORIGINAL'), output: { unitEvents: true } }, notices: [] });
   });
 
   it('manual counts send unitsPerType', () => {
@@ -269,11 +271,15 @@ describe('form model — 3D replay', () => {
   const fcr: MusclePreset = { id: 'FLEXOR_CARPI_RADIALIS', label: 'FCR', poolSize: { S: 800, FR: 50, FF: 50 } };
   const at = (muscle: string, durationMs: string) => ({ ...defaultFormValues(), muscle, 'stimulus.durationMs': durationMs });
 
-  it('asks for the per-unit events of forearm runs up to 30 s, the engine limit', () => {
+  it('asks for the per-unit events of forearm and leg runs up to 30 s, the engine limit', () => {
     expect(requestOf(at('FLEXOR_CARPI_RADIALIS', '1000'), [fcr]).output).toEqual({ unitEvents: true });
     expect(requestOf(at('FLEXOR_CARPI_RADIALIS', '30000'), [fcr]).output).toEqual({ unitEvents: true });
     expect(requestOf(at('FLEXOR_CARPI_RADIALIS', '30001'), [fcr]).output).toBeUndefined();
-    expect(requestOf(at('SOLEUS', '1000')).output).toBeUndefined(); // the 3D step does not draw the leg
+    for (const leg of ['SOLEUS', 'GASTROCNEMIUS_MEDIAL', 'GASTROCNEMIUS_LATERAL', 'TIBIALIS_ANTERIOR']) {
+      expect(requestOf(at(leg, '1000')).output).toEqual({ unitEvents: true });
+      expect(requestOf(at(leg, '30001')).output).toBeUndefined();
+    }
+    expect(REPLAY_MUSCLES.size).toBe(6);
   });
 });
 

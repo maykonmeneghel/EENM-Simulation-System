@@ -1,4 +1,4 @@
-import type { StartedEvent, UnitAnatomy } from '../domain/simulation';
+import type { MuscleId, StartedEvent, UnitAnatomy } from '../domain/simulation';
 import { AXIS_BREAK_X, FOREARM, LEVELS, MOTONEURON_SPACING, SPINAL_X, buildLayout, hasForearm, levelFor } from './anatomy3d';
 
 function units(n: number): UnitAnatomy {
@@ -78,10 +78,11 @@ describe('buildLayout', () => {
     expect(seen.size).toBe(120);
   });
 
-  it('draws ECR as ECRL + ECRB and has no layout for a leg muscle or an older server', () => {
+  it('draws ECR as ECRL + ECRB, a leg muscle in the leg, and has no layout for an older server', () => {
     expect(buildLayout(run({ muscle: 'EXTENSOR_CARPI_RADIALIS' }), 80)!.parts).toEqual(['ecrl', 'ecrb']);
-    expect(buildLayout(run({ muscle: 'SOLEUS' }), 80)).toBeNull();
+    expect(buildLayout(run({ muscle: 'SOLEUS' }), 80)!.region.id).toBe('leg');
     expect(buildLayout(run({ units: undefined }), 80)).toBeNull();
+    expect(buildLayout(run({ muscle: 'QUADRICEPS' as MuscleId }), 80)).toBeNull(); // a muscle without anatomy
     expect(hasForearm('TIBIALIS_ANTERIOR')).toBe(false);
     expect(hasForearm('FLEXOR_CARPI_RADIALIS')).toBe(true);
   });
@@ -153,5 +154,96 @@ describe('wrist bend', () => {
     bendAtWrist(cx + 0.1, cy, Math.PI / 2, 1, out);
     expect(out[0]).toBeCloseTo(cx, 9);
     expect(out[1]).toBeCloseTo(cy + 0.1, 9);
+  });
+});
+
+describe('the leg (static: no ankle)', () => {
+  const LEG_MUSCLES = ['SOLEUS', 'GASTROCNEMIUS_MEDIAL', 'GASTROCNEMIUS_LATERAL', 'TIBIALIS_ANTERIOR'] as const;
+
+  it('has a region for every muscle of the app, and the form asks for the replay of exactly those', async () => {
+    const { has3d, regionOf, REGIONS } = await import('./anatomy3d');
+    const { MUSCLES } = await import('../domain/simulation');
+    const { REPLAY_MUSCLES } = await import('./formModel');
+    for (const m of MUSCLES) {
+      expect(has3d(m)).toBe(true);
+      expect(REPLAY_MUSCLES.has(m)).toBe(true);
+    }
+    expect(REPLAY_MUSCLES.size).toBe(MUSCLES.length);
+    for (const m of LEG_MUSCLES) {
+      expect(regionOf(m)).toBe('leg');
+      expect(hasForearm(m)).toBe(false);
+    }
+    expect(REGIONS.leg.joint).toBe(false); // the wrist joint stays forearm-only
+    expect(REGIONS.forearm.joint).toBe(true);
+  });
+
+  it('is at human scale, with the landmarks in anatomical order', async () => {
+    const { LEG } = await import('./anatomy3d');
+    const { fibularHead, lateralMalleolus, calcanealTuberosity, sole } = LEG.landmarks;
+    expect(LEG.legLength).toBeGreaterThan(0.33);
+    expect(LEG.legLength).toBeLessThan(0.45);
+    expect(fibularHead).toBeGreaterThan(0); // just below the tibial plateau
+    expect(fibularHead).toBeLessThan(0.03);
+    expect(lateralMalleolus - fibularHead).toBeGreaterThan(0.3);
+    expect(calcanealTuberosity).toBeGreaterThan(0.35);
+    expect(sole).toBeGreaterThan(Math.max(lateralMalleolus, calcanealTuberosity));
+    for (const id of ['sol', 'gm', 'gl', 'ta'] as const) expect(LEG.sections[id].length).toBeGreaterThan(20);
+    // the gastrocnemius heads lie medial and lateral (lateral = the fibula's side)
+    const side = (id: 'gm' | 'gl') => LEG.sections[id][10]!.centre[1] * LEG.lateral;
+    expect(side('gl')).toBeGreaterThan(0);
+    expect(side('gm')).toBeLessThan(0);
+    // the calf behind (+y), the tibialis anterior in front
+    expect(LEG.sections.sol[15]!.centre[0]).toBeGreaterThan(0);
+    expect(LEG.sections.ta[15]!.centre[0]).toBeLessThan(0);
+  });
+
+  it('puts each motor point where its study puts it, on the atlas landmarks, inside the muscle', async () => {
+    const { LEG, MOTOR_POINT } = await import('./anatomy3d');
+    const { fibularHead: head, lateralMalleolus: malleolus, calcanealTuberosity: heel } = LEG.landmarks;
+    expect(MOTOR_POINT.SOLEUS.x).toBeCloseTo(heel + 0.45 * (head - heel), 9); // Yi 2025, zone 5 of 10
+    expect(MOTOR_POINT.GASTROCNEMIUS_MEDIAL.x).toBeCloseTo(heel + 0.75 * (head - heel), 9); // Yi 2023, 7/10–8/10
+    expect(MOTOR_POINT.GASTROCNEMIUS_LATERAL.x).toBeCloseTo(heel + 0.8 * (head - heel), 9); // Yi 2023, 7.5/10–8.5/10
+    expect(MOTOR_POINT.TIBIALIS_ANTERIOR.x).toBeCloseTo(malleolus + 0.75 * (head - malleolus), 9); // Yi 2017, 70–80 %
+    for (const m of LEG_MUSCLES) {
+      const layout = buildLayout(run({ muscle: m }), 80)!;
+      expect(layout.motorPoint.tag).toBe('model');
+      expect(layout.motorPoint.x).toBeGreaterThan(layout.sections[0]!.x);
+      expect(layout.motorPoint.x).toBeLessThan(layout.sections.at(-1)!.x);
+      expect(layout.endplateX).toBeGreaterThan(layout.motorPoint.x); // the endplates lie distal, toward the ankle
+    }
+  });
+
+  it('draws the tibial nerve for the triceps surae and the deep fibular nerve for the tibialis anterior', async () => {
+    const { LEG } = await import('./anatomy3d');
+    const above = { SOLEUS: 0.047, GASTROCNEMIUS_MEDIAL: 0.065, GASTROCNEMIUS_LATERAL: 0.054 } as const; // Le Roux 2026
+    for (const [m, mm] of Object.entries(above)) {
+      const layout = buildLayout(run({ muscle: m as MuscleId }), 80)!;
+      expect(layout.nerve).toMatchObject({ nerve: 'tibial', point: 'branch' });
+      expect(layout.nerve!.x).toBeCloseTo(LEG.landmarks.fibularHead - mm, 12);
+      expect(layout.approach).toHaveLength(2); // the trunk behind the knee, then the branch
+      expect(layout.approach[1]![0]).toBeCloseTo(layout.nerve!.x, 12);
+      expect(layout.nerve!.x).toBeGreaterThan(AXIS_BREAK_X);
+      expect(layout.nerve!.x).toBeLessThan(layout.motorPoint.x);
+    }
+    const ta = buildLayout(run({ muscle: 'TIBIALIS_ANTERIOR' }), 80)!;
+    expect(ta.nerve).toMatchObject({ nerve: 'deepFibular', point: 'entry' });
+    expect(ta.approach).toHaveLength(3); // behind the knee, round the fibular neck, into the muscle
+    expect(ta.nerve!.x).toBeLessThan(ta.motorPoint.x);
+    expect(buildLayout(run(), 80)!.nerve).toBeNull(); // the forearm keeps its illustrative path
+  });
+
+  it('maps the axon onto the leg the same way: electrode at the motor point, endplate at 1', async () => {
+    const { axonPath, pointOnAxon } = await import('./anatomy3d');
+    for (const m of LEG_MUSCLES) {
+      const layout = buildLayout(run({ muscle: m }), 80)!;
+      const path = axonPath(layout, layout.units[2]!);
+      const p: [number, number, number] = [0, 0, 0];
+      expect(pointOnAxon(path, 0.9, p)).toBe(true);
+      expect(p[0]).toBeCloseTo(layout.motorPoint.x, 6);
+      expect(pointOnAxon(path, 1, p)).toBe(true);
+      expect(p[0]).toBeCloseTo(layout.section.x, 6);
+      expect((path.sE - path.sC) * layout.axonLength).toBeCloseTo(path.proximal.length, 9);
+      expect(layout.omittedLength).toBeGreaterThan(0);
+    }
   });
 });

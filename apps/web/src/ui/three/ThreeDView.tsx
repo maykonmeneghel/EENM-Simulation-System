@@ -5,8 +5,8 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { Canvas } from '@react-three/fiber';
-import type { LevelId } from '../../application/anatomy3d';
-import { LEVELS, buildLayout, hasForearm } from '../../application/anatomy3d';
+import type { Layout, LevelId, MotorPointSource, RegionId } from '../../application/anatomy3d';
+import { LEG, LEVELS, buildLayout, has3d } from '../../application/anatomy3d';
 import { buildReplay } from '../../application/replay';
 import type { SeriesBuffer } from '../../application/seriesBuffer';
 import type { JointBuffer } from '../../application/jointBuffer';
@@ -17,7 +17,7 @@ import { fmtNumber, tr } from '../../i18n/locale';
 import { CHART_THEMES, useColorScheme } from '../theme';
 import type { LabelId, LabelPositions, ReplayClock, SceneCommands, ViewReadout } from './ForearmScene';
 import { ForearmScene } from './ForearmScene';
-import { FOV_DEG } from './camera';
+import { FOV_DEG, REGION_UP } from './camera';
 import { LEVEL_SPEED, SPEEDS, SPIKE_COLORS } from './replayStyle';
 import { scaleBar } from './scaleBar';
 import { TAG_LABEL } from './tags';
@@ -34,12 +34,46 @@ export interface ThreeDViewProps {
   joint?: JointBuffer;
 }
 
-const LEVEL_LABEL: Record<LevelId, () => string> = {
-  L0: () => tr({ 'pt-BR': 'Antebraço', en: 'Forearm' }),
+const LEVEL_LABEL: Record<LevelId, (region: RegionId) => string> = {
+  L0: (region) => (region === 'leg' ? tr({ 'pt-BR': 'Perna', en: 'Leg' }) : tr({ 'pt-BR': 'Antebraço', en: 'Forearm' })),
   L1: () => tr({ 'pt-BR': 'Músculo', en: 'Muscle' }),
   L2: () => tr({ 'pt-BR': 'Axônios', en: 'Axons' }),
   L3: () => tr({ 'pt-BR': 'Motoneurônio', en: 'Motoneuron' }),
 };
+
+const SOURCE_LABEL: Record<NonNullable<MotorPointSource>, string> = {
+  HOSAPATNA_2020: 'Hosapatna 2020',
+  YI_2017: 'Yi 2017',
+  YI_2023: 'Yi 2023',
+  YI_2025: 'Yi 2025',
+};
+
+/** Motor point readout: distance below the elbow / knee, its tag and its source. */
+function motorPointText(layout: Layout): string {
+  const cm = fmt(layout.motorPoint.x * 100, 1);
+  const tag = TAG_LABEL[layout.motorPoint.tag]();
+  const source = layout.motorPoint.source ? `${SOURCE_LABEL[layout.motorPoint.source]}; ` : '';
+  return layout.region.id === 'leg'
+    ? tr({ 'pt-BR': `ponto motor ${cm} cm abaixo do platô tibial (${source}${tag})`, en: `motor point ${cm} cm below the tibial plateau (${source}${tag})` })
+    : tr({ 'pt-BR': `ponto motor ${cm} cm abaixo do cotovelo (${tag})`, en: `motor point ${cm} cm below the elbow (${tag})` });
+}
+
+/** The leg's nerve, and the literature point on its drawn path. */
+function legNerveText(layout: Layout): string {
+  const n = layout.nerve;
+  if (!n) return '';
+  if (n.nerve === 'tibial') {
+    const mm = fmt((LEG.landmarks.fibularHead - n.x) * 1000, 0);
+    return tr({
+      'pt-BR': `Nervo tibial: o ramo deixa o tronco atrás do joelho ${mm} mm acima da cabeça da fíbula (Le Roux 2026); o resto do trajeto é ilustrativo.`,
+      en: `Tibial nerve: the branch leaves the trunk behind the knee ${mm} mm above the fibular head (Le Roux 2026); the rest of the path is illustrative.`,
+    });
+  }
+  return tr({
+    'pt-BR': `Nervo fibular profundo: contorna o colo da fíbula e entra no músculo ${fmt(n.x * 100, 1)} cm abaixo do platô tibial (86,5–90,6 % do maléolo lateral à cabeça da fíbula, Yi 2017); o resto do trajeto é ilustrativo.`,
+    en: `Deep fibular nerve: it winds round the fibular neck and enters the muscle ${fmt(n.x * 100, 1)} cm below the tibial plateau (86.5–90.6 % from the lateral malleolus to the fibular head, Yi 2017); the rest of the path is illustrative.`,
+  });
+}
 
 const OFF = { x: 0, y: 0, on: false };
 const LABEL_IDS: readonly LabelId[] = ['electrode', 'gap', 'spinal'];
@@ -159,13 +193,13 @@ export default function ThreeDView({ run, running = false, axonLengthPercent, mu
       </div>
     );
   }
-  if (!hasForearm(run.muscle)) {
+  if (!has3d(run.muscle)) {
     return (
       <div className="card three-empty">
         <p>
           {tr({
-            'pt-BR': `A vista 3D mostra o antebraço; esta simulação usou ${muscleLabel(run.muscle)}.`,
-            en: `The 3D view shows the forearm; this run used ${muscleLabel(run.muscle)}.`,
+            'pt-BR': `A vista 3D ainda não tem a anatomia de ${muscleLabel(run.muscle)}.`,
+            en: `The 3D view has no anatomy for ${muscleLabel(run.muscle)} yet.`,
           })}
         </p>
         <button type="button" className="btn" onClick={() => onUseMuscle('FLEXOR_CARPI_RADIALIS')}>
@@ -203,7 +237,7 @@ export default function ThreeDView({ run, running = false, axonLengthPercent, mu
               setSpeed(LEVEL_SPEED[l.id]);
             }}
           >
-            {LEVEL_LABEL[l.id]()}
+            {LEVEL_LABEL[l.id](layout.region.id)}
           </button>
         ))}
         <button type="button" className="btn" onClick={() => commands.current?.restore()} title={tr({ 'pt-BR': 'Restaurar a vista do nível (R)', en: 'Restore the level’s view (R)' })}>
@@ -223,7 +257,9 @@ export default function ThreeDView({ run, running = false, axonLengthPercent, mu
       </div>
       <div className="three-canvas" tabIndex={0} onKeyDown={onKeyDown} aria-label={tr({ 'pt-BR': 'Vista 3D', en: '3D view' })}>
         <Canvas
-          camera={{ fov: FOV_DEG, near: 0.001, far: 10, position: [0.3, 0.5, 0.4] }}
+          // a new canvas per region: the camera's up direction (and its controls' orbit axis) is set when it is made
+          key={layout.region.id}
+          camera={{ fov: FOV_DEG, near: 0.001, far: 10, position: [0.3, 0.5, 0.4], up: REGION_UP[layout.region.id] }}
           onCreated={({ gl }) => { gl.localClippingEnabled = true; }}
           dpr={[1, 2]}
         >
@@ -306,6 +342,15 @@ export default function ThreeDView({ run, running = false, axonLengthPercent, mu
               <dd>{fmt(unit.weight, 1)} <em>{TAG_LABEL.model()}</em></dd>
               <dt>{tr({ 'pt-BR': 'Reobase do axônio', en: 'Axon rheobase' })}</dt>
               <dd>{fmt(unit.axonRheobase, 1)} <em>{TAG_LABEL.model()}</em></dd>
+              {layout.nerve ? (
+                <>
+                  <dt>{tr({ 'pt-BR': 'Nervo', en: 'Nerve' })}</dt>
+                  <dd>
+                    {layout.nerve.nerve === 'tibial' ? tr({ 'pt-BR': 'tibial', en: 'tibial' }) : tr({ 'pt-BR': 'fibular profundo', en: 'deep fibular' })}{' '}
+                    <em>{layout.nerve.nerve === 'tibial' ? 'Le Roux 2026' : 'Yi 2017'}</em>
+                  </dd>
+                </>
+              ) : null}
               <dt>{tr({ 'pt-BR': 'Posição, território, trajeto', en: 'Position, territory, path' })}</dt>
               <dd><em>{TAG_LABEL.illustrative()}</em></dd>
             </dl>
@@ -355,14 +400,27 @@ export default function ThreeDView({ run, running = false, axonLengthPercent, mu
         <p className="three-notes muted">{replayNote}</p>
       )}
       <p className="three-notes muted">
-        {tr({
-          'pt-BR': `Pele, ossos e músculos: atlas (malhas em escala real). Unidades, tamanhos do soma e do dendrito, tempos de condução e disparos: modelo (${layout.motoneuron === 'CISI_KOHN_2008' ? 'Cisi & Kohn 2008' : 'Booth 1997'}). Posição das unidades, territórios, trajeto do nervo e tamanho do eletrodo: ilustrativos. Axônio de ${fmt(layout.axonLength, 2)} m; ponto motor ${fmt(layout.motorPoint.x * 100, 1)} cm abaixo do cotovelo (${TAG_LABEL[layout.motorPoint.tag]()}). Um disparo some no trecho omitido e reaparece do outro lado no tempo real de condução. O músculo brilha com a força (% da máxima). A mão gira no punho com o torque dele (1 grau de liberdade: inércia e amortecimento de Davidson & Charles 2017, braço de momento de Corie & Charles 2019, força máxima e resistência passiva escolhidas na Fisiologia); o músculo perde força ao encurtar rápido (força–velocidade de Thelen 2003, sem força–comprimento), só o músculo estimulado age, e o ângulo para em 90° de flexão e de extensão (onde Delp 1996 mediu; o máximo anatômico não foi verificado). Cada simulação começa com o punho em repouso.`,
-          en: `Skin, bones and muscles: atlas (meshes at real scale). Units, soma and dendrite sizes, conduction times and spikes: model (${layout.motoneuron === 'CISI_KOHN_2008' ? 'Cisi & Kohn 2008' : 'Booth 1997'}). Unit positions, territories, nerve path and electrode size: illustrative. Axon ${fmt(layout.axonLength, 2)} m; motor point ${fmt(layout.motorPoint.x * 100, 1)} cm below the elbow (${TAG_LABEL[layout.motorPoint.tag]()}). A spike disappears into the omitted stretch and comes back on the other side at its real conduction time. The muscle glows with the force (% of maximum). The hand turns at the wrist with its torque (1 degree of freedom: inertia and damping from Davidson & Charles 2017, moment arm from Corie & Charles 2019, peak force and passive resistance chosen in Physiology); the muscle loses force when it shortens fast (Thelen 2003 force–velocity, no force–length), only the stimulated muscle acts, and the angle stops at 90° flexion and extension (where Delp 1996 measured; the anatomical maximum was not verified). Every run starts with the wrist at rest.`,
+        {layout.region.id === 'leg' ? legNotes(layout) : tr({
+          'pt-BR': `Pele, ossos e músculos: atlas (malhas em escala real). Unidades, tamanhos do soma e do dendrito, tempos de condução e disparos: modelo (${layout.motoneuron === 'CISI_KOHN_2008' ? 'Cisi & Kohn 2008' : 'Booth 1997'}). Posição das unidades, territórios, trajeto do nervo e tamanho do eletrodo: ilustrativos. Axônio de ${fmt(layout.axonLength, 2)} m; ${motorPointText(layout)}. Um disparo some no trecho omitido e reaparece do outro lado no tempo real de condução. O músculo brilha com a força (% da máxima). A mão gira no punho com o torque dele (1 grau de liberdade: inércia e amortecimento de Davidson & Charles 2017, braço de momento de Corie & Charles 2019, força máxima e resistência passiva escolhidas na Fisiologia); o músculo perde força ao encurtar rápido (força–velocidade de Thelen 2003, sem força–comprimento), só o músculo estimulado age, e o ângulo para em 90° de flexão e de extensão (onde Delp 1996 mediu; o máximo anatômico não foi verificado). Cada simulação começa com o punho em repouso.`,
+          en: `Skin, bones and muscles: atlas (meshes at real scale). Units, soma and dendrite sizes, conduction times and spikes: model (${layout.motoneuron === 'CISI_KOHN_2008' ? 'Cisi & Kohn 2008' : 'Booth 1997'}). Unit positions, territories, nerve path and electrode size: illustrative. Axon ${fmt(layout.axonLength, 2)} m; ${motorPointText(layout)}. A spike disappears into the omitted stretch and comes back on the other side at its real conduction time. The muscle glows with the force (% of maximum). The hand turns at the wrist with its torque (1 degree of freedom: inertia and damping from Davidson & Charles 2017, moment arm from Corie & Charles 2019, peak force and passive resistance chosen in Physiology); the muscle loses force when it shortens fast (Thelen 2003 force–velocity, no force–length), only the stimulated muscle acts, and the angle stops at 90° flexion and extension (where Delp 1996 measured; the anatomical maximum was not verified). Every run starts with the wrist at rest.`,
         })}
       </p>
       <p className="three-credit muted">{CREDIT}</p>
     </div>
   );
+}
+
+/** Sources of the leg view (docs/design/3d-view.md §10): what is atlas, model, literature and illustrative. */
+function legNotes(layout: Layout): string {
+  const model = layout.motoneuron === 'CISI_KOHN_2008' ? 'Cisi & Kohn 2008' : 'Booth 1997';
+  const axon = fmt(layout.axonLength, 2);
+  return `${tr({
+    'pt-BR': `Pele, ossos e músculos da perna direita: atlas (malhas em escala real). Unidades, tamanhos do soma e do dendrito, tempos de condução e disparos: modelo (${model}). Posição das unidades, territórios e tamanho do eletrodo: ilustrativos. Axônio de ${axon} m: o comprimento do modelo, o mesmo para todos os músculos (não é a distância medida da medula lombossacral à perna). Eletrodo sobre a zona de maior ramificação intramuscular do nervo: ${motorPointText(layout)}.`,
+    en: `Skin, bones and muscles of the right leg: atlas (meshes at real scale). Units, soma and dendrite sizes, conduction times and spikes: model (${model}). Unit positions, territories and electrode size: illustrative. Axon ${axon} m: the model's length, the same for every muscle (not a measured distance from the lumbosacral cord to the leg). Electrode over the zone where the nerve branches most inside the muscle: ${motorPointText(layout)}.`,
+  })} ${legNerveText(layout)} ${tr({
+    'pt-BR': 'Um disparo some no trecho omitido e reaparece do outro lado no tempo real de condução. O músculo brilha com a força (% da máxima). A perna é estática: o modelo não tem o tornozelo, então o pé não se move.',
+    en: 'A spike disappears into the omitted stretch and comes back on the other side at its real conduction time. The muscle glows with the force (% of maximum). The leg is static: the model has no ankle, so the foot does not move.',
+  })}`;
 }
 
 /** Wrist angle now, its limits (the stop the joint model uses) and the run's wrist choices. */

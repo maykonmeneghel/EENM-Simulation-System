@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import type { StartedEvent } from '../../domain/simulation';
+import type { MuscleId, StartedEvent } from '../../domain/simulation';
+import { setLocale } from '../../i18n/locale';
 import { UnitEventLog } from '../../application/unitEventLog';
 import type { ChunkEvent } from '../../domain/simulation';
 import ThreeDView from './ThreeDView';
@@ -44,12 +45,51 @@ describe('ThreeDView', () => {
     expect(screen.queryByTestId('canvas')).toBeNull();
   });
 
-  it('offers the FCR when the run used a leg muscle', async () => {
+  it('offers the FCR when the run used a muscle it has no anatomy for', async () => {
     const onUseMuscle = vi.fn();
-    render(<ThreeDView run={started({ muscle: 'SOLEUS' })} {...props} onUseMuscle={onUseMuscle} />);
-    expect(screen.getByText(/esta simulação usou Soleus/)).toBeInTheDocument();
+    render(<ThreeDView run={started({ muscle: 'QUADRICEPS' as MuscleId })} {...props} onUseMuscle={onUseMuscle} />);
+    expect(screen.getByText(/ainda não tem a anatomia de QUADRICEPS/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Usar o FCR' }));
     expect(onUseMuscle).toHaveBeenCalledWith('FLEXOR_CARPI_RADIALIS');
+  });
+
+  it('draws a leg run: the leg level, its sources, the nerve and a still foot, without the wrist', async () => {
+    const { JointBuffer } = await import('../../application/jointBuffer');
+    render(<ThreeDView run={started({ muscle: 'SOLEUS' })} {...props} joint={new JointBuffer()} />);
+    expect(screen.getByTestId('canvas')).toBeInTheDocument();
+    for (const name of ['Perna', 'Músculo', 'Axônios', 'Motoneurônio']) {
+      expect(screen.getByRole('button', { name })).toBeInTheDocument();
+    }
+    expect(screen.queryByRole('button', { name: 'Antebraço' })).toBeNull();
+    expect(screen.getByText(/ponto motor 22,5 cm abaixo do platô tibial \(Yi 2025; modelo\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Nervo tibial: o ramo deixa o tronco atrás do joelho 47 mm acima da cabeça da fíbula \(Le Roux 2026\)/)).toBeInTheDocument();
+    expect(screen.getByText(/o pé não se move/)).toBeInTheDocument();
+    expect(screen.getByText(/o mesmo para todos os músculos/)).toBeInTheDocument();
+    expect(screen.queryByText(/Punho/)).toBeNull();
+    expect(screen.getByText(/BodyParts3D, © The Database Center for Life Science/)).toBeInTheDocument();
+  });
+
+  it('names the deep fibular nerve for the tibialis anterior and the study of each gastrocnemius head', () => {
+    const { rerender } = render(<ThreeDView run={started({ muscle: 'TIBIALIS_ANTERIOR' })} {...props} />);
+    expect(screen.getByText(/Nervo fibular profundo: contorna o colo da fíbula/)).toBeInTheDocument();
+    expect(screen.getByText(/\(Yi 2017; modelo\)/)).toBeInTheDocument();
+    for (const m of ['GASTROCNEMIUS_MEDIAL', 'GASTROCNEMIUS_LATERAL'] as const) {
+      rerender(<ThreeDView run={started({ muscle: m })} {...props} />);
+      expect(screen.getByText(/\(Yi 2023; modelo\)/)).toBeInTheDocument();
+      expect(screen.getByText(/Nervo tibial/)).toBeInTheDocument();
+    }
+  });
+
+  it('has no Portuguese left in the leg view in English', () => {
+    setLocale('en');
+    try {
+      const { container } = render(<ThreeDView run={started({ muscle: 'TIBIALIS_ANTERIOR' })} {...props} />);
+      expect(screen.getByRole('button', { name: 'Leg' })).toBeInTheDocument();
+      expect(container.textContent).toMatch(/The leg is static: the model has no ankle, so the foot does not move/);
+      expect(container.textContent).not.toMatch(/[ãõçáéíóúâêôà]|\b(não|são|está|para|pela|pelo|dos|das)\b/i);
+    } finally {
+      setLocale('pt-BR');
+    }
   });
 
   it('says so when an older server sent no unit table', () => {

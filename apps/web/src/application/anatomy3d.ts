@@ -1,17 +1,23 @@
 /**
- * Layout of the 3D step (docs/design/3d-view.md §3–4): where each structure goes, from the run's `started.units`
- * table and the forearm built by `scripts/anatomy/build-forearm.mjs`. Pure, so the mapping parameter → geometry is
- * tested without WebGL. Units: metres.
+ * Layout of the 3D step (docs/design/3d-view.md §3–4, §10): where each structure goes, from the run's `started.units`
+ * table and the region the stimulated muscle is in — the forearm (`scripts/anatomy/build-forearm.mjs`) or the lower
+ * leg (`scripts/anatomy/build-leg.mjs`). Pure, so the mapping parameter → geometry is tested without WebGL. Units:
+ * metres.
  *
  * Every placed thing carries a `Tag`: `model` (a run value), `atlas` (the meshes) or `illustrative` (a shape the
  * model does not have, needed to draw it).
  */
 import forearm from '../domain/forearm.json';
+import leg from '../domain/leg.json';
 import type { MotorUnitType, MuscleId, StartedEvent, UnitAnatomy } from '../domain/simulation';
 
 export type Tag = 'model' | 'atlas' | 'illustrative';
-export type PartId = 'fcr' | 'ecrl' | 'ecrb' | 'radius' | 'ulna' | 'humerus' | 'skin';
+export type RegionId = 'forearm' | 'leg';
+export type ForearmPartId = 'fcr' | 'ecrl' | 'ecrb' | 'radius' | 'ulna' | 'humerus' | 'skin';
+export type LegPartId = 'sol' | 'gm' | 'gl' | 'ta' | 'tibia' | 'fibula' | 'femur' | 'patella' | 'skin';
+export type PartId = ForearmPartId | LegPartId;
 export type LevelId = 'L0' | 'L1' | 'L2' | 'L3';
+type P3 = [number, number, number];
 
 export interface Section {
   x: number;
@@ -22,19 +28,71 @@ export interface Section {
 
 export const FOREARM = forearm as unknown as {
   forearmLength: number;
-  faces: Record<PartId, number>;
+  faces: Record<ForearmPartId, number>;
   sections: Record<'fcr' | 'ecrl' | 'ecrb', Section[]>;
 };
 
-/** Meshes of the stimulated muscle; the model's ECR is ECRL + ECRB together (`Muscle.EXTENSOR_CARPI_RADIALIS`). */
-export const STIMULATED_PARTS: Partial<Record<MuscleId, readonly ('fcr' | 'ecrl' | 'ecrb')[]>> = {
-  FLEXOR_CARPI_RADIALIS: ['fcr'],
-  EXTENSOR_CARPI_RADIALIS: ['ecrl', 'ecrb'],
+export const LEG = leg as unknown as {
+  legLength: number;
+  /** +1 when the lateral side (the fibula) is +z. */
+  lateral: 1 | -1;
+  /** x of the bony landmarks the literature measures from (the leg frame starts at the tibial plateau). */
+  landmarks: { fibularHead: number; lateralMalleolus: number; calcanealTuberosity: number; sole: number };
+  /** Illustrative nerve points: the tibial trunk behind the knee (y, z) and the fibular neck (x, y, z). */
+  nerve: { popliteal: [number, number]; fibularNeck: P3 };
+  faces: Record<LegPartId | 'footBones', number>;
+  sections: Record<'sol' | 'gm' | 'gl' | 'ta', Section[]>;
 };
 
-export function hasForearm(muscle: MuscleId): boolean {
-  return STIMULATED_PARTS[muscle] !== undefined;
+/** Meshes of the stimulated muscle; the model's ECR is ECRL + ECRB together (`Muscle.EXTENSOR_CARPI_RADIALIS`). */
+export const STIMULATED_PARTS: Record<MuscleId, readonly PartId[]> = {
+  FLEXOR_CARPI_RADIALIS: ['fcr'],
+  EXTENSOR_CARPI_RADIALIS: ['ecrl', 'ecrb'],
+  SOLEUS: ['sol'],
+  GASTROCNEMIUS_MEDIAL: ['gm'],
+  GASTROCNEMIUS_LATERAL: ['gl'],
+  TIBIALIS_ANTERIOR: ['ta'],
+};
+
+/** The region each muscle is drawn in. */
+export const MUSCLE_REGION: Record<MuscleId, RegionId> = {
+  FLEXOR_CARPI_RADIALIS: 'forearm',
+  EXTENSOR_CARPI_RADIALIS: 'forearm',
+  SOLEUS: 'leg',
+  GASTROCNEMIUS_MEDIAL: 'leg',
+  GASTROCNEMIUS_LATERAL: 'leg',
+  TIBIALIS_ANTERIOR: 'leg',
+};
+
+/** The region the 3D step draws for a muscle, or null for a muscle it has no anatomy for. */
+export function regionOf(muscle: MuscleId): RegionId | null {
+  return MUSCLE_REGION[muscle] ?? null;
 }
+
+export function hasForearm(muscle: MuscleId): boolean {
+  return regionOf(muscle) === 'forearm';
+}
+
+/** The 3D step has this muscle's anatomy (and so replays its runs). */
+export function has3d(muscle: MuscleId): boolean {
+  return regionOf(muscle) !== null;
+}
+
+/** What a region is drawn from: its long bones' length, the muscles' cross-sections, the atlas meshes drawn as bone. */
+export interface Region {
+  id: RegionId;
+  /** Elbow → wrist end of radius + ulna; tibial plateau → midpoint of the malleoli. */
+  length: number;
+  sections: Record<string, Section[]>;
+  bones: readonly string[];
+  /** The region has a joint the engine moves (the wrist). The leg is static: there is no ankle model. */
+  joint: boolean;
+}
+
+export const REGIONS: Record<RegionId, Region> = {
+  forearm: { id: 'forearm', length: FOREARM.forearmLength, sections: FOREARM.sections, bones: ['radius', 'ulna', 'humerus', 'handBones'], joint: true },
+  leg: { id: 'leg', length: LEG.legLength, sections: LEG.sections, bones: ['tibia', 'fibula', 'femur', 'patella', 'footBones'], joint: false },
+};
 
 /** The zoom levels (§3) and the width of the scene each one frames. */
 export const LEVELS: readonly { id: LevelId; viewSize: number }[] = [
@@ -55,14 +113,53 @@ export function levelFor(viewSize: number, current: LevelId): LevelId {
   return distance(best) + LEVEL_HYSTERESIS < distance(current) ? best : current;
 }
 
+export type MotorPointSource = 'HOSAPATNA_2020' | 'YI_2017' | 'YI_2023' | 'YI_2025' | null;
+
 /**
- * Motor point: where the motor nerve enters the muscle, from the elbow end of the forearm bones. FCR: midpoint of
- * the 3.5–6.9 cm at which its motor branches lie distal to the bi-epicondylar line (Hosapatna et al. 2020, abstract;
- * docs/research/wrist-muscles-literature.md FCR-7). ECR: no verified value; the same distance, tagged illustrative.
+ * Motor point: where the electrode sits over the muscle and the drawn nerve reaches it, as x from the proximal end of
+ * the region's bones.
+ *
+ * - FCR: midpoint of the 3.5–6.9 cm at which its motor branches lie distal to the bi-epicondylar line (Hosapatna et
+ *   al. 2020, abstract; docs/research/wrist-muscles-literature.md FCR-7). ECR: no verified value; the same distance,
+ *   tagged illustrative.
+ * - Leg (docs/design/3d-view.md §10.2, sources checked 2026-11-12): the zone of densest intramuscular nerve
+ *   arborization, on the study's reference line. Medial gastrocnemius 7/10–8/10 and lateral 7.5/10–8.5/10 of the
+ *   line from the calcaneal tuberosity (0) to the fibular head (1) (Yi et al. 2023, doi 10.3349/ymj.2023.0124);
+ *   soleus zone 5 of 10 on the same line counted from the bottom, in its lateral and medial portions (Yi et al. 2025,
+ *   doi 10.1038/s41598-025-07508-2); tibialis anterior 70–80 % of the line from the lateral malleolus to the fibular
+ *   head (Yi et al. 2017, doi 10.1007/s00276-016-1698-6, abstract). Each is the midpoint of its range, placed on
+ *   this atlas's landmarks.
  */
-export const MOTOR_POINT: Record<'FLEXOR_CARPI_RADIALIS' | 'EXTENSOR_CARPI_RADIALIS', { x: number; tag: Tag }> = {
-  FLEXOR_CARPI_RADIALIS: { x: (0.035 + 0.069) / 2, tag: 'model' },
-  EXTENSOR_CARPI_RADIALIS: { x: (0.035 + 0.069) / 2, tag: 'illustrative' },
+const { fibularHead, lateralMalleolus, calcanealTuberosity } = LEG.landmarks;
+const onCalfLine = (share: number) => calcanealTuberosity + share * (fibularHead - calcanealTuberosity);
+const onShinLine = (share: number) => lateralMalleolus + share * (fibularHead - lateralMalleolus);
+
+export const MOTOR_POINT: Record<MuscleId, { x: number; tag: Tag; source: MotorPointSource }> = {
+  FLEXOR_CARPI_RADIALIS: { x: (0.035 + 0.069) / 2, tag: 'model', source: 'HOSAPATNA_2020' },
+  EXTENSOR_CARPI_RADIALIS: { x: (0.035 + 0.069) / 2, tag: 'illustrative', source: null },
+  SOLEUS: { x: onCalfLine((0.4 + 0.5) / 2), tag: 'model', source: 'YI_2025' },
+  GASTROCNEMIUS_MEDIAL: { x: onCalfLine((0.7 + 0.8) / 2), tag: 'model', source: 'YI_2023' },
+  GASTROCNEMIUS_LATERAL: { x: onCalfLine((0.75 + 0.85) / 2), tag: 'model', source: 'YI_2023' },
+  TIBIALIS_ANTERIOR: { x: onShinLine((0.7 + 0.8) / 2), tag: 'model', source: 'YI_2017' },
+};
+
+export type NerveId = 'tibial' | 'deepFibular';
+
+/**
+ * The leg's motor nerve (§10.3). The atlas has no leg nerves, so the path is drawn; only the level (x) of one point
+ * per muscle is from the literature, the rest of the path is illustrative.
+ *
+ * - Gastrocnemii and soleus, tibial nerve: the branch leaves the trunk behind the knee 65 mm (medial
+ *   gastrocnemius), 54 mm (lateral) and 47 mm (upper soleus) above the fibular head (Le Roux et al. 2026, 51 legs,
+ *   abstract; doi 10.1097/PHM.0000000000003138).
+ * - Tibialis anterior, deep fibular nerve: drawn round the fibular neck, it enters the muscle at 86.5–90.6 % of the
+ *   line from the lateral malleolus to the fibular head (Yi et al. 2017, abstract); drawn at the midpoint.
+ */
+export const LEG_NERVE: Partial<Record<MuscleId, { nerve: NerveId; x: number; point: 'branch' | 'entry' }>> = {
+  SOLEUS: { nerve: 'tibial', x: fibularHead - 0.047, point: 'branch' },
+  GASTROCNEMIUS_MEDIAL: { nerve: 'tibial', x: fibularHead - 0.065, point: 'branch' },
+  GASTROCNEMIUS_LATERAL: { nerve: 'tibial', x: fibularHead - 0.054, point: 'branch' },
+  TIBIALIS_ANTERIOR: { nerve: 'deepFibular', x: onShinLine((0.865 + 0.906) / 2), point: 'entry' },
 };
 
 /** Broken axis (§3, decision 2): the drawn axons leave the forearm here and the motoneurons sit past a drawn gap. */
@@ -96,12 +193,19 @@ export interface UnitLayout {
 
 export interface Layout {
   muscle: MuscleId;
-  parts: readonly ('fcr' | 'ecrl' | 'ecrb')[];
+  region: Region;
+  parts: readonly PartId[];
+  /** Cross-sections of the first stimulated part, every 1 cm. */
+  sections: readonly Section[];
   motoneuron: UnitAnatomy['motoneuron'];
   /** Axon length the run's delays imply: `axonLengthPercent` / 100 m (the arrival factor read as m/s). */
   axonLength: number;
   electrodeFraction: number | null;
-  motorPoint: { x: number; tag: Tag };
+  motorPoint: { x: number; tag: Tag; source: MotorPointSource };
+  /** The leg's nerve and the literature point on its path; null on the forearm. */
+  nerve: { nerve: NerveId; x: number; point: 'branch' | 'entry' } | null;
+  /** Control points of the nerve before the motor point, from the axis break (without a unit's lane). */
+  approach: P3[];
   /** Where the bundle ends in the muscle: motor point + (1 − f) × axon length, kept inside the muscle. */
   endplateX: number;
   section: Section;
@@ -110,9 +214,8 @@ export interface Layout {
   units: UnitLayout[];
 }
 
-/** The muscle's cross-section nearest to `x` (the first of the stimulated parts). */
-export function sectionAt(part: 'fcr' | 'ecrl' | 'ecrb', x: number): Section {
-  const sections = FOREARM.sections[part];
+/** The cross-section nearest to `x` among `sections` (a layout's: those of the first stimulated part). */
+export function sectionAt(sections: readonly Section[], x: number): Section {
   let best = sections[0]!;
   for (const s of sections) if (Math.abs(s.x - x) < Math.abs(best.x - x)) best = s;
   return best;
@@ -125,18 +228,42 @@ function sunflower(count: number, k: number): [number, number] {
   return [r * Math.cos(a), r * Math.sin(a)];
 }
 
-/** Null when the run has no unit table (older server) or the muscle is not in the forearm. */
+/**
+ * Nerve control points before the motor point. Forearm: from the axis break halfway toward the muscle, then to it
+ * (illustrative). Leg: the tibial trunk behind the knee down to the branch level (Le Roux 2026), or the common →
+ * deep fibular nerve round the fibular neck to its entry into the tibialis anterior (Yi 2017); positions across the
+ * leg illustrative.
+ */
+function approachOf(muscle: MuscleId, sections: readonly Section[], motorPointX: number): P3[] {
+  const entry = sectionAt(sections, motorPointX);
+  const nerve = LEG_NERVE[muscle];
+  if (!nerve) {
+    return [
+      [AXIS_BREAK_X, entry.centre[0] * 0.5, entry.centre[1] * 0.5],
+      [(AXIS_BREAK_X + motorPointX) / 2, entry.centre[0] * 0.8, entry.centre[1] * 0.8],
+    ];
+  }
+  const [py, pz] = LEG.nerve.popliteal;
+  if (nerve.nerve === 'tibial') return [[AXIS_BREAK_X, py, pz], [nerve.x, py, pz]];
+  const into = sectionAt(sections, nerve.x);
+  return [[AXIS_BREAK_X, py, pz], LEG.nerve.fibularNeck, [nerve.x, into.centre[0], into.centre[1]]];
+}
+
+/** Null when the run has no unit table (older server) or the 3D step has no anatomy for the muscle. */
 export function buildLayout(run: StartedEvent, axonLengthPercent: number): Layout | null {
   const units = run.units;
+  const regionId = regionOf(run.muscle);
+  if (!units || !regionId) return null;
+  const region = REGIONS[regionId];
   const parts = STIMULATED_PARTS[run.muscle];
-  if (!units || !parts) return null;
+  const sections = region.sections[parts[0]!]!;
   const n = units.type.length;
   const axonLength = axonLengthPercent / 100;
   const f = run.electrodeFraction ?? null;
-  const motorPoint = MOTOR_POINT[run.muscle as keyof typeof MOTOR_POINT];
-  const lastX = FOREARM.sections[parts[0]!].at(-1)!.x;
+  const motorPoint = MOTOR_POINT[run.muscle];
+  const lastX = sections.at(-1)!.x;
   const endplateX = Math.min(motorPoint.x + (1 - (f ?? 0.9)) * axonLength, lastX);
-  const section = sectionAt(parts[0]!, endplateX);
+  const section = sectionAt(sections, endplateX);
   const ellipse = Math.PI * section.halfExtent[0] * section.halfExtent[1];
   const totalWeight = units.weight.reduce((a, b) => a + b, 0);
   // drawn soma → electrode path: spinal group → break → motor point
@@ -173,11 +300,15 @@ export function buildLayout(run: StartedEvent, axonLengthPercent: number): Layou
   }
   return {
     muscle: run.muscle,
+    region,
     parts,
+    sections,
     motoneuron: units.motoneuron,
     axonLength,
     electrodeFraction: f,
     motorPoint,
+    nerve: LEG_NERVE[run.muscle] ?? null,
+    approach: approachOf(run.muscle, sections, motorPoint.x),
     endplateX,
     section,
     omittedLength,
@@ -191,18 +322,16 @@ export function buildLayout(run: StartedEvent, axonLengthPercent: number): Layou
 export const GAP_START_DX = 0.008;
 /** The drawn axon resumes this far before the axis break, past the gap. */
 export const GAP_END_DX = 0.012;
-const CURVE_SAMPLES = 63; // a multiple of the 3 curve segments: the motor point (control point 2) is a sample
-
-type P3 = [number, number, number];
+/** Curve samples per segment between control points: the motor point (second to last) is always a sample. */
+const SEGMENT_SAMPLES = 21;
 
 /** Control points of the nerve (from the axis break into the muscle at the motor point, then to the endplates). */
 export function nerveControlPoints(layout: Layout, lane: [number, number] = [0, 0]): P3[] {
-  const entry = sectionAt(layout.parts[0]!, layout.motorPoint.x);
+  const entry = sectionAt(layout.sections, layout.motorPoint.x);
   const end = layout.section;
   const p = (x: number, y: number, z: number): P3 => [x, y + lane[0], z + lane[1]];
   return [
-    p(AXIS_BREAK_X, entry.centre[0] * 0.5, entry.centre[1] * 0.5),
-    p((AXIS_BREAK_X + layout.motorPoint.x) / 2, entry.centre[0] * 0.8, entry.centre[1] * 0.8),
+    ...layout.approach.map(([x, y, z]) => p(x, y, z)),
     p(layout.motorPoint.x, entry.centre[0], entry.centre[1]),
     p(end.x, end.centre[0], end.centre[1]),
   ];
@@ -236,7 +365,8 @@ function catmullRom(points: P3[], samples: number): P3[] {
 
 /** The nerve's drawn curve, sampled: the scene draws its tubes through these points and the replay moves on them. */
 export function nerveCurvePoints(layout: Layout, lane: [number, number] = [0, 0]): P3[] {
-  return catmullRom(nerveControlPoints(layout, lane), CURVE_SAMPLES);
+  const control = nerveControlPoints(layout, lane);
+  return catmullRom(control, SEGMENT_SAMPLES * (control.length - 1));
 }
 
 const dist = (a: P3, b: P3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
@@ -285,7 +415,7 @@ export function axonPath(layout: Layout, u: UnitLayout): AxonPath {
   const somaStart: P3 = [u.soma.position[0] + u.soma.length / 2, u.soma.position[1], u.soma.position[2]];
   const control = nerveControlPoints(layout, u.lane);
   const curve = nerveCurvePoints(layout, u.lane);
-  const split = Math.round((2 / 3) * CURVE_SAMPLES); // control point 2 (the motor point) of 4 → sample 2/3
+  const split = SEGMENT_SAMPLES * (control.length - 2); // the motor point: the second-to-last control point
   const first = control[0]!;
   const gapEnd: P3 = [AXIS_BREAK_X - GAP_END_DX, first[1], first[2]];
   const soma = polyline([somaStart, [SPINAL_X + GAP_START_DX, u.soma.position[1], u.soma.position[2]]]);
