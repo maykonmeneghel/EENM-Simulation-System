@@ -82,6 +82,18 @@ the end of the pulse. A pulse is its **leading phase**: a run of same-sign curre
 opposite phase of a biphasic pulse follows within the refractory period and is ignored. Fields: `amplitude`,
 `pulseWidthUs` (or `dutyCyclePercent` and `frequencyHz` → PW), `seed`.
 
+**Electrode** (`domain/electrode.py`, `docs/design/electrode.md`, skin-surface runs): every threshold is multiplied by
+one muscle-level factor `G`:
+
+$$ A \;\ge\; G\, I_{rh,k}\left(1 + \frac{\tau_{SD}}{PW}\right), \qquad G = \frac{\max_x \mathrm{AF}(a_{ref}, d_{ref}, x)}{\max_x \mathrm{AF}(a, d, x)}, \qquad a = \sqrt{S/\pi},\quad d = f + h $$
+
+with `AF` the activating function of a uniform-current disk on a homogeneous half-space (closed form under the centre
+`−ρI / (2π (a² + d²)^{3/2})`; the maximum along the axon is found numerically, since it moves under the edge of wide,
+shallow electrodes). The reference is the muscle's default electrode, so `G = 1` there; with the `NONE` option
+(Lieber & Kelly 1991) `G = 1` always. Derived model: magnitude illustrative, not validated. With an mA calibration,
+`I_rh,min = I_MT / (1 + τ_SD/PW_c)`, `R = I_full / I_MT` (else the inherited R) and the reference is the measurement
+electrode at the run's depth. Fields: `electrode.*`.
+
 No refractoriness is modelled in this layer (FES only, no central drive): every suprathreshold pulse fires the axon,
 however close to the previous one. The code justifies this by the periodic range (≤ 200 Hz, pulses ≥ 5 ms apart); an
 explicit sequence can place pulses down to `phases·PW + stepMs` apart, where that justification no longer holds (an

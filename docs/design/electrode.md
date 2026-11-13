@@ -1,9 +1,10 @@
 # Design: electrode characteristics in the surface-stimulation model
 
-Status: **proposal, not implemented**. The author asked for an Electrode section in the Stimulator panel whose values
-change the math, with every value sourced. Sources and values are in `docs/research/electrode-literature.md`, checked
-on 2026-11-12. Read levels: **FT** = full text, **A** = abstract only. Items marked **DECISION** need the author's
-choice before implementation. Section 9 collects them with a proposal for each.
+Status: **implemented** (branch `feature/electrode`, 2026-11-12), with the author's answers to the decisions of §9,
+given on 2026-11-12. The author asked for an Electrode section in the Stimulator panel whose values change the math,
+with every value sourced. Sources and values are in `docs/research/electrode-literature.md`, checked on 2026-11-12.
+Read levels: **FT** = full text, **A** = abstract only. Section 9 records each decision, the proposal and the answer;
+section 10 lists where the implementation differs from the text above it.
 
 ## 1. What exists today (read in the code on 2026-11-12)
 
@@ -164,12 +165,15 @@ is out of scope.
 
 | Muscle | Active electrode | Fat `f` | Depth `h` | Source of each default |
 |---|---|---|---|---|
-| FCR, ECR | round, Ø 25 mm (4.9 cm²); return 50 × 50 mm near the wrist | 0.48 cm | 0.5 cm | Electrode: Baier 2024 FT (the only verified study that stimulated FCR and ECRB through surface electrodes; it also matches the pad the 3D view already draws). Fat: Petrofsky 2008 A, **biceps (upper arm), INHERITED**; no verified forearm value. `h`: **illustrative**, chosen here inside Kuhn 2010's 0.1–1.1 cm |
+| FCR | round, Ø 25 mm (4.9 cm²); return 50 × 50 mm near the wrist | **0.56 cm** | 0.5 cm | Electrode: Baier 2024 FT (the only verified study that stimulated FCR and ECRB through surface electrodes; it also matches the pad the 3D view already draws). Fat: **Doğan et al. 2022 FT**, anterior forearm 1/3 proximal, fat only 5.6 ± 2.8 mm, control group n = 78 (research §4b; decision 9, run on 2026-11-12). Also selectable: Chatlaong 2026 FT (skin + fat, women 0.70, men 0.51 cm) and the biceps value. `h`: **illustrative**, chosen here inside Kuhn 2010's 0.1–1.1 cm |
+| ECR | as FCR | 0.48 cm | 0.5 cm | Fat: Petrofsky 2008 A, **biceps (upper arm), INHERITED**: the targeted search found no trustworthy posterior-forearm value (research §4b). Also selectable: Aruna 2023 FT (lateral forearm, men 0.48, women 0.54 cm; implausibly small SDs) and the anterior value of Doğan 2022 (other side of the forearm, INHERITED) |
 | Gastrocnemius (medial, lateral) | round, 19.63 cm² | 0.75 cm | 0.5 cm | Lyons 2004 A (most comfortable size on the gastrocnemius); Petrofsky 2008 A (fat below quadriceps and gastrocnemius); `h` illustrative |
 | Soleus, TA | square 5 × 5 cm | 0.75 cm | 0.5 cm | Flodin 2022 FT (quadriceps, **INHERITED**); fat inherited from the gastrocnemius; `h` illustrative. No verified electrode study for these muscles |
 
-The defaults matter only if the AF option is on. With the proposed default effect option ("no effect", DECISION 4),
-they are recorded and drawn but do not change the result.
+The author chose the AF option as the default (decision 4), so these defaults are where `G = 1`: a default run of
+each muscle is numerically unchanged. This is tested per muscle (`tests/unit/test_electrode.py`,
+`test_default_electrode_of_each_muscle_leaves_the_run_unchanged`: the force of a default run equals, sample for sample,
+the force of the same run with the electrode removed and with the `NONE` option).
 
 ## 5. UI: the Electrode section (Stimulator panel, `SKIN_SURFACE` only)
 
@@ -274,14 +278,33 @@ otherwise:
 
 ## 9. Decisions
 
-| # | Decision | Proposal |
-|---|---|---|
-| 1 | **mA or a relative factor?** | **Relative** (`G`, amplitude in u.m.) by default. mA only through the **user's own calibration** (§2.2): there is no verified per-muscle mA curve to use as a default (research §8). The calibration also replaces the inherited range `R` with a measured one |
-| 2 | **Which parameters ship in v1?** | Area/shape, fat `f`, depth `h`, and the effect option, all recorded in the run and drawn in 3D. Material shown as a verified zero effect. mA calibration. Motor-point offset, inter-electrode distance, configuration and shape effects are listed as "not modelled", with their sources |
-| 3 | **Default electrode** | Per muscle, as in §4: forearm Ø 25 mm (Baier 2024 FT); gastrocnemius 19.63 cm² (Lyons 2004 A); soleus/TA 5 × 5 cm (inherited from Flodin 2022, quadriceps). Inherited values are labelled INHERITED, as in the muscle presets |
-| 4 | **Conflicting sources** | One selectable option per article, with its evidence badge (the author's preference), as for conditions and `wrist_joint` choices. For the size effect: "No effect: Lieber & Kelly 1991 (A)" vs "Half-space AF: derived; direction Doheny 2010 / Alon 1994". **Default: "No effect"**, because it is the option that reproduces today's results and because the derived option's magnitude fails V5. The author may prefer the AF option as the default, accepting an illustrative magnitude |
-| 5 | **Depth order of recruitment (Okuma 2013, Farina 2004) vs the current random order (Gregory & Bickel 2005)** | Keep the random order: in this model, ordering by an independent depth changes nothing in the force (§3.6). Revisit only if a verified depth–fibre-type relation for these muscles is found |
-| 6 | **The derived AF factor overstates the size effect at shallow depth** | Ship it as an opt-in option labelled "model, magnitude illustrative, not validated", with V5 as a visible `xfail`. Before making it the default, either read the closed full texts (V8a) or measure (V8b). A two-layer (fat + muscle) conductor is a v2 candidate |
-| 7 | **Muscle-level or per-unit G** | Muscle-level: it shifts the curve and keeps the recruitment range `R` (inherited or calibrated). A per-unit G over the Kuhn 2010 depth range of 0.1–1.1 cm would make the range span about three orders of magnitude (∝ d³ in the far field), which no verified curve supports |
-| 8 | **`electrodeFraction` in the Electrode section** | Move the control there (UI only; the request field and the math are unchanged) |
-| 9 | **Fat over the forearm** | Use the biceps value (0.48 ± 0.16 cm, Petrofsky 2008 A) labelled INHERITED until a forearm ultrasound value is verified. A targeted search for forearm fat thickness was not run and is the next research step |
+The author answered on **2026-11-12**. The last column is the answer; the proposal is kept for the record.
+
+| # | Decision | Proposal | Author's answer (2026-11-12) |
+|---|---|---|---|
+| 1 | **mA or a relative factor?** | **Relative** (`G`, amplitude in u.m.) by default. mA only through the **user's own calibration** (§2.2): there is no verified per-muscle mA curve to use as a default (research §8). The calibration also replaces the inherited range `R` with a measured one | Relative factor `G` on the threshold, amplitude in model units, **plus** the optional mA calibration from the user's own measurement (motor threshold, optional full recruitment, pulse width of the measurement; it replaces R when given). The amplitude dial and the recruitment meter show mA when calibrated |
+| 2 | **Which parameters ship in v1?** | Area/shape, fat `f`, depth `h`, and the effect option, all recorded in the run and drawn in 3D. Material shown as a verified zero effect. mA calibration. Motor-point offset, inter-electrode distance, configuration and shape effects are listed as "not modelled", with their sources | As proposed |
+| 3 | **Default electrode** | Per muscle, as in §4: forearm Ø 25 mm (Baier 2024 FT); gastrocnemius 19.63 cm² (Lyons 2004 A); soleus/TA 5 × 5 cm (inherited from Flodin 2022, quadriceps). Inherited values are labelled INHERITED, as in the muscle presets | As in §4. The leg muscles have a 3D view too (PR #32): the electrode is drawn with its chosen size and shape in both regions |
+| 4 | **Conflicting sources** | One selectable option per article, with its evidence badge (the author's preference), as for conditions and `wrist_joint` choices. For the size effect: "No effect: Lieber & Kelly 1991 (A)" vs "Half-space AF: derived; direction Doheny 2010 / Alon 1994". **Default: "No effect"**, because it is the option that reproduces today's results and because the derived option's magnitude fails V5. The author may prefer the AF option as the default, accepting an illustrative magnitude | One option per article with its evidence badge, **but the default is the derived formula** ("Fórmula derivada"), not "no effect". Consequences: `G = 1` at each muscle's default (tested per muscle); the option is labelled "modelo derivado, magnitude ilustrativa, não validada" with V5 as a visible `xfail`; "Sem efeito — Lieber & Kelly 1991" stays selectable |
+| 5 | **Depth order of recruitment (Okuma 2013, Farina 2004) vs the current random order (Gregory & Bickel 2005)** | Keep the random order: in this model, ordering by an independent depth changes nothing in the force (§3.6). Revisit only if a verified depth–fibre-type relation for these muscles is found | Keep the random order (proposal) |
+| 6 | **The derived AF factor overstates the size effect at shallow depth** | Ship it as an opt-in option labelled "model, magnitude illustrative, not validated", with V5 as a visible `xfail`. Before making it the default, either read the closed full texts (V8a) or measure (V8b). A two-layer (fat + muscle) conductor is a v2 candidate | Compute the AF factor numerically by the peak along the axon (§2.1, the edge-peak case). It is the default (decision 4), labelled as derived and unvalidated |
+| 7 | **Muscle-level or per-unit G** | Muscle-level: it shifts the curve and keeps the recruitment range `R` (inherited or calibrated). A per-unit G over the Kuhn 2010 depth range of 0.1–1.1 cm would make the range span about three orders of magnitude (∝ d³ in the far field), which no verified curve supports | Muscle-level G (proposal) |
+| 8 | **`electrodeFraction` in the Electrode section** | Move the control there (UI only; the request field and the math are unchanged) | Move it (UI only; request field and math unchanged) |
+| 9 | **Fat over the forearm** | Use the biceps value (0.48 ± 0.16 cm, Petrofsky 2008 A) labelled INHERITED until a forearm ultrasound value is verified. A targeted search for forearm fat thickness was not run and is the next research step | Research first. Done on 2026-11-12 (research §4b): FCR uses Doğan 2022 (0.56 cm, FT), with Chatlaong 2026 selectable; ECR keeps 0.48 cm from Petrofsky 2008 (biceps), INHERITED, with Aruna 2023 selectable |
+
+## 10. Where the implementation differs from the text above
+
+- **No `GET /v1/electrode-options` catalog.** The effect options, their sources and the per-muscle defaults live in
+  `domain/electrode.py` (engine) and `apps/web/src/domain/electrode.ts` (labels and badges), as the wrist-joint choices
+  do. `electrode.fixture.json` (`validation/electrode_fixture.py`) keeps the two equal: the defaults, peaks of the
+  activating function, `G` for a set of electrodes and calibrated thresholds.
+- **The calibration names its electrode.** `calibration.electrodeAreaCm2` is the area of the electrode the measurement
+  was made with (the run's electrode when absent), so `G = G(E) / G(E_c)` of §2.2 is computable; the depth of `E_c` is
+  the run's (same person, same site).
+- **The fat is chosen from measured values.** The fat field has one button per measured value (one per article), each
+  with its badge; the first is the default.
+- **Request without `electrode`.** It means the muscle's default electrode with the default effect (the derived formula),
+  which is `G = 1`: the same numbers as `NONE` without calibration, so every saved run re-runs identically.
+- **Calibration and the condition's τ.** The calibrated `I_rh,min` uses the τ_SD the run actually has (after a condition
+  such as `SCI_CHRONAXIE`), so the first unit fires at `I_MT` with `PW_c` in every case.
+- **Compare view.** Currents of runs in different units (mA calibrated vs model units) are not overlaid; a notice says so.

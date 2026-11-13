@@ -96,9 +96,54 @@ say MP placement lowers the current needed, but neither abstract nor the comment
 | Fat and nerve depth ranges used in a forearm model | fat 0.25–2 cm; nerve depth 0.1–1.1 cm | model | forearm | Kuhn et al. 2010 (above) | A |
 | Threshold rises with fat thickness | qualitative | model + experiment | thigh | Doheny et al. 2010 (above); Doheny et al. 2008 (above) | A |
 
-**Fat thickness over FCR, ECR, soleus and TA: NO VERIFIED DATA.** Petrofsky 2008 measured the gastrocnemius (lateral)
-and the biceps of the upper arm, **not the forearm**. Searches run: `Petrofsky J[au] AND (subcutaneous fat OR
-electrode)` (25 hits). I ran no separate ultrasound-anthropometry search for forearm fat, so that remains open.
+**Fat thickness over ECR, soleus and TA: NO VERIFIED DATA; over FCR: see §4b.** Petrofsky 2008 measured the
+gastrocnemius (lateral) and the biceps of the upper arm, **not the forearm**. Searches run: `Petrofsky J[au] AND
+(subcutaneous fat OR electrode)` (25 hits). The targeted forearm search of §4b (2026-11-12) found measured values over
+the anterior forearm (FCR) and none trustworthy over the posterior forearm (ECR).
+
+## 4b. Subcutaneous fat over the forearm (targeted search, 2026-11-12)
+
+Run for design decision 9, before coding the forearm default. Every DOI below was resolved on Crossref on 2026-11-12
+(title, first author, journal, volume, pages or article number, year compared). **FT** rows were read in the PMC full
+text; the values are quoted from the table or sentence named. No mean was computed from individual values.
+
+| Finding | Value | n / population | Site | Source | Read |
+|---|---|---|---|---|---|
+| Subcutaneous fat (dermis to muscle, fat only), B-mode 5–12 MHz, short axis, "sufficient amount of gel to avoid any tissue compression"; skin measured separately (1.5 ± 0.2 mm in both groups) | **control 5.6 ± 2.8 mm**; vitamin-D deficient 6.8 ± 3.6 mm (Table 2; column order checked against the 25-OH vitamin D row: deficient 11.9, control 30.0 ng/ml) | 203 adults, 19–91 y; control n = 78 (age 51.1 ± 16.0, BMI 26.8 ± 4.5), deficient n = 125 | anterior forearm, "1/3 proximal, between the wrist distal line and the antecubital fossa" (Table 1), dominant side: the FCR region | Doğan Y, Kara M, Culha MA, Özçakar L, Kaymak B. "The relationship between vitamin D deficiency, body composition, and physical/cognitive functions." *Arch Osteoporos* 2022;17:66. doi:10.1007/s11657-022-01109-6, PMID 35420317, PMC9008297 | FT |
+| Adipose tissue thickness, skin surface to muscle fascia (skin + fat), B-mode, linear LA3–14 probe, "care taken to ensure that the skin and adipose tissue were not compressed" | **women 0.70 ± 0.23 cm; men 0.51 ± 0.18 cm** (Table 1, "Forearm ATT (cm)") | 23 women (22.0 ± 4.4 y, BMI 24.0 ± 4.0), 22 men (27.1 ± 4.6 y, BMI 25.9 ± 5.3), healthy | right forearm flexors, midpoint between the medial epicondyle and the radial styloid | Chatlaong MA, Dowell HC, Smith OJ, Jessee MB. "Sex differences in near-infrared spectroscopy reactive hyperemia: Influence of adipose tissue and desaturation rate." *Microvasc Res* 2026;163:104865. doi:10.1016/j.mvr.2025.104865, PMID 40925504, PMC13479139 | FT |
+| Subcutaneous fat thickness, B-mode 7.5 MHz; compression and whether skin is included not stated | men 4.8 ± 0.40 mm; women 5.4 ± 0.26 mm (Table 1). The SDs look implausibly small for fat thickness: low weight | 60 healthy, 18–25 y | lateral forearm, 30 % between radial styloid and radial head, dominant side (near brachioradialis / ECR) | Aruna R, Sivarajan AA, Madhumitha M, Vasanth CJ. "Association of Hand Grip Strength with Ultrasound-derived Forearm Muscle Thickness and Echo Intensity in Young Indian Adults." *J Med Ultrasound* 2023;31(3):206–210. doi:10.4103/jmu.jmu_28_22, PMID 38025016, PMC10668901 (Crossref date 2022, online first) | FT |
+| Same site and method as the row above (same group, not independent) | 5.1 ± 0.48 mm (normal-weight non-obese), 5.5 ± 0.42 mm (normal-weight obese) (Table 1) | 40 + 40, about 21 y, BMI about 22 | as above | Aruna R, Sivarajan AA, Revathy G, Vasanth CJ. *Indian J Community Med* 2025;50(3):500–505. doi:10.4103/ijcm.ijcm_291_23, PMID 40511440, PMC12156101 (Crossref date 2024, online first) | FT |
+| Mean fat only over 12 random forearm sites per subject (standardised 18 MHz ultrasound, gel standoff, no compression) | 1.15 mm with fibrous structures, 0.99 mm without (Table 5, mean, no SD) | 10 young men, BMI 20.0–28.4 | forearm segment, random sites (not a muscle site) | Störchle P, Müller W, Sengeis M, et al. "Measurement of mean subcutaneous fat thickness: eight standardised ultrasound sites compared to 216 randomly selected sites." *Sci Rep* 2018;8:16268. doi:10.1038/s41598-018-34213-0, PMC6214952 | FT |
+| Brachioradialis standard site, fat only (same method) | median women 2.1 mm, men 0.5 mm (Results text) | elite judokas, 16 women, 25 men | lateral proximal forearm (brachioradialis site) | Sengeis M, Müller W, Störchle P, Führhapter-Rieger A. *Scand J Med Sci Sports* 2019;29(11):1774–1788. doi:10.1111/sms.13508, PMC6851779 | FT |
+| Subcutaneous tissue, healthy contralateral limb | anterior proximal (FCR level) 6.163 (1.95) mm; posterior proximal (ECRB level) 13.35 (6.156) mm (Table 9). **Not used:** the table is internally inconsistent (several confidence intervals exclude their own means; the healthy posterior value exceeds the lymphoedematous one) | 14 patients with secondary upper-limb lymphoedema | forearm "Ant 1" / "Post 1" | Pirri C, et al. *Diagnostics* 2024;14(24):2824. doi:10.3390/diagnostics14242824, PMC11674495 | FT |
+
+**Conflict.** The standardised high-frequency method of Müller's group (Störchle 2018, Sengeis 2019) gives about
+1 mm over the forearm in lean or athletic samples; the clinical B-mode studies (Doğan 2022, Chatlaong 2026, Aruna
+2023) give 5–7 mm in general or young populations. This is a real difference of population and method, not a reading
+error. Neither is at an FCR site with the Müller method, so the Müller values are recorded here but not offered.
+
+**Used in the model** (`domain/electrode.py`, `apps/web/src/domain/electrode.ts`):
+
+- **FCR default 0.56 cm** = Doğan 2022 control group (fat only; the 1.5 mm of skin is reported separately and is not
+  added). Chosen over Chatlaong 2026 because it is one value for a mixed-sex, larger and more general sample at the
+  FCR site. Chatlaong 2026 (women 0.70, men 0.51 cm, skin + fat) and the biceps value (Petrofsky 2008) are
+  selectable options, one per article.
+- **ECR keeps 0.48 cm**, Petrofsky 2008 (biceps), **INHERITED**: no trustworthy posterior-forearm value in a general
+  population was found. Aruna 2023 (lateral forearm, men 0.48, women 0.54 cm; small SDs flagged) and Doğan 2022
+  (anterior forearm, inherited) are selectable.
+
+Searches run (hit counts), PubMed: `forearm subcutaneous fat thickness ultrasound` (27); `forearm "subcutaneous adipose
+tissue" ultrasound thickness` (7); `forearm skin subcutaneous thickness ultrasound` (29); `forearm "subcutaneous fat"
+electromyography ultrasound` (0); `forearm "fat thickness" electrical stimulation` (0); `forearm "subcutaneous tissue
+thickness"` (5); `forearm skinfold ultrasound` (33); `"forearm" "fat layer" thickness ultrasound` (3);
+`forearm AND ("fat thickness" OR "adipose tissue thickness" OR "subcutaneous tissue thickness" OR "skin-to-muscle") AND
+(MRI OR US)` (21); `(posterior forearm OR dorsal forearm OR extensor) AND forearm AND (subcutaneous OR adipose OR fat)
+AND thickness AND (US OR MRI)` (1); `brachioradialis AND ("subcutaneous adipose" OR "subcutaneous fat")` (5); and seven
+more narrow variants (0–15 hits). Europe PMC: `brachioradialis AND "subcutaneous adipose tissue" AND ultrasound` (49);
+`forearm AND (subcutaneous fat thickness OR fat layer thickness OR subcutaneous tissue thickness) AND (EMG OR electrical
+stimulation)` (84). Checked and excluded: Abe / Kanehisa "forearm" ultrasound sites (abstracts without forearm
+numbers), Sieg 2001 and 2003 (abstracts without numbers), Moldovan 2023 (calipers, not imaging), and studies with the
+value only in a figure.
 
 ## 5. Electrode material, skin impedance, and current- vs voltage-controlled stimulators
 
@@ -188,7 +233,7 @@ electrode were still falling above 300 µs. Whether τ_SD measured over the musc
 | Electrode characteristic | Direction of the effect | Magnitude usable in the model? |
 |---|---|---|
 | Area | larger → more total current to threshold, less current density, more comfort (Alon 1994 A, Alon 1985 A, Flodin 2022 FT, Doheny 2010 A); **conflict:** not a main torque determinant (Lieber & Kelly 1991 A) | no: magnitudes are in figures or closed full texts |
-| Fat thickness / BMI | thicker → higher threshold (Doheny 2010 A, Maffiuletti 2011 A, Petrofsky 2008 A), and less sensitivity to size and IED (Doheny 2010 A) | thickness values only (gastrocnemius 0.75 ± 0.13 cm; biceps 0.48 ± 0.16 cm); no threshold-vs-fat slope |
+| Fat thickness / BMI | thicker → higher threshold (Doheny 2010 A, Maffiuletti 2011 A, Petrofsky 2008 A), and less sensitivity to size and IED (Doheny 2010 A) | thickness values only (gastrocnemius 0.75 ± 0.13 cm; biceps 0.48 ± 0.16 cm; anterior forearm 5.6 ± 2.8 mm, Doğan 2022 FT, §4b); no threshold-vs-fat slope |
 | Inter-electrode distance | larger → higher threshold (Doheny 2010 A) but 2–3× more torque at tolerated currents on the quadriceps (Vieira 2016 A) | one ratio (2–3×) for a muscle the model does not have |
 | Placement on the MP | lower current, more torque, more comfort (Gobbo 2011 A, Gobbo 2014 FT) | no |
 | Muscle belly vs nerve | belly: superficial → deep (Okuma 2013 A, Farina 2004 A) | no |
