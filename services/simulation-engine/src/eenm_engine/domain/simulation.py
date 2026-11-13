@@ -7,6 +7,7 @@ from dataclasses import dataclass, field, replace
 import numpy as np
 from numpy.typing import NDArray
 
+from eenm_engine.domain.electrode import ElectrodeSetup
 from eenm_engine.domain.model_options import ForceAggregation, ModelOptions
 from eenm_engine.domain.motoneuron import REFERENCE_TEMPERATURE_C, InjectionSite, MotoneuronPool
 from eenm_engine.domain.motor_unit_pool import (
@@ -50,6 +51,9 @@ class SimulationConfig:
     """Stream the per-unit events for the 3D replay (``domain.unit_events``); up to 30 s of simulated time."""
     wrist: WristOptions = field(default_factory=WristOptions)
     """Wrist model choices where the sources disagree (FCR / ECR runs; ``domain.wrist_joint``)."""
+    electrode: ElectrodeSetup | None = None
+    """The surface electrode (LITERATURE + skin surface): echoed in ``started``; its ``G`` and calibration are already
+    in ``model.axon_excitability``."""
 
     def __post_init__(self) -> None:
         if sum(self.units_per_type.get(t, 0) for t in UNIT_TYPES) < 1:

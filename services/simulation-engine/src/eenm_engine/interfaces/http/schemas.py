@@ -19,6 +19,17 @@ from eenm_engine.application.events import (
 )
 from eenm_engine.domain.central_drive import CentralDrive, CurrentScale, ThresholdRule, Tremor
 from eenm_engine.domain.conditions import ADJUSTMENTS, Adjustment, Condition, apply_condition, defaults
+from eenm_engine.domain.electrode import (
+    DEFAULT_ELECTRODES,
+    DEFAULT_SIZE_EFFECT,
+    Calibration,
+    Electrode,
+    ElectrodeSetup,
+    ElectrodeShape,
+    SizeEffect,
+    apply_electrode,
+    electrode_setup,
+)
 from eenm_engine.domain.model_options import LITERATURE_UNITS, CalibrationTarget, ModelOptions, StimulationSite
 from eenm_engine.domain.motoneuron import InjectionSite
 from eenm_engine.domain.motor_unit_pool import Geometry, MotorUnitType, Muscle, MusclePreset, proportional_units
@@ -112,6 +123,59 @@ class JointDto(_CamelModel):
     passive: PassiveModel = PassiveModel.LINEAR
 
 
+class CalibrationDto(_CamelModel):
+    """The user's own measurement: puts the amplitude in mA (``domain.electrode``, design §2.2)."""
+
+    motor_threshold_ma: float = Field(gt=0)
+    pulse_width_us: float = Field(gt=0)
+    full_recruitment_ma: float | None = Field(None, gt=0)
+    electrode_area_cm2: float | None = Field(None, gt=0)
+    """Area of the electrode used for the measurement; ``None`` = the run's electrode."""
+
+
+class ElectrodeDto(_CamelModel):
+    """The surface electrode (LITERATURE + SKIN_SURFACE only; ignored otherwise). Unset geometry, fat or depth = the
+    muscle's default electrode (``domain.electrode.DEFAULT_ELECTRODES``), where ``G = 1``."""
+
+    shape: ElectrodeShape | None = None
+    width_cm: float | None = Field(None, gt=0)
+    length_cm: float | None = Field(None, gt=0)
+    diameter_cm: float | None = Field(None, gt=0)
+    fat_thickness_cm: float | None = Field(None, ge=0)
+    axon_depth_cm: float | None = Field(None, gt=0)
+    effect_model: SizeEffect = DEFAULT_SIZE_EFFECT
+    calibration: CalibrationDto | None = None
+
+    def to_setup(self, muscle: Muscle) -> ElectrodeSetup:
+        base = DEFAULT_ELECTRODES[muscle]
+        shape = self.shape or base.shape
+        same = shape is base.shape
+
+        def pick(value: float | None, default: float | None) -> float | None:
+            return value if value is not None else (default if same else None)
+
+        electrode = Electrode(
+            shape=shape,
+            width_cm=pick(self.width_cm, base.width_cm),
+            length_cm=pick(self.length_cm, base.length_cm),
+            diameter_cm=pick(self.diameter_cm, base.diameter_cm),
+            fat_thickness_cm=self.fat_thickness_cm if self.fat_thickness_cm is not None else base.fat_thickness_cm,
+            axon_depth_cm=self.axon_depth_cm if self.axon_depth_cm is not None else base.axon_depth_cm,
+        )
+        c = self.calibration
+        calibration = (
+            None
+            if c is None
+            else Calibration(
+                motor_threshold_ma=c.motor_threshold_ma,
+                pulse_width_us=c.pulse_width_us,
+                full_recruitment_ma=c.full_recruitment_ma,
+                electrode_area_cm2=c.electrode_area_cm2,
+            )
+        )
+        return electrode_setup(muscle, electrode, self.effect_model, calibration)
+
+
 class OutputDto(_CamelModel):
     unit_events: bool = False
     """Stream ``chunk.unitEvents`` for the 3D replay (at most 30 s of simulated time)."""
@@ -143,14 +207,26 @@ class SimulationRequest(_CamelModel):
     output_step_ms: float = Field(0.1, gt=0)
     output: OutputDto = Field(default_factory=lambda: OutputDto())
     joint: JointDto = Field(default_factory=lambda: JointDto())
+    electrode: ElectrodeDto | None = None
+    """``None`` = the muscle's default electrode with the default effect (``G = 1``: today's thresholds)."""
 
     @model_validator(mode="after")
     def _domain_rules(self) -> SimulationRequest:
         self.to_config()  # domain invariants (triangle peak time, pool sizes, ...) raise ValueError
         return self
 
+    def _electrode(self) -> ElectrodeSetup | None:
+        """The electrode acts only where the stimulus crosses the skin: LITERATURE + SKIN_SURFACE."""
+        if (
+            self.model_variant is not ModelVariant.LITERATURE
+            or self.stimulation_site is not StimulationSiteDto.SKIN_SURFACE
+        ):
+            return None
+        return (self.electrode or ElectrodeDto()).to_setup(self.muscle)
+
     def to_config(self) -> SimulationConfig:
         s = self.stimulus
+        electrode = self._electrode()
         return SimulationConfig(
             stimulus=StimulusProtocol(
                 duration_ms=s.duration_ms,
@@ -171,7 +247,7 @@ class SimulationRequest(_CamelModel):
             ),
             muscle=self.muscle,
             units_per_type=self._units(),
-            model=self._model(),
+            model=self._model(electrode),
             reference_model=(
                 literature_options(self.muscle, self.calibration_target, _SITES[self.stimulation_site])
                 if self.model_variant is ModelVariant.LITERATURE
@@ -186,9 +262,10 @@ class SimulationRequest(_CamelModel):
             output_step_ms=self.output_step_ms,
             unit_events=self.output.unit_events,
             wrist=WristOptions(peak_force=self.joint.peak_force, passive=self.joint.passive),
+            electrode=electrode,
         )
 
-    def _model(self) -> ModelOptions:
+    def _model(self, electrode: ElectrodeSetup | None = None) -> ModelOptions:
         if self.model_variant is not ModelVariant.LITERATURE:
             return ModelOptions()
         options = literature_options(self.muscle, self.calibration_target, _SITES[self.stimulation_site])
@@ -205,7 +282,11 @@ class SimulationRequest(_CamelModel):
                 tremor=Tremor(d.tremor.frequency_hz, d.tremor.amplitude_na) if tremor else None,
             )
             options = replace(options, central_drive=drive, electrode_fraction=d.electrode_fraction)
-        return apply_condition(options, self.condition, chosen)
+        options = apply_condition(options, self.condition, chosen)
+        if electrode is None:
+            return options
+        # after the condition: a calibration uses the τ_SD the run actually has
+        return replace(options, axon_excitability=apply_electrode(options.axon_excitability, electrode))
 
     def _units(self) -> dict[MotorUnitType, int]:
         if self.units_per_type is not None:
@@ -348,6 +429,31 @@ def _joint_json(wrist: WristSetup) -> dict[str, object]:
     }
 
 
+def _electrode_json(setup: ElectrodeSetup) -> dict[str, object]:
+    e, c = setup.electrode, setup.calibration
+    return {
+        "shape": e.shape.value,
+        "widthCm": e.width_cm,
+        "lengthCm": e.length_cm,
+        "diameterCm": e.diameter_cm,
+        "areaCm2": round(e.area_cm2, 6),
+        "fatThicknessCm": e.fat_thickness_cm,
+        "axonDepthCm": e.axon_depth_cm,
+        "effectModel": setup.effect.value,
+        "thresholdFactor": round(setup.threshold_factor, 9),
+        "calibration": (
+            None
+            if c is None
+            else {
+                "motorThresholdMa": c.motor_threshold_ma,
+                "fullRecruitmentMa": c.full_recruitment_ma,
+                "pulseWidthUs": c.pulse_width_us,
+                "electrodeAreaCm2": c.electrode_area_cm2,
+            }
+        ),
+    }
+
+
 def _units_json(units: UnitAnatomy) -> dict[str, object]:
     """Column arrays, one entry per simulated unit (``docs/contracts.md``, ``started.units``)."""
     return {
@@ -379,6 +485,8 @@ def event_to_json(event: SimulationEvent) -> dict[str, object]:
             "muscle": event.muscle.value,
             "maxForce": event.max_force,
             "electrodeFraction": event.electrode_fraction,
+            "electrode": _electrode_json(event.electrode) if event.electrode is not None else None,
+            "amplitudeUnit": event.electrode.amplitude_unit if event.electrode is not None else "MODEL_UNIT",
             "units": _units_json(event.units) if event.units is not None else None,
         }
     if isinstance(event, SimulationChunk):

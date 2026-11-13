@@ -44,14 +44,20 @@ class AxonExcitability:
     lowest_rheobase: float = _INHERITED_FIRST_THRESHOLD / (1 + DEFAULT_CHRONAXIE_MS / _INHERITED_PULSE_MS)
     rheobase_range: float = _INHERITED_LAST_THRESHOLD / _INHERITED_FIRST_THRESHOLD
     """Highest / lowest rheobase."""
+    threshold_factor: float = 1.0
+    """``G`` of the electrode (``domain.electrode``): multiplies every axon's threshold. 1 = today's thresholds."""
 
     def __post_init__(self) -> None:
         if self.chronaxie_ms <= 0 or self.lowest_rheobase <= 0 or self.rheobase_range < 1:
             raise ValueError("chronaxie and rheobase must be positive and the range at least 1")
+        if not self.threshold_factor > 0:
+            raise ValueError("threshold_factor must be positive")
 
     def threshold(self, rheobase: NDArray[np.float64], pulse_width_ms: float) -> NDArray[np.float64]:
-        """Weiss: the current that excites an axon of rheobase ``rheobase`` with a pulse of this width."""
-        return rheobase * (1.0 + self.chronaxie_ms / pulse_width_ms)
+        """Weiss: the current that excites an axon of rheobase ``rheobase`` with a pulse of this width, times the
+        electrode's ``G`` (exactly the Weiss threshold when ``G = 1``)."""
+        weiss = rheobase * (1.0 + self.chronaxie_ms / pulse_width_ms)
+        return weiss if self.threshold_factor == 1.0 else weiss * self.threshold_factor
 
     def rheobases(self, units: int, seed: int) -> NDArray[np.float64]:
         """One rheobase per unit, spread linearly over the range and assigned in a seeded random order."""
