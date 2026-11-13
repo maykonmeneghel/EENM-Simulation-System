@@ -1,5 +1,22 @@
 import type { StimulatorSettings } from '../domain/stimulator';
+import type { Excitability } from '../domain/electrode';
+import { excitability } from '../domain/electrode';
+import { CONSTANTS } from '../domain/modelEquations';
 import type { FieldPath, FormValues } from './formModel';
+import { electrodeActive, electrodeInput } from './formModel';
+
+/**
+ * The electrode's G (and the calibrated rheobases) of the form, for the recruitment shown before running: null when the
+ * run has no skin electrode (G = 1), `'invalid'` while an electrode value is not a number.
+ */
+export function formExcitability(values: FormValues): Excitability | null | 'invalid' {
+  if (!electrodeActive(values)) return null;
+  const input = electrodeInput(values);
+  const x = input
+    ? excitability(values.muscle, input, { tauSdMs: CONSTANTS.tauSdMs, rheobaseMin: CONSTANTS.rheobaseMin, rheobaseSpread: CONSTANTS.rheobaseSpread })
+    : null;
+  return x ?? 'invalid';
+}
 
 /** Stimulus fields edited in the Estimulador view (errors on them are listed under "Estímulo" in the sidebar). */
 export const STIMULATOR_PATHS: readonly FieldPath[] = [

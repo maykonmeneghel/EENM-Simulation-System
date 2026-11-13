@@ -44,7 +44,7 @@ function measureOptions(withFatigue: boolean) {
 
 function axisLabel(m: MeasureId, percent: boolean): string {
   if (m === 'emg') return tr({ 'pt-BR': 'EMG (unidades do modelo)', en: 'EMG (model units)' });
-  if (m === 'stimulus') return 'µA/cm²';
+  if (m === 'stimulus') return tr({ 'pt-BR': 'µA/cm² (soma) ou u.m. (pele)', en: 'µA/cm² (soma) or m.u. (skin)' });
   if (m === 'fatigue') return tr({ 'pt-BR': 'capacidade de força (1 = descansado)', en: 'force capacity (1 = rested)' });
   return percent
     ? tr({ 'pt-BR': 'força (% da máxima)', en: 'force (% of maximum)' })

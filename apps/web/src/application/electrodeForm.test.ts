@@ -5,6 +5,7 @@ import { savedFixture } from '../domain/savedSimulation.fixture';
 import type { SimulationRequest } from '../domain/simulation';
 import { amplitudeUnit, differingFields } from './comparison';
 import { padOf } from './anatomy3d';
+import { formExcitability } from './stimulatorForm';
 import { changeMuscle, defaultFormValues, electrodeInput, inactiveFields, parseForm, toFormValues } from './formModel';
 
 const ok = (r: ReturnType<typeof parseForm>) => {
@@ -69,6 +70,13 @@ describe('electrode in the form and in saved runs', () => {
     expect(amplitudeUnit(back!)).toBe('MODEL_UNIT');
     const bigger = savedFixture({ id: 'c', request: { ...defaultRequest('LITERATURE'), electrode: { ...defaultRequest('LITERATURE').electrode!, lengthCm: 9 } } });
     expect(differingFields([back!, bigger]).map((d) => d.key)).toEqual(['electrode.lengthCm']);
+  });
+
+  it('the form’s G reaches every recruitment shown before running (null off the skin, invalid while a value is not a number)', () => {
+    expect(formExcitability(defaultFormValues())).toMatchObject({ g: 1, unit: 'MODEL_UNIT' });
+    expect((formExcitability({ ...defaultFormValues(), 'electrode.lengthCm': '9' }) as { g: number }).g).toBeGreaterThan(1.5);
+    expect(formExcitability({ ...defaultFormValues(), stimulationSite: 'MOTONEURON_POOL' })).toBeNull();
+    expect(formExcitability({ ...defaultFormValues(), 'electrode.lengthCm': 'x' })).toBe('invalid');
   });
 
   it('the 3D pad takes the run’s electrode size and shape, else the 25 mm fallback', () => {

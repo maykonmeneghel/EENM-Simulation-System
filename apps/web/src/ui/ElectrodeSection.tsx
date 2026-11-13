@@ -228,7 +228,7 @@ export function ElectrodeSection({ values, setValues, byField, running, excitabi
           disabled={running}
           hint={
             <>
-              0,1 – 1,1 cm · <SourceBadges source={AXON_DEPTH_SOURCE} />
+              {tr({ 'pt-BR': '0,1 – 1,1 cm', en: '0.1 – 1.1 cm' })} · <SourceBadges source={AXON_DEPTH_SOURCE} />
             </>
           }
         />
@@ -288,7 +288,7 @@ export function ElectrodeSection({ values, setValues, byField, running, excitabi
         <NumberField
           path="centralDrive.electrodeFraction"
           label={tr({ 'pt-BR': 'Posição no axônio (com comando central)', en: 'Position on the axon (with a central drive)' })}
-          unit={tr({ 'pt-BR': 'do soma', en: 'from the soma' })}
+          unit=""
           values={values}
           update={update}
           byField={byField}

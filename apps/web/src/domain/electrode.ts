@@ -405,8 +405,8 @@ export const EFFECT_OPTIONS: readonly EffectOption[] = [
       { citation: 'Alon 1994', doi: '10.2519/jospt.1994.20.1.29', evidence: 'ABSTRACT', provenance: 'DERIVED', note: L('direção: eletrodo maior, mais corrente', 'direction: larger electrode, more current') },
     ],
     note: L(
-      'modelo derivado, magnitude ilustrativa, não validada: disco de corrente uniforme num meio semi-infinito homogêneo; exagera o efeito do tamanho para alvos rasos (teste V5, falha esperada).',
-      'derived model, illustrative magnitude, not validated: a uniform-current disk on a homogeneous half-space; it overstates the size effect for shallow targets (test V5, expected failure).',
+      'Disco de corrente uniforme num meio semi-infinito homogêneo; exagera o efeito do tamanho para alvos rasos (teste V5, falha esperada).',
+      'A uniform-current disk on a homogeneous half-space; it overstates the size effect for shallow targets (test V5, expected failure).',
     ),
   },
   {

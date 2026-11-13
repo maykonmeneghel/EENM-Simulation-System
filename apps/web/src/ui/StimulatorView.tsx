@@ -3,10 +3,9 @@ import type { ReactNode } from 'react';
 import type { InspectorTopic } from '../application/inspectorTopics';
 import type { Dispatch, SetStateAction } from 'react';
 import type { FieldPath, FormValues } from '../application/formModel';
-import { electrodeActive, electrodeInput, partitionFieldErrors, stepNumber } from '../application/formModel';
+import { electrodeActive, partitionFieldErrors, stepNumber } from '../application/formModel';
 import type { Excitability } from '../domain/electrode';
-import { excitability } from '../domain/electrode';
-import { settingsFromForm } from '../application/stimulatorForm';
+import { formExcitability, settingsFromForm } from '../application/stimulatorForm';
 import { axonRecruitment, CONSTANTS } from '../domain/modelEquations';
 import { ElectrodeSection } from './ElectrodeSection';
 import type { FieldError, StimulationSite } from '../domain/simulation';
@@ -430,14 +429,9 @@ function useStimulator(values: FormValues, errors: readonly FieldError[]) {
   const settings = useMemo(() => settingsFromForm(values), [values]);
   const problems = settings ? stimulatorProblems(settings) : [];
   // the electrode's G (and the calibrated rheobases) on skin-surface LITERATURE runs; null elsewhere (G = 1)
-  const excit = useMemo(() => {
-    if (!electrodeActive(values)) return null;
-    const input = electrodeInput(values);
-    return input
-      ? excitability(values.muscle, input, { tauSdMs: CONSTANTS.tauSdMs, rheobaseMin: CONSTANTS.rheobaseMin, rheobaseSpread: CONSTANTS.rheobaseSpread })
-      : null;
-  }, [values]);
-  const electrodeInvalid = electrodeActive(values) && excit === null;
+  const formExcit = useMemo(() => formExcitability(values), [values]);
+  const excit = formExcit === 'invalid' ? null : formExcit;
+  const electrodeInvalid = formExcit === 'invalid';
   const plateau = settings && !electrodeInvalid ? axonRecruitment(settings.amplitude, settings.pulseWidthUs / 1000, CONSTANTS.tauSdMs, excit) : null;
   const plateauPct = plateau ? Math.round((plateau.status === 'none' ? 0 : plateau.fraction) * 100) : null;
   const amplitudeUnit = excit?.unit === 'MA' ? 'mA' : null;
